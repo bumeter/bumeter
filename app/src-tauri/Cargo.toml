@@ -1,0 +1,20 @@
+[package]
+name = "thongke-app"
+version.workspace = true
+edition.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = ["tray-icon"] }
+tauri-plugin-notification = "2"
+tauri-plugin-single-instance = "2"
+tk-core = { path = "../../crates/tk-core" }
+tk-service = { path = "../../crates/tk-service" }
+tk-adapters = { path = "../../crates/tk-adapters" }
+tk-skills = { path = "../../crates/tk-skills" }
+serde_json.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+dirs.workspace = true

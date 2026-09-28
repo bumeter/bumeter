@@ -1,0 +1,86 @@
+<h2>Bumeter — linh vật Bum (đã chốt 2026-09-28)</h2>
+<p class="subtitle">Bum là logo, đồng thời là "đèn báo" trên tray: đổi mặt theo mức dùng token và quota. Cam #FF7A1A, phẳng, không gradient.</p>
+
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;700;900&display=swap" rel="stylesheet">
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="body" viewBox="0 0 48 48">
+    <path d="M24 3c3.9 7.6 15 12.9 15 24.8C39 37.3 32.3 44 24 44S9 37.3 9 27.8c0-7 4-11 6.5-15 1 3.4 3 5.4 3 5.4C18.7 11.4 20.3 7 24 3z" fill="var(--body)"/>
+  </symbol>
+  <!-- bình thường -->
+  <symbol id="calm" viewBox="0 0 48 48">
+    <use href="#body"/>
+    <ellipse cx="18.6" cy="29.2" rx="2.4" ry="3" fill="var(--face)"/><ellipse cx="29.4" cy="29.2" rx="2.4" ry="3" fill="var(--face)"/>
+    <path d="M20.2 35.4c2.3 2 5.3 2 7.6 0" fill="none" stroke="var(--face)" stroke-width="2.3" stroke-linecap="round"/>
+    <circle cx="14.2" cy="34" r="2.1" fill="var(--cheek)"/><circle cx="33.8" cy="34" r="2.1" fill="var(--cheek)"/>
+  </symbol>
+  <!-- vui: tiết kiệm -->
+  <symbol id="happy" viewBox="0 0 48 48">
+    <use href="#body"/>
+    <path d="M16 29.6c1.4-2.4 3.8-2.4 5.2 0M26.8 29.6c1.4-2.4 3.8-2.4 5.2 0" fill="none" stroke="var(--face)" stroke-width="2.3" stroke-linecap="round"/>
+    <path d="M19 34.2c1.6 3.6 8.4 3.6 10 0z" fill="var(--face)"/>
+    <circle cx="14.2" cy="34" r="2.1" fill="var(--cheek)"/><circle cx="33.8" cy="34" r="2.1" fill="var(--cheek)"/>
+  </symbol>
+  <!-- lo lắng: quota gần hết -->
+  <symbol id="worry" viewBox="0 0 48 48">
+    <use href="#body"/>
+    <path d="M15.8 26.8 20.6 25.2M32.2 26.8 27.4 25.2" stroke="var(--face)" stroke-width="2" stroke-linecap="round"/>
+    <ellipse cx="18.6" cy="30.2" rx="2.2" ry="2.8" fill="var(--face)"/><ellipse cx="29.4" cy="30.2" rx="2.2" ry="2.8" fill="var(--face)"/>
+    <path d="M20.4 37.2c2.2-1.8 5-1.8 7.2 0" fill="none" stroke="var(--face)" stroke-width="2.3" stroke-linecap="round"/>
+    <path d="M35.6 20.5c1.2 1.9 1.6 3 1.6 3.8a1.6 1.6 0 0 1-3.2 0c0-.8.4-1.9 1.6-3.8z" fill="#5ab4ff"/>
+  </symbol>
+  <!-- cháy: lượt tốn bất thường -->
+  <symbol id="blaze" viewBox="0 0 48 48">
+    <path d="M24 1c4.4 8 17 13.6 17 26.6C41 37.8 33.4 45 24 45S7 37.8 7 27.6c0-7.6 4.4-12 7.2-16.4 1.1 3.8 3.3 6 3.3 6C17.7 9.9 19.9 5.1 24 1z" fill="#ff4b2b"/>
+    <path d="M24 9c3.2 6 11.5 10 11.5 19.3C35.5 35.6 30.3 41 24 41s-11.5-5.4-11.5-12.7c0-5.4 3-8.6 4.9-11.7.8 2.7 2.3 4.3 2.3 4.3C19.9 15 21.3 11.9 24 9z" fill="var(--body)"/>
+    <path d="M15.8 27.4 21 29.2M32.2 27.4 27 29.2" stroke="var(--face)" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="18.8" cy="31.4" rx="2" ry="2.3" fill="var(--face)"/><ellipse cx="29.2" cy="31.4" rx="2" ry="2.3" fill="var(--face)"/>
+    <ellipse cx="24" cy="36.6" rx="2.6" ry="2" fill="var(--face)"/>
+  </symbol>
+  <!-- ngủ: không có phiên nào đang chạy -->
+  <symbol id="sleep" viewBox="0 0 48 48">
+    <use href="#body"/>
+    <path d="M16 30c1.4 1.6 3.8 1.6 5.2 0M26.8 30c1.4 1.6 3.8 1.6 5.2 0" fill="none" stroke="var(--face)" stroke-width="2.3" stroke-linecap="round"/>
+    <path d="M22.2 35.6h3.6" stroke="var(--face)" stroke-width="2.3" stroke-linecap="round"/>
+    <text x="33" y="15" font-family="Be Vietnam Pro" font-weight="900" font-size="8" fill="var(--z)">z</text>
+    <text x="38" y="9.5" font-family="Be Vietnam Pro" font-weight="900" font-size="6" fill="var(--z)">z</text>
+  </symbol>
+</svg>
+
+<style>
+  .mb { background: #f6f7f9; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 16px; font-family: "Be Vietnam Pro", sans-serif; }
+  .mb .row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .t { width: 104px; height: 104px; border-radius: 24px; display: grid; place-items: center; }
+  .w { background: #fff; box-shadow: 0 0 0 1px #e8eaee; --body:#ff7a1a; --face:#3a1c0c; --cheek:#ffb27a; --z:#8b919a; }
+  .o { background: #ff7a1a; --body:#fff; --face:#ff7a1a; --cheek:#ffd3b0; --z:#fff; }
+  .d { background: #1f2227; --body:#ff7a1a; --face:#1f2227; --cheek:#ffb27a; --z:#8b919a; }
+  .wm { display: flex; align-items: center; gap: 10px; font: 900 34px/1 "Be Vietnam Pro"; letter-spacing: -1.4px; color: #1f2328; --body:#ff7a1a; --face:#3a1c0c; --cheek:#ffb27a; }
+  .wm.dk { background: #1f2227; color: #f1f2f5; padding: 12px 16px; border-radius: 12px; font-size: 26px; --face:#1f2227; }
+  .states { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .st { background: #fff; border-radius: 12px; padding: 12px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 0 0 1px #e8eaee; --body:#ff7a1a; --face:#3a1c0c; --cheek:#ffb27a; --z:#8b919a; }
+  .st b { font-size: 12.5px; color: #1f2328; } .st span { font-size: 11px; color: #5b616b; text-align: center; }
+  .trayrow { display: flex; gap: 10px; align-items: center; background: #2b2e34; border-radius: 8px; padding: 6px 10px; color: #cfd3da; font: 500 11.5px "Be Vietnam Pro"; --body:#ff7a1a; --face:#2b2e34; --cheek:#ffb27a; --z:#8b919a; }
+  .trayrow i { width: 1px; height: 14px; background: #44484f; }
+</style>
+
+<div class="mb">
+  <div class="row">
+    <div class="t w"><svg width="74" height="74"><use href="#calm"/></svg></div>
+    <div class="t o"><svg width="74" height="74"><use href="#calm"/></svg></div>
+    <div class="t d"><svg width="74" height="74"><use href="#calm"/></svg></div>
+    <div class="wm"><svg width="44" height="44"><use href="#calm"/></svg>bumeter</div>
+    <div class="wm dk"><svg width="34" height="34"><use href="#calm"/></svg>bumeter</div>
+  </div>
+
+  <div class="states">
+    <div class="st"><svg width="56" height="56"><use href="#happy"/></svg><b>Vui</b><span>Hôm nay dùng ít hơn trung bình</span></div>
+    <div class="st"><svg width="56" height="56"><use href="#calm"/></svg><b>Bình thường</b><span>Mọi thứ ổn</span></div>
+    <div class="st"><svg width="56" height="56"><use href="#worry"/></svg><b>Lo lắng</b><span>Quota 5 giờ trên 70%</span></div>
+    <div class="st"><svg width="56" height="56"><use href="#blaze"/></svg><b>Bốc cháy</b><span>Vừa có lượt tốn bất thường</span></div>
+    <div class="st"><svg width="56" height="56"><use href="#sleep"/></svg><b>Ngủ</b><span>Không có phiên nào đang chạy</span></div>
+  </div>
+
+  <div class="row">
+    <div class="trayrow"><svg width="18" height="18"><use href="#happy"/></svg>32%<i></i><svg width="18" height="18"><use href="#worry"/></svg>78%<i></i><svg width="18" height="18"><use href="#blaze"/></svg>94%<i></i><svg width="16" height="16"><use href="#calm"/></svg>16px</div>
+    <span style="font-size:12px;color:#5b616b">Trên tray: Bum đổi mặt theo quota, liếc là biết.</span>
+  </div>
+</div>

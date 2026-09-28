@@ -1,0 +1,86 @@
+<h2>Phần 2 — Tổng quan</h2>
+<p class="subtitle">Màn mở đầu khi cần nhìn toàn cảnh. Mọi khối là thẻ trắng trên nền xám; lưới tự xuống dòng khi cửa sổ hẹp.</p>
+
+<style>
+  .ov { --bg:#f5f6f8; --card:#fff; --line:#e7e9ee; --t1:#111827; --t2:#6b7280; --t3:#9ca3af; --acc:#0a84ff; --acct:#e6f1ff; --hot:#e5372c; --cc:#d77655; --kr:#9046ff;
+    font: 12px/1.4 -apple-system, "Inter", system-ui, sans-serif; color: var(--t1); background: var(--bg); border-radius: 12px; border: 1px solid var(--line); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .ov * { box-sizing: border-box; }
+  .hd { display: flex; align-items: center; gap: 8px; } .hd h3 { margin: 0; font-size: 17px; flex: 1; }
+  .seg { display: inline-flex; background: #e9ebef; border-radius: 9px; padding: 2px; } .seg span { padding: 3px 10px; border-radius: 7px; font-size: 11px; } .seg .on { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12); font-weight: 600; }
+  .card { background: var(--card); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.04); }
+  .card h5 { margin: 0 0 8px; font-size: 12.5px; display: flex; justify-content: space-between; } .card h5 span { color: var(--t3); font-weight: 500; font-size: 11px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .kpi small { color: var(--t2); font-size: 11px; } .kpi b { display: block; font-size: 20px; letter-spacing: -.3px; margin-top: 2px; } .kpi .d { font-size: 10.5px; color: #16a34a; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .ins { display: flex; flex-direction: column; gap: 5px; border-left: 3px solid var(--acc); }
+  .ins.w { border-left-color: #e8890c; } .ins.r { border-left-color: var(--hot); }
+  .ins b { font-size: 12.5px; } .ins p { margin: 0; color: var(--t2); font-size: 11px; flex: 1; }
+  .btn { align-self: flex-start; background: var(--acct); color: #0a64d6; border-radius: 8px; padding: 3px 9px; font-size: 11px; font-weight: 600; }
+  .chart { display: flex; align-items: flex-end; gap: 4px; height: 110px; padding-top: 6px; }
+  .chart i { flex: 1; background: var(--acc); border-radius: 4px 4px 0 0; opacity: .85; } .chart i.h { background: var(--hot); opacity: 1; }
+  .axis { display: flex; justify-content: space-between; color: var(--t3); font-size: 10px; margin-top: 3px; }
+  .grid2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
+  .row { display: grid; grid-template-columns: 110px 1fr 56px; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid #f1f2f5; font-size: 11.5px; }
+  .row:last-child { border-bottom: 0; }
+  .meter { height: 6px; border-radius: 3px; background: #eef0f3; overflow: hidden; } .meter i { display: block; height: 100%; border-radius: 3px; }
+  .r { text-align: right; font-weight: 600; } .dim { color: var(--t3); font-weight: 400; font-size: 10.5px; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+  .today { display: flex; gap: 14px; align-items: center; }
+  .ring { width: 54px; height: 54px; border-radius: 50%; background: conic-gradient(#28a745 0 32%, #eef0f3 32% 100%); display: grid; place-items: center; }
+  .ring span { width: 42px; height: 42px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+</style>
+
+<div class="mockup">
+  <div class="mockup-header">Tổng quan · cửa sổ rộng (phạm vi: Tất cả công cụ)</div>
+  <div class="mockup-body">
+    <div class="ov">
+      <div class="hd"><h3>Tổng quan</h3><div class="seg"><span>Hôm nay</span><span>7 ngày</span><span class="on">30 ngày</span><span>90 ngày</span></div></div>
+
+      <div class="grid4">
+        <div class="card kpi"><small>Token</small><b>1.33B</b><span class="d">▼ 12% so với 30 ngày trước</span></div>
+        <div class="card kpi"><small>Lượt</small><b>646</b><span class="dim">21 lượt / ngày dùng</span></div>
+        <div class="card kpi"><small>Tốn bất thường</small><b style="color:#e5372c">59</b><span class="dim">lượt vượt 3× trung vị</span></div>
+        <div class="card kpi today"><div class="ring"><span>32%</span></div><div><small>Quota 5 giờ</small><b style="font-size:15px">reset 18:10</b><span class="dim">7 ngày · 13%</span></div></div>
+      </div>
+
+      <div class="grid3">
+        <div class="card ins r"><b>🔥 59 lượt tốn bất thường</b><p>Phần lớn do đọc lại context &gt; 300K. /compact sớm hơn sẽ giảm mạnh.</p><span class="btn">Xem các lượt →</span></div>
+        <div class="card ins w"><b>🧩 4 skill tốn nền mà không dùng</b><p>~320 tok mỗi phiên cho skill không dùng 30 ngày.</p><span class="btn">Xem & tắt →</span></div>
+        <div class="card ins"><b>📁 TICKET-101 chiếm 21% token</b><p>329M token qua 225 lượt trong một hội thoại.</p><span class="btn">Xem hội thoại →</span></div>
+      </div>
+
+      <div class="card">
+        <h5>Token theo ngày <span>bấm một cột để xem hội thoại ngày đó</span></h5>
+        <div class="chart"><i style="height:30%"></i><i style="height:62%"></i><i style="height:35%"></i><i style="height:12%"></i><i style="height:48%"></i><i style="height:40%"></i><i style="height:55%"></i><i style="height:22%"></i><i style="height:70%"></i><i style="height:34%"></i><i style="height:28%"></i><i style="height:44%"></i><i class="h" style="height:100%"></i><i style="height:38%"></i><i style="height:26%"></i><i style="height:52%"></i><i style="height:30%"></i><i style="height:46%"></i></div>
+        <div class="axis"><span>11/09</span><span>18/09</span><span>24/09</span><span>28/09</span></div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h5>Project tốn nhất <span>32 project</span></h5>
+          <div class="row"><b>TICKET-101</b><div class="meter"><i style="width:100%;background:#0a84ff"></i></div><span class="r">329M</span></div>
+          <div class="row"><b>thongke</b><div class="meter"><i style="width:80%;background:#0a84ff"></i></div><span class="r">263M</span></div>
+          <div class="row"><b>TICKET-102</b><div class="meter"><i style="width:55%;background:#0a84ff"></i></div><span class="r">180M</span></div>
+          <div class="row"><b>TICKET-103</b><div class="meter"><i style="width:43%;background:#0a84ff"></i></div><span class="r">142M</span></div>
+        </div>
+        <div class="card">
+          <h5>Model <span>theo công cụ</span></h5>
+          <div class="row"><b><i class="dot" style="background:#d77655"></i>opus-5</b><div class="meter"><i style="width:100%;background:#d77655"></i></div><span class="r">689M</span></div>
+          <div class="row"><b><i class="dot" style="background:#9046ff"></i>auto</b><div class="meter"><i style="width:85%;background:#9046ff"></i></div><span class="r">~586M</span></div>
+          <div class="row"><b><i class="dot" style="background:#d77655"></i>opus-5-5</b><div class="meter"><i style="width:42%;background:#d77655"></i></div><span class="r">291M</span></div>
+          <div class="row"><b><i class="dot" style="background:#9046ff"></i>opus-4.6</b><div class="meter"><i style="width:18%;background:#9046ff"></i></div><span class="r">~125M</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Thay đổi chính so với hiện tại</h3>
+  <ul>
+    <li><b>Hàng số chính có so sánh</b>: token so với kỳ trước (▲/▼), số lượt tốn bất thường, và <b>vòng quota</b> (5 giờ + giờ reset).</li>
+    <li><b>Khoảng thời gian</b> thêm "Hôm nay" và "7 ngày" bên cạnh 30/90 ngày.</li>
+    <li><b>3 gợi ý có viền màu theo mức độ</b> (đỏ = cần xử lý, cam = nên xem, xanh = thông tin); gợi ý về skill tốn nền mà không dùng được đưa lên đây.</li>
+    <li><b>Biểu đồ ngày, Project, Model là các thẻ riêng</b>; Project và Model đặt cạnh nhau khi cửa sổ rộng, xếp chồng khi hẹp.</li>
+  </ul>
+</div>

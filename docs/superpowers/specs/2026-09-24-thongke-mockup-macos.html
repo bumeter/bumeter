@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>thongke — macOS style</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
+  --desk:linear-gradient(135deg,#c9d6ff 0%,#e2e2e2 100%);
+  --win:#ffffff; --side:rgba(232,232,237,.78); --tool:rgba(246,246,248,.86);
+  --label:#1d1d1f; --label2:rgba(60,60,67,.62); --label3:rgba(60,60,67,.38);
+  --sep:rgba(0,0,0,.08); --fill:rgba(120,120,128,.10); --fill2:rgba(120,120,128,.16);
+  --accent:#007aff; --accentTint:rgba(0,122,255,.12);
+  --green:#34c759; --yellow:#ff9f0a; --red:#ff3b30; --purple:#af52de;
+  --sel:#0a64d6; --shadow:0 22px 70px rgba(0,0,0,.28),0 0 0 .5px rgba(0,0,0,.22);
+}
+html[data-theme="dark"]{
+  --desk:linear-gradient(135deg,#232526 0%,#414345 100%);
+  --win:#1e1e1e; --side:rgba(40,40,42,.72); --tool:rgba(38,38,40,.86);
+  --label:rgba(255,255,255,.88); --label2:rgba(235,235,245,.60); --label3:rgba(235,235,245,.32);
+  --sep:rgba(255,255,255,.08); --fill:rgba(120,120,128,.20); --fill2:rgba(120,120,128,.30);
+  --accent:#0a84ff; --accentTint:rgba(10,132,255,.20);
+  --green:#30d158; --yellow:#ffd60a; --red:#ff453a; --purple:#bf5af2;
+  --sel:#0a5bc4; --shadow:0 22px 70px rgba(0,0,0,.6),0 0 0 .5px rgba(255,255,255,.12);
+}
+*{box-sizing:border-box} body{margin:0;font-family:var(--font);background:var(--desk);min-height:100vh;padding:28px 16px;color:var(--label);-webkit-font-smoothing:antialiased}
+.hint{max-width:1180px;margin:0 auto 14px;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#333}
+html[data-theme="dark"] .hint{color:#ddd}
+.seg{display:inline-flex;background:var(--fill);border-radius:7px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;font:500 12px var(--font);color:var(--label);padding:3px 12px;border-radius:5px;cursor:pointer}
+.seg button.on{background:var(--win);box-shadow:0 1px 2px rgba(0,0,0,.15),0 0 0 .5px rgba(0,0,0,.06)}
+html[data-theme="dark"] .seg button.on{background:#636366}
+
+.window{max-width:1180px;margin:0 auto;height:720px;border-radius:12px;overflow:hidden;box-shadow:var(--shadow);display:grid;grid-template-columns:220px 1fr 340px;background:var(--win)}
+/* sidebar */
+.side{background:var(--side);backdrop-filter:blur(30px) saturate(1.6);border-right:.5px solid var(--sep);display:flex;flex-direction:column;padding:0 10px 12px}
+.lights{display:flex;gap:8px;padding:16px 8px 18px}
+.lights i{width:12px;height:12px;border-radius:50%;display:block}
+.lights i:nth-child(1){background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.sec{font:600 11px var(--font);color:var(--label3);padding:14px 10px 5px;letter-spacing:.2px}
+.item{display:flex;align-items:center;gap:8px;height:28px;padding:0 10px;border-radius:6px;font-size:13px;cursor:default}
+.item svg{width:16px;height:16px;flex:none;color:var(--accent)}
+.item .n{margin-left:auto;font-size:12px;color:var(--label3);font-variant-numeric:tabular-nums}
+.item.on{background:var(--fill2)}
+.today{margin-top:auto;background:var(--fill);border-radius:10px;padding:12px;font-size:12px;color:var(--label2)}
+.today b{display:block;font:600 20px var(--font);color:var(--label);letter-spacing:-.3px;margin:2px 0}
+.ring{display:flex;gap:12px;margin-top:10px}
+.ring div{flex:1}
+.bar{height:4px;border-radius:2px;background:var(--fill2);overflow:hidden;margin-top:4px}
+.bar span{display:block;height:100%;border-radius:2px}
+
+/* main */
+.main{display:flex;flex-direction:column;min-width:0;border-right:.5px solid var(--sep)}
+.toolbar{height:52px;display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--tool);backdrop-filter:blur(20px);border-bottom:.5px solid var(--sep)}
+.toolbar h1{font:700 15px var(--font);margin:0 6px 0 2px;letter-spacing:-.2px}
+.search{flex:1;display:flex;align-items:center;gap:6px;height:28px;background:var(--fill);border-radius:7px;padding:0 9px;color:var(--label3);font-size:13px}
+.search svg{width:13px;height:13px}
+.chips{display:flex;gap:6px;padding:10px 14px 8px;border-bottom:.5px solid var(--sep)}
+.chip{font:500 12px var(--font);padding:3px 10px;border-radius:12px;background:var(--fill);color:var(--label2)}
+.chip.on{background:var(--accentTint);color:var(--accent)}
+.list{overflow:auto;flex:1}
+.group{position:sticky;top:0;background:var(--win);display:flex;justify-content:space-between;padding:10px 16px 6px;font:600 11px var(--font);color:var(--label3);border-bottom:.5px solid var(--sep);z-index:1}
+.row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:9px 16px;border-bottom:.5px solid var(--sep);align-items:center}
+.row .t{font:500 13px var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .m{font-size:11.5px;color:var(--label2);margin-top:3px;display:flex;gap:6px;align-items:center}
+.row .v{text-align:right;font:600 13px var(--font);font-variant-numeric:tabular-nums}
+.row .v small{display:block;font-weight:400;font-size:11px;color:var(--label3);margin-top:2px}
+.tag{font:500 10.5px var(--font);padding:1px 6px;border-radius:4px;background:var(--fill);color:var(--label2)}
+.tag.skill{background:rgba(175,82,222,.14);color:var(--purple)}
+.tag.cont{background:transparent;border:.5px dashed var(--purple);color:var(--purple);opacity:.8}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.row.sel{background:var(--sel);color:#fff;border-radius:7px;margin:3px 6px;border-bottom-color:transparent}
+.row.sel .m,.row.sel .v small{color:rgba(255,255,255,.75)} .row.sel .tag{background:rgba(255,255,255,.2);color:#fff}
+.meter{width:54px;height:4px;border-radius:2px;background:var(--fill2);display:inline-block;overflow:hidden;vertical-align:middle;margin-left:auto}
+.meter span{display:block;height:100%}
+
+/* inspector */
+.insp{display:flex;flex-direction:column;background:var(--win);overflow:auto}
+.insp .toolbar{justify-content:flex-end}
+.btn{font:500 12px var(--font);height:24px;padding:0 10px;border-radius:6px;background:var(--win);border:.5px solid rgba(0,0,0,.14);box-shadow:0 .5px 1px rgba(0,0,0,.08);color:var(--label);display:inline-flex;align-items:center;gap:5px}
+html[data-theme="dark"] .btn{background:#48484a;border-color:rgba(255,255,255,.08)}
+.btn.primary{background:var(--accent);color:#fff;border-color:transparent}
+.pad{padding:18px 20px}
+.q{font:600 15px/1.35 var(--font);letter-spacing:-.2px;margin:0 0 6px}
+.sub{font-size:12px;color:var(--label2)}
+.big{display:flex;align-items:baseline;gap:8px;margin:18px 0 4px}
+.big b{font:700 34px var(--font);letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.big span{font-size:13px;color:var(--red);font-weight:600}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.cell{background:var(--fill);border-radius:9px;padding:10px 12px}
+.cell small{font-size:11px;color:var(--label2)}
+.cell b{display:block;font:600 16px var(--font);margin-top:2px;font-variant-numeric:tabular-nums}
+.h{font:600 12px var(--font);color:var(--label2);margin:22px 0 8px;display:flex;justify-content:space-between}
+.callout{border-radius:10px;padding:12px 14px;background:rgba(255,159,10,.10);border:.5px solid rgba(255,159,10,.35);font-size:12.5px;line-height:1.5;margin-top:18px}
+.callout b{font-weight:600}
+.callout .go{margin-top:8px;color:var(--accent);font-weight:500}
+.actions{display:flex;gap:8px;margin-top:18px}
+.legend{display:flex;gap:12px;font-size:11px;color:var(--label2);margin-top:6px}
+.legend i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:-1px}
+.caption{max-width:1180px;margin:18px auto 0;font-size:12.5px;color:#333;line-height:1.6}
+html[data-theme="dark"] .caption{color:#ccc}
+</style>
+</head>
+<body>
+<div class="hint">
+  <span><b>Mockup macOS</b> · dữ liệu thật từ máy bạn (đã bỏ trùng)</span>
+  <span class="seg" id="theme"><button class="on" data-t="light">Sáng</button><button data-t="dark">Tối</button></span>
+</div>
+
+<div class="window">
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="sec">Xem theo</div>
+    <div class="item on"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.5V8l2.4 1.6"/></svg>Lần hỏi<span class="n">595</span></div>
+    <div class="item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z"/></svg>Skill<span class="n">16</span></div>
+    <div class="item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4.5h4l1.2 1.5H14v6.5H2z"/></svg>Project<span class="n">23</span></div>
+    <div class="item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4"/></svg>Ngày</div>
+    <div class="sec">Lọc nhanh</div>
+    <div class="item"><span class="dot" style="background:var(--red)"></span>&nbsp;Tốn bất thường<span class="n">59</span></div>
+    <div class="item"><span class="dot" style="background:var(--yellow)"></span>&nbsp;Context &gt; 300K<span class="n">41</span></div>
+    <div class="item"><span class="dot" style="background:var(--label3)"></span>&nbsp;Bị ngắt ngang<span class="n">21</span></div>
+    <div class="item"><span class="dot" style="background:var(--accent)"></span>&nbsp;Cần xem lại<span class="n">3</span></div>
+
+    <div class="today">
+      Hôm nay
+      <b>38.6M token</b>
+      45 lần hỏi · $27.27
+      <div class="ring">
+        <div>5 giờ · 78%<div class="bar"><span style="width:78%;background:var(--yellow)"></span></div></div>
+        <div>7 ngày · 41%<div class="bar"><span style="width:41%;background:var(--green)"></span></div></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- LIST -->
+  <section class="main">
+    <div class="toolbar">
+      <h1>Lần hỏi</h1>
+      <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>Tìm trong câu hỏi</div>
+      <span class="seg"><button>Hôm nay</button><button class="on">7 ngày</button><button>30 ngày</button></span>
+    </div>
+    <div class="chips"><span class="chip on">TICKET-101 ✕</span><span class="chip">Mọi skill</span><span class="chip">Sắp xếp: Thời gian</span></div>
+    <div class="list">
+      <div class="group"><span>THỨ NĂM 11/09 · 09:10 – 12:40</span><span>64 lần hỏi · 71M</span></div>
+      <div class="row"><div><div class="t">ok giờ tôi cần test chạy e2e với lambda ở local để kiểm tra</div><div class="m">09:52 · 23 lượt gọi <span class="tag skill">run</span></div></div><div class="v">14.9M<small>$9.84</small></div></div>
+      <div class="row"><div><div class="t">tức là ntn ?</div><div class="m">11:02 · 1 lượt gọi <span class="tag cont">run</span></div></div><div class="v">620K<small>$0.31</small></div></div>
+      <div class="row"><div><div class="t">bạn cứ lấy đúng format mail tôi gửi trong file .md</div><div class="m">11:15 · 8 lượt gọi</div></div><div class="v">6.8M<small>$3.52</small></div></div>
+      <div class="row sel"><div><div class="t">giờ bạn cập nhật tiến độ nhé, và tôi cần tài liệu cuối cùng của task này</div><div class="m">11:28 · 11 lượt gọi <span class="tag">context 841K</span></div></div><div class="v">9.4M<small>$4.76</small></div></div>
+      <div class="row"><div><div class="t">ok</div><div class="m">11:40 · 1 lượt gọi</div></div><div class="v">870K<small>$0.44</small></div></div>
+      <div class="group"><span>THỨ TƯ 10/09 · 14:05 – 17:30</span><span>48 lần hỏi · 52M</span></div>
+      <div class="row"><div><div class="t">tôi nghĩ bạn code trước đi</div><div class="m">14:27 · 17 lượt gọi</div></div><div class="v">7.9M<small>$4.05</small></div></div>
+      <div class="row"><div><div class="t">giờ bạn review lại xem đúng ko nhé</div><div class="m">14:38 · 25 lượt gọi <span class="tag skill">pj-review</span></div></div><div class="v">5.6M<small>$2.93</small></div></div>
+      <div class="row"><div><div class="t">có, hãy cập nhật, sau đó hãy review lại tài liệu trên</div><div class="m">15:02 · 14 lượt gọi <span class="tag skill">pj-estimate</span></div></div><div class="v">1.3M<small>$0.71</small></div></div>
+    </div>
+  </section>
+
+  <!-- INSPECTOR -->
+  <aside class="insp">
+    <div class="toolbar"><span class="btn">☆ Xem lại</span><span class="btn">Ghi chú</span></div>
+    <div class="pad">
+      <p class="q">“giờ bạn cập nhật tiến độ nhé, và tôi cần tài liệu cuối cùng của task này”</p>
+      <div class="sub">TICKET-101 · 11/09 11:28 · 4 phút 40 giây</div>
+
+      <div class="big"><b>9.4M</b><span>14× trung bình</span></div>
+      <div class="sub">token · ước tính $4.76</div>
+
+      <div class="grid">
+        <div class="cell"><small>Lượt gọi API</small><b>11</b></div>
+        <div class="cell"><small>Context lúc hỏi</small><b style="color:var(--red)">841K</b></div>
+        <div class="cell"><small>Đọc lại context</small><b>99.8%</b></div>
+        <div class="cell"><small>Output thật</small><b style="color:var(--green)">17K</b></div>
+      </div>
+
+      <div class="h"><span>Từng lượt gọi</span><span>Bash × 10</span></div>
+      <svg viewBox="0 0 300 70" width="100%" height="70" aria-label="Token từng lượt gọi">
+        <g fill="var(--accent)" opacity=".85">
+          <rect x="2" y="6" width="22" height="62" rx="3"/><rect x="29" y="6" width="22" height="62" rx="3"/><rect x="56" y="5" width="22" height="63" rx="3"/><rect x="83" y="5" width="22" height="63" rx="3"/><rect x="110" y="5" width="22" height="63" rx="3"/><rect x="137" y="4" width="22" height="64" rx="3"/><rect x="164" y="4" width="22" height="64" rx="3"/><rect x="191" y="4" width="22" height="64" rx="3"/><rect x="218" y="3" width="22" height="65" rx="3"/><rect x="245" y="3" width="22" height="65" rx="3"/><rect x="272" y="2" width="22" height="66" rx="3"/>
+        </g>
+        <g fill="var(--green)"><rect x="2" y="66" width="22" height="2"/><rect x="110" y="66" width="22" height="2"/><rect x="272" y="66" width="22" height="2"/></g>
+      </svg>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Đọc context</span><span><i style="background:var(--green)"></i>Output</span></div>
+
+      <div class="callout">
+        <b>Vì sao tốn?</b> 99.8% token là đọc lại 841K context cũ — mỗi lệnh Bash nhỏ lại đọc lại toàn bộ lịch sử.
+        <div class="go">→ Chạy /compact hoặc mở phiên mới trước bước tổng kết.</div>
+      </div>
+
+      <div class="actions"><span class="btn primary">Phân tích phiên</span><span class="btn">Mở file log</span></div>
+    </div>
+  </aside>
+</div>
+
+<div class="caption">
+Điểm chính của phong cách: sidebar trong mờ kiểu Finder, nhãn nhóm nhỏ màu xám, hàng chọn tô xanh hệ thống, số dùng font chữ số đều, đường kẻ mảnh 0.5px, nút bấm bo nhẹ có viền mảnh, thẻ số liệu nền xám nhạt, không có đường viền đậm hay màu gắt. Bấm <b>Sáng / Tối</b> ở trên để xem cả hai chế độ.
+</div>
+
+<script>
+document.querySelectorAll('#theme button').forEach(b=>b.onclick=()=>{
+  document.documentElement.dataset.theme=b.dataset.t;
+  document.querySelectorAll('#theme button').forEach(x=>x.classList.toggle('on',x===b));
+});
+</script>
+</body>
+</html>

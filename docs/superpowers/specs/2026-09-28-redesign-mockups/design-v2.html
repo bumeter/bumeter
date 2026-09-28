@@ -1,0 +1,117 @@
+<h2>Bản v2 — bo 4px, nút phẳng, viền mảnh (sáng và tối)</h2>
+<p class="subtitle">Đã áp dụng 5 chỉnh sửa: 1 hàng lọc (Model thành chip menu), bỏ số trùng ở chi tiết, KPI "Hội thoại" thay "Tốn bất thường", thẻ Skill bỏ chấm trạng thái.</p>
+
+<style>
+  .v2 { --bg:#f5f6f8; --card:#fff; --line:#e3e6eb; --line2:#d5d9e0; --t1:#111827; --t2:#5f6673; --t3:#8a919c; --acc:#007aff; --acct:#e8f2ff; --hot:#e5372c; --warm:#d97706; --ok:#16a34a;
+    font: 12px/1.4 -apple-system, "Inter", system-ui, sans-serif; color: var(--t1); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; display: grid; }
+  .v2.dark { --bg:#141518; --card:#1d1f23; --line:#2a2d33; --line2:#363a42; --t1:#eceef2; --t2:#a3a9b3; --t3:#737a85; --acc:#0a84ff; --acct:#0f2a4a; --hot:#ff5a4f; --warm:#f59e0b; --ok:#30d158; }
+  .v2 * { box-sizing: border-box; }
+  .sb { background: var(--card); border-right: 1px solid var(--line); padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; }
+  .scope { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; font-weight: 600; margin-bottom: 8px; }
+  .g { width: 16px; height: 16px; border-radius: 3px; display: inline-grid; place-items: center; color: #fff; font: 700 9px sans-serif; flex: none; }
+  .gall { background: #4b5563; }
+  .nav { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; color: var(--t2); }
+  .nav.on { background: var(--acct); color: var(--acc); font-weight: 600; }
+  .nav .n { margin-left: auto; color: var(--t3); font-size: 11px; }
+  .quota { margin-top: auto; border: 1px solid var(--line); border-radius: 4px; padding: 8px; color: var(--t2); font-size: 11px; }
+  .bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-top: 3px; } .bar i { display: block; height: 100%; background: var(--ok); }
+  .col { padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .hd { display: flex; align-items: center; gap: 8px; } .hd h3 { margin: 0; font-size: 16px; letter-spacing: -.2px; }
+  .pill { border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; font-size: 11px; color: var(--t2); font-weight: 600; }
+  .search { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 5px 9px; color: var(--t3); }
+  .chips { display: flex; gap: 5px; flex-wrap: wrap; }
+  .chip { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; font-size: 11px; color: var(--t1); }
+  .chip.on { background: var(--acc); color: #fff; border-color: var(--acc); }
+  .chip .c { color: var(--t3); }
+  .day { font-size: 10.5px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .3px; margin-top: 2px; display: flex; justify-content: space-between; }
+  .cv { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 9px 11px; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .cv.sel { border-color: var(--acc); box-shadow: inset 3px 0 0 var(--acc); }
+  .cv b { font-size: 12.5px; } .cv .m { color: var(--t2); font-size: 11px; margin-top: 3px; display: flex; gap: 6px; align-items: center; }
+  .tt { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 5px 0 2px; }
+  .tt .g { width: 12px; height: 12px; font-size: 7.5px; border-radius: 2px; }
+  .tcc { background: color-mix(in srgb, #d77655 14%, transparent); color: #c0603f; } .tkr { background: color-mix(in srgb, #9046ff 14%, transparent); color: #8b46f0; }
+  .v2.dark .tcc { color: #e89478; } .v2.dark .tkr { color: #b58cff; }
+  .val { text-align: right; font-weight: 700; font-size: 13px; } .val small { display: block; font-weight: 400; color: var(--t3); font-size: 10.5px; }
+  .hot { color: var(--hot); } .est { color: var(--t2); font-weight: 600; }
+  .det { background: var(--card); border-left: 1px solid var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .det h4 { margin: 0; font-size: 14.5px; } .det .meta { color: var(--t2); font-size: 11px; }
+  .kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .kpi div { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: 10.5px; color: var(--t2); } .kpi b { display: block; color: var(--t1); font-size: 14px; }
+  .btn { background: var(--card); border: 1px solid var(--line2); border-radius: 4px; padding: 3px 9px; font-size: 11px; font-weight: 500; color: var(--t1); }
+  .btn.p { background: var(--acc); border-color: var(--acc); color: #fff; font-weight: 600; }
+  .turn { border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; display: grid; grid-template-columns: 36px 1fr auto; gap: 6px; background: var(--bg); }
+  .turn.open { background: var(--card); border-color: var(--line2); }
+  .turn .t { color: var(--t3); } .turn .a { color: var(--t2); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .why { border: 1px solid color-mix(in srgb, var(--warm) 45%, transparent); border-left: 3px solid var(--warm); border-radius: 4px; padding: 6px 8px; font-size: 11px; margin-top: 6px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .k { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 9px 11px; } .k small { color: var(--t2); font-size: 11px; } .k b { display: block; font-size: 19px; letter-spacing: -.3px; } .k .d { font-size: 10.5px; color: var(--ok); } .k .dim { color: var(--t3); font-size: 10.5px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ins { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--acc); border-radius: 4px; padding: 9px 11px; display: flex; flex-direction: column; gap: 4px; }
+  .ins.r { border-left-color: var(--hot); } .ins.w { border-left-color: var(--warm); }
+  .ins p { margin: 0; color: var(--t2); font-size: 11px; flex: 1; }
+  .scards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .sc { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 9px 11px; display: flex; flex-direction: column; gap: 5px; }
+  .sc.costly { border-color: color-mix(in srgb, var(--warm) 55%, transparent); }
+  .sc .ch { display: flex; align-items: center; gap: 6px; } .sc .ch b { flex: 1; }
+  .sw { width: 26px; height: 15px; border-radius: 8px; background: var(--ok); position: relative; flex: none; } .sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; }
+  .sw.off { background: var(--line2); } .sw.off::after { right: auto; left: 2px; }
+  .sc .d { color: var(--t2); font-size: 11px; } .sc .st { display: flex; gap: 10px; font-size: 10.5px; color: var(--t2); } .sc .st .w { color: var(--warm); font-weight: 600; }
+  .sc .ft { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--line); padding-top: 5px; font-size: 10.5px; color: var(--t3); }
+  .tg { border: 1px solid var(--line); border-radius: 3px; padding: 0 5px; color: var(--t2); }
+</style>
+
+<div class="mockup">
+  <div class="mockup-header">Hội thoại · rộng · sáng</div>
+  <div class="mockup-body">
+    <div class="v2" style="grid-template-columns: 190px 390px 1fr; height: 410px">
+      <div class="sb">
+        <div class="scope"><span class="g gall">∗</span>Tất cả công cụ<span style="margin-left:auto;color:var(--t3)">▾</span></div>
+        <div class="nav">Tổng quan</div><div class="nav on">Hội thoại<span class="n">63</span></div><div class="nav">Skill<span class="n">24</span></div><div class="nav">Cài đặt</div>
+        <div class="quota">Giới hạn · Claude Code<div style="margin-top:5px">5 giờ · 32%</div><div class="bar"><i style="width:32%"></i></div><div style="margin-top:4px">7 ngày · 13%</div><div class="bar"><i style="width:13%"></i></div></div>
+      </div>
+      <div class="col">
+        <div class="hd"><h3>Hội thoại</h3><span class="pill">63</span><div class="search">Tìm tiêu đề, câu hỏi…</div></div>
+        <div class="chips"><span class="chip">Project: Tất cả ▾</span><span class="chip">30 ngày ▾</span><span class="chip">Model <span class="c">2</span> ▾</span><span class="chip on">🔥 Tốn</span><span class="chip">Context lớn</span><span class="chip">⭐</span></div>
+        <div class="day"><span>Hôm nay · Thứ Hai 28/09</span><span>3 · 45M</span></div>
+        <div class="cv sel"><div><b>Sửa lỗi 404 khi gửi mail</b><div class="m"><span class="tt tcc"><span class="g" style="background:#d77655">C</span>Claude Code</span>TICKET-101 · 64 lượt · 09:52</div></div><div class="val hot">32.6M<small>⚠ 🔥</small></div></div>
+        <div class="cv"><div><b>Đọc cấu trúc dự án voice</b><div class="m"><span class="tt tkr"><span class="g" style="background:#9046ff">K</span>Kiro</span>TICKET-203 · 12 lượt</div></div><div class="val est">~210K<small>0.9 credit</small></div></div>
+        <div class="cv"><div><b>Xây dựng tool thống kê token</b><div class="m"><span class="tt tcc"><span class="g" style="background:#d77655">C</span>Claude Code</span>thongke · 48 lượt · 08:10</div></div><div class="val">12.1M</div></div>
+      </div>
+      <div class="det">
+        <span class="tt tcc" style="align-self:flex-start"><span class="g" style="background:#d77655">C</span>Claude Code</span>
+        <h4>Sửa lỗi 404 khi gửi mail</h4>
+        <div class="meta">TICKET-101 · opus-5 · 09:52–11:40 · 2 lần compact</div>
+        <div class="kpi"><div>Token<b>71M</b></div><div>Lượt<b>64</b></div><div>Context lớn nhất<b class="hot">852K</b></div></div>
+        <div style="display:flex;gap:6px"><span class="btn">Phân tích context</span><span class="btn">☆ Xem lại</span></div>
+        <div class="turn"><span class="t">09:52</span><div><b>test chạy e2e với lambda ở local</b><div class="a">↳ Mình sẽ chạy test local bằng sam local invoke…</div></div><b class="hot">14.9M</b></div>
+        <div class="turn open"><span class="t">11:28</span><div><b>giờ bạn cập nhật tiến độ nhé</b><div class="why"><b>Vì sao tốn?</b> 99.8% là đọc lại 841K context cũ → nên /compact.</div></div><b class="hot">9.4M</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Tổng quan + Skill · tối</div>
+  <div class="mockup-body">
+    <div class="v2 dark" style="padding:12px; gap:10px; display:flex; flex-direction:column">
+      <div class="hd"><h3>Tổng quan</h3><span style="flex:1"></span><span class="chip">Hôm nay</span><span class="chip">7 ngày</span><span class="chip on">30 ngày</span><span class="chip">90 ngày</span></div>
+      <div class="grid4">
+        <div class="k"><small>Token</small><b>1.33B</b><span class="d">▼ 12% so với kỳ trước</span></div>
+        <div class="k"><small>Lượt</small><b>646</b><span class="dim">21 / ngày dùng</span></div>
+        <div class="k"><small>Hội thoại</small><b>63</b><span class="dim">Claude 20 · Kiro 43</span></div>
+        <div class="k"><small>Quota 5 giờ</small><b>32%</b><span class="dim">reset 18:10 · 7 ngày 13%</span></div>
+      </div>
+      <div class="grid3">
+        <div class="ins r"><b>59 lượt tốn bất thường</b><p>Phần lớn do đọc lại context &gt; 300K.</p><span class="btn" style="align-self:flex-start">Xem các lượt →</span></div>
+        <div class="ins w"><b>4 skill tốn nền mà không dùng</b><p>~320 tok mỗi phiên.</p><span class="btn" style="align-self:flex-start">Xem & tắt →</span></div>
+        <div class="ins"><b>TICKET-101 chiếm 21% token</b><p>329M token qua 225 lượt.</p><span class="btn" style="align-self:flex-start">Xem hội thoại →</span></div>
+      </div>
+      <div class="hd" style="margin-top:4px"><h3>Skill</h3><span class="pill">24</span><span style="flex:1"></span><span class="btn">Bảng</span><span class="btn p">+ Cài skill</span></div>
+      <div class="scards">
+        <div class="sc"><div class="ch"><b>pj-review</b><span class="sw"></span></div><div class="d">Review code theo khung P0–P3</div><div class="st"><span>Nền ~90</span><span>5 lần dùng</span><span>TB 5.7M</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tg">cá nhân</span><span style="flex:1"></span>16/09</div></div>
+        <div class="sc costly"><div class="ch"><b>pj-debug</b><span class="sw"></span></div><div class="d">Debug có hệ thống theo 4 phase</div><div class="st"><span class="w">Nền ~75</span><span>0 lần dùng</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tg">cá nhân</span><span style="flex:1"></span>—</div></div>
+        <div class="sc"><div class="ch"><b>old-skill</b><span class="sw off"></span></div><div class="d">Skill cũ đã tắt</div><div class="st"><span>Nền ~85</span><span>2 lần dùng</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tg">cá nhân</span><span style="flex:1"></span>02/08</div></div>
+      </div>
+    </div>
+  </div>
+</div>

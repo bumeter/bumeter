@@ -1,0 +1,122 @@
+<h2>Phần 1 — Khung app + màn Hội thoại</h2>
+<p class="subtitle">Phong cách B, màu nhấn xanh dương. Trên: cửa sổ rộng (≥ 1200px, 3 cột). Dưới: cỡ vừa (~1000px, cột icon + ngăn kéo).</p>
+
+<style>
+  .app { --bg:#f5f6f8; --card:#fff; --line:#e7e9ee; --t1:#111827; --t2:#6b7280; --t3:#9ca3af; --acc:#0a84ff; --acct:#e6f1ff; --hot:#e5372c; --warm:#e8890c; --cc:#d77655; --kr:#9046ff;
+    font: 12px/1.4 -apple-system, "Inter", system-ui, sans-serif; color: var(--t1); background: var(--bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--line); display: grid; position: relative; }
+  .app * { box-sizing: border-box; }
+  .sb { background: var(--card); border-right: 1px solid var(--line); padding: 12px 10px; display: flex; flex-direction: column; gap: 3px; }
+  .scope { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; font-weight: 600; margin-bottom: 10px; }
+  .g { width: 18px; height: 18px; border-radius: 5px; display: inline-grid; place-items: center; color: #fff; font: 700 10px sans-serif; flex: none; }
+  .nav { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 8px; color: #374151; }
+  .nav.on { background: var(--acct); color: #0a64d6; font-weight: 600; }
+  .nav .n { margin-left: auto; color: var(--t3); font-size: 11px; }
+  .quota { margin-top: auto; background: var(--bg); border-radius: 10px; padding: 9px 10px; color: var(--t2); font-size: 11px; }
+  .bar { height: 5px; border-radius: 3px; background: #e5e7eb; overflow: hidden; margin-top: 3px; } .bar i { display: block; height: 100%; }
+  .col { padding: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .hd { display: flex; align-items: center; gap: 8px; }
+  .hd h3 { margin: 0; font-size: 17px; letter-spacing: -.2px; }
+  .pill { background: #e5e7eb; border-radius: 10px; padding: 0 7px; font-size: 11px; color: #374151; font-weight: 600; }
+  .search { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px; color: var(--t3); }
+  .chips { display: flex; gap: 5px; flex-wrap: wrap; }
+  .chip { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 2px 9px; font-size: 11px; color: #374151; }
+  .chip.on { background: var(--acc); color: #fff; border-color: var(--acc); }
+  .chip.sel { border-style: solid; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+  .day { font-size: 10.5px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .3px; margin-top: 4px; display: flex; justify-content: space-between; }
+  .cv { background: var(--card); border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.04); display: grid; grid-template-columns: 1fr auto; gap: 8px; border: 1px solid transparent; }
+  .cv.sel { border-color: var(--acc); box-shadow: 0 0 0 3px var(--acct); }
+  .cv b { font-size: 12.5px; } .cv .m { color: var(--t2); font-size: 11px; margin-top: 3px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .tt { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; border-radius: 6px; padding: 1px 6px 1px 2px; }
+  .tt .g { width: 13px; height: 13px; font-size: 8px; border-radius: 4px; }
+  .tcc { background: #fbeee9; color: #b4533a; } .tkr { background: #f1e9ff; color: #7c3aed; }
+  .v { text-align: right; font-weight: 700; font-size: 13px; } .v small { display: block; font-weight: 400; color: var(--t3); font-size: 10.5px; }
+  .hot { color: var(--hot); } .est { color: var(--t2); font-weight: 600; }
+  .det { background: var(--card); border-left: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .det h4 { margin: 2px 0 0; font-size: 15px; } .det .meta { color: var(--t2); font-size: 11px; }
+  .kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .kpi div { background: var(--bg); border-radius: 9px; padding: 6px 8px; font-size: 10.5px; color: var(--t2); } .kpi b { display: block; color: var(--t1); font-size: 13px; }
+  .turn { background: var(--bg); border-radius: 10px; padding: 7px 9px; display: grid; grid-template-columns: 36px 1fr auto; gap: 6px; }
+  .turn .t { color: var(--t3); } .turn .a { color: var(--t2); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .why { background: #fff7ea; border: 1px solid #fcd9a5; border-radius: 10px; padding: 7px 9px; font-size: 11px; }
+  .btn { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 3px 9px; font-size: 11px; font-weight: 500; }
+  .rail { background: var(--card); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 12px; color: var(--t3); font-size: 14px; }
+  .rail .on { color: var(--acc); background: var(--acct); border-radius: 8px; padding: 2px 5px; }
+  .shade { position: absolute; top: 0; bottom: 0; left: 52px; right: 0; background: rgba(17,24,39,.18); }
+  .drawer { position: absolute; top: 0; bottom: 0; right: 0; width: 60%; border-radius: 12px 0 0 12px; box-shadow: -12px 0 32px rgba(16,24,40,.16); }
+  .note { font-size: 12px; color: var(--t2, #555); margin: 6px 0 16px; }
+</style>
+
+<div class="mockup">
+  <div class="mockup-header">Cửa sổ rộng · 1360px</div>
+  <div class="mockup-body">
+    <div class="app" style="grid-template-columns: 200px 400px 1fr; height: 470px">
+      <div class="sb">
+        <div class="scope"><span class="g" style="background:linear-gradient(135deg,#0a84ff,#9046ff)">∗</span>Tất cả công cụ<span style="margin-left:auto;color:#9ca3af">▾</span></div>
+        <div class="nav">▦ Tổng quan</div>
+        <div class="nav on">💬 Hội thoại<span class="n">63</span></div>
+        <div class="nav">◇ Skill<span class="n">24</span></div>
+        <div class="nav">⚙ Cài đặt</div>
+        <div class="quota">Giới hạn · Claude Code
+          <div style="margin-top:6px">5 giờ · 32%</div><div class="bar"><i style="width:32%;background:#28a745"></i></div>
+          <div style="margin-top:4px">7 ngày · 13%</div><div class="bar"><i style="width:13%;background:#28a745"></i></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="hd"><h3>Hội thoại</h3><span class="pill">63</span><div class="search">🔍 Tìm tiêu đề, câu hỏi</div></div>
+        <div class="chips"><span class="chip on">Mọi project ▾</span><span class="chip">7 ngày ▾</span><span class="chip">🔥 Tốn bất thường</span><span class="chip">Context lớn</span><span class="chip">⭐</span></div>
+        <div class="chips"><span class="chip"><i class="dot" style="background:#d77655"></i>opus-5</span><span class="chip"><i class="dot" style="background:#d77655"></i>sonnet-5</span><span class="chip"><i class="dot" style="background:#9046ff"></i>auto</span></div>
+        <div class="day"><span>Hôm nay · Thứ Hai 28/09</span><span>3 · 45M</span></div>
+        <div class="cv sel"><div><b>Sửa lỗi 404 khi gửi mail</b><div class="m"><span class="tt tcc"><span class="g" style="background:#d77655">C</span>Claude Code</span>TICKET-101 · 64 lượt · 09:52</div></div><div class="v hot">32.6M<small>⚠ 🔥</small></div></div>
+        <div class="cv"><div><b>Đọc cấu trúc dự án voice</b><div class="m"><span class="tt tkr"><span class="g" style="background:#9046ff">K</span>Kiro</span>TICKET-203 · 12 lượt</div></div><div class="v est">~210K<small>0.9 credit</small></div></div>
+        <div class="cv"><div><b>Xây dựng tool thống kê token</b><div class="m"><span class="tt tcc"><span class="g" style="background:#d77655">C</span>Claude Code</span>thongke · 48 lượt · 08:10</div></div><div class="v">12.1M</div></div>
+        <div class="day"><span>Hôm qua · Chủ Nhật 27/09</span><span>2 · 6M</span></div>
+        <div class="cv"><div><b>Review tài liệu điều tra</b><div class="m"><span class="tt tcc"><span class="g" style="background:#d77655">C</span>Claude Code</span>TICKET-103 · 25 lượt</div></div><div class="v">5.6M</div></div>
+      </div>
+      <div class="det">
+        <span class="tt tcc" style="align-self:flex-start"><span class="g" style="background:#d77655">C</span>Claude Code</span>
+        <h4>Sửa lỗi 404 khi gửi mail</h4>
+        <div class="meta">TICKET-101 · opus-5 · 09:52–11:40 · 2 lần compact</div>
+        <div class="kpi"><div>Token<b>71M</b></div><div>Lượt<b>64</b></div><div>Context lớn nhất<b class="hot">852K</b></div></div>
+        <div style="display:flex;gap:6px"><span class="btn">Phân tích context</span><span class="btn">☆ Xem lại</span></div>
+        <div class="turn"><span class="t">09:52</span><div><b>test chạy e2e với lambda ở local</b><div class="a">↳ Mình sẽ chạy test local bằng sam local invoke…</div></div><b class="hot">14.9M</b></div>
+        <div class="turn"><span class="t">11:02</span><div><b>tức là ntn ?</b><div class="a">↳ Nghĩa là handler đang trả 404 khi không có dữ liệu…</div></div><b>620K</b></div>
+        <div class="turn" style="background:#fff;border:1px solid #e7e9ee"><span class="t">11:28</span><div><b>giờ bạn cập nhật tiến độ nhé</b><div class="why" style="margin-top:6px"><b>Vì sao tốn?</b> 99.8% là đọc lại 841K context cũ → nên /compact.</div></div><b class="hot">9.4M</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Cỡ vừa · ~1000px — sidebar thành cột icon, chi tiết là ngăn kéo (Esc để đóng)</div>
+  <div class="mockup-body">
+    <div class="app" style="grid-template-columns: 52px 1fr; height: 330px">
+      <div class="rail"><div>▦</div><div class="on">💬</div><div>◇</div><div>⚙</div><div style="margin-top:auto;margin-bottom:12px;font-size:10px;color:#28a745">32%</div></div>
+      <div class="col">
+        <div class="hd"><h3>Hội thoại</h3><span class="pill">63</span><div class="search">🔍 Tìm</div></div>
+        <div class="chips"><span class="chip on">Mọi project ▾</span><span class="chip">7 ngày ▾</span><span class="chip">🔥</span><span class="chip">opus-5</span></div>
+        <div class="cv sel"><div><b>Sửa lỗi 404 khi gửi mail</b><div class="m">TICKET-101 · 64 lượt</div></div><div class="v hot">32.6M</div></div>
+        <div class="cv"><div><b>Đọc cấu trúc dự án voice</b><div class="m">TICKET-203 · 12 lượt</div></div><div class="v est">~210K</div></div>
+      </div>
+      <div class="shade"></div>
+      <div class="det drawer">
+        <div style="display:flex;justify-content:space-between"><span class="tt tcc"><span class="g" style="background:#d77655">C</span>Claude Code</span><span style="color:#9ca3af">✕</span></div>
+        <h4>Sửa lỗi 404 khi gửi mail</h4>
+        <div class="kpi"><div>Token<b>71M</b></div><div>Lượt<b>64</b></div><div>Context lớn nhất<b class="hot">852K</b></div></div>
+        <div class="turn"><span class="t">09:52</span><div><b>test chạy e2e với lambda</b></div><b class="hot">14.9M</b></div>
+        <div class="turn"><span class="t">11:02</span><div><b>tức là ntn ?</b></div><b>620K</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Thay đổi chính so với hiện tại</h3>
+  <ul>
+    <li><b>Nền xám nhạt + thẻ trắng bo tròn</b> cho mỗi hội thoại và mỗi lượt; hội thoại đang chọn có viền xanh.</li>
+    <li><b>Tag công cụ nằm dưới tiêu đề</b> (ở dòng meta) thay vì chen trước tiêu đề, để tiêu đề đọc được trọn vẹn.</li>
+    <li><b>Bộ lọc gọn thành chip</b>: Project và thời gian là chip có menu thả xuống, không còn ô select thô.</li>
+    <li><b>Chi tiết có 3 số chính</b> (token, lượt, context lớn nhất) ngay dưới tiêu đề; "Vì sao tốn" hiện ngay trong lượt đang mở.</li>
+    <li><b>Cỡ vừa</b>: sidebar thành cột icon (vẫn có % quota), chi tiết là ngăn kéo. <b>Cỡ hẹp</b> (&lt; 700px): một cột, chi tiết là trang riêng có nút quay lại.</li>
+  </ul>
+</div>

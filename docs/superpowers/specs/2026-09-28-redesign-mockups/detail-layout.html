@@ -1,0 +1,89 @@
+<h2>Cửa sổ cỡ vừa (~1000px): bấm một hội thoại thì chi tiết hiện ra sao?</h2>
+<p class="subtitle">Phong cách B (thẻ hiện đại). Sidebar thu thành cột icon. Bấm để chọn, rồi trả lời trong terminal.</p>
+
+<style>
+  .m { font: 11px/1.35 -apple-system, "Inter", system-ui, sans-serif; height: 270px; border-radius: 10px; overflow: hidden; background: #f6f7f9; color: #111827; display: grid; position: relative; border: 1px solid #e5e7eb; }
+  .m * { box-sizing: border-box; }
+  .rail { background: #fff; border-right: 1px solid #eceef1; display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 10px; color: #9ca3af; font-size: 13px; }
+  .rail .on { color: #4f46e5; }
+  .list { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .list h5 { margin: 0 0 2px; font-size: 13px; }
+  .cardx { background: #fff; border-radius: 10px; padding: 7px 9px; box-shadow: 0 1px 3px rgba(0,0,0,.07); display: flex; justify-content: space-between; gap: 6px; }
+  .cardx.sel { outline: 2px solid #4f46e5; }
+  .cardx small { color: #6b7280; display: block; }
+  .tag { font-size: 9.5px; border-radius: 5px; padding: 0 5px; margin-right: 3px; background: #fbe9e3; color: #b4533a; }
+  .hot { color: #dc2626; font-weight: 700; }
+  .det { background: #fff; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .det h5 { margin: 0; font-size: 13px; }
+  .det .meta { color: #6b7280; }
+  .turn { background: #f6f7f9; border-radius: 8px; padding: 6px 8px; display: flex; justify-content: space-between; }
+  .back { color: #4f46e5; font-weight: 600; }
+  .shade { position: absolute; inset: 0 0 0 44px; background: rgba(17,24,39,.25); }
+  .drawer { position: absolute; top: 0; bottom: 0; right: 0; width: 62%; box-shadow: -8px 0 24px rgba(0,0,0,.15); border-radius: 10px 0 0 10px; }
+</style>
+
+<div class="cards">
+  <div class="card" data-choice="drawer" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="m" style="grid-template-columns: 44px 1fr">
+        <div class="rail"><div>▦</div><div class="on">💬</div><div>◇</div><div>⚙</div></div>
+        <div class="list">
+          <h5>Hội thoại</h5>
+          <div class="cardx sel"><div><span class="tag">Claude</span><b>Sửa lỗi 404</b><small>64 lượt</small></div><div class="hot">32.6M</div></div>
+          <div class="cardx"><div><b>Đọc dự án voice</b><small>12 lượt</small></div><div>~210K</div></div>
+          <div class="cardx"><div><b>Review tài liệu</b><small>25 lượt</small></div><div>5.6M</div></div>
+        </div>
+        <div class="shade"></div>
+        <div class="det drawer">
+          <h5>Sửa lỗi 404 khi gửi mail <span style="float:right;color:#9ca3af">✕</span></h5>
+          <div class="meta">TICKET-101 · 64 lượt · 71M token</div>
+          <div class="turn"><span>09:52 test e2e với lambda</span><b class="hot">14.9M</b></div>
+          <div class="turn"><span>11:02 tức là ntn ?</span><b>620K</b></div>
+          <div class="turn"><span>11:28 cập nhật tiến độ</span><b class="hot">9.4M</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>1. Ngăn kéo trượt từ phải</h3><p>Chi tiết đè lên ~60% bên phải, danh sách mờ phía sau. Esc hoặc ✕ để đóng. Vẫn thấy mình đang ở đâu trong danh sách.</p></div>
+  </div>
+
+  <div class="card" data-choice="push" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="m" style="grid-template-columns: 44px 1fr">
+        <div class="rail"><div>▦</div><div class="on">💬</div><div>◇</div><div>⚙</div></div>
+        <div class="det">
+          <div class="back">← Hội thoại</div>
+          <h5>Sửa lỗi 404 khi gửi mail</h5>
+          <div class="meta">TICKET-101 · 64 lượt · 71M token</div>
+          <div class="turn"><span>09:52 test chạy e2e với lambda ở local</span><b class="hot">14.9M</b></div>
+          <div class="turn"><span>11:02 tức là ntn ?</span><b>620K</b></div>
+          <div class="turn"><span>11:28 giờ bạn cập nhật tiến độ nhé</span><b class="hot">9.4M</b></div>
+          <div class="turn"><span>11:40 ok</span><b>870K</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>2. Chuyển hẳn sang trang chi tiết</h3><p>Chi tiết chiếm toàn bộ vùng, có nút "← Hội thoại" để quay lại. Rộng rãi nhất để đọc hỏi/đáp, nhưng mất danh sách khi đang xem.</p></div>
+  </div>
+
+  <div class="card" data-choice="narrow" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="m" style="grid-template-columns: 44px 210px 1fr">
+        <div class="rail"><div>▦</div><div class="on">💬</div><div>◇</div><div>⚙</div></div>
+        <div class="list" style="padding:8px">
+          <h5>Hội thoại</h5>
+          <div class="cardx sel" style="padding:5px 7px"><div><b>Sửa lỗi 404</b><small>64 lượt</small></div><div class="hot">32.6M</div></div>
+          <div class="cardx" style="padding:5px 7px"><div><b>Đọc dự án voice</b></div><div>~210K</div></div>
+          <div class="cardx" style="padding:5px 7px"><div><b>Review tài liệu</b></div><div>5.6M</div></div>
+          <div class="cardx" style="padding:5px 7px"><div><b>Tool thống kê</b></div><div>12.1M</div></div>
+        </div>
+        <div class="det">
+          <h5>Sửa lỗi 404 khi gửi mail</h5>
+          <div class="meta">TICKET-101 · 64 lượt · 71M token</div>
+          <div class="turn"><span>09:52 test e2e với lambda</span><b class="hot">14.9M</b></div>
+          <div class="turn"><span>11:02 tức là ntn ?</span><b>620K</b></div>
+          <div class="turn"><span>11:28 cập nhật tiến độ</span><b class="hot">9.4M</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>3. Danh sách thu hẹp + chi tiết</h3><p>Giữ 2 cột: danh sách thu gọn (chỉ tiêu đề + token), chi tiết bên phải. Gần với hiện tại nhất, nhưng cả hai cột đều hẹp.</p></div>
+  </div>
+</div>

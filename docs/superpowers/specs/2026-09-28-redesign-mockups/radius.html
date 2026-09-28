@@ -1,0 +1,52 @@
+<h2>Mức bo góc</h2>
+<p class="subtitle">Cùng thẻ, chip, nút, chỉ khác độ bo. Bấm để chọn.</p>
+
+<style>
+  .rz { --bg:#f5f6f8; --line:#e7e9ee; --acc:#0a84ff; font: 12px/1.4 -apple-system, "Inter", system-ui, sans-serif; color:#111827; background: var(--bg); border: 1px solid var(--line); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .rz * { box-sizing: border-box; }
+  .rz .top { display: flex; align-items: center; gap: 6px; } .rz .top b { font-size: 15px; flex: 1; }
+  .rz .pill { background: #e5e7eb; padding: 0 6px; font-size: 11px; font-weight: 600; }
+  .rz .btn { background: var(--acc); color: #fff; padding: 3px 9px; font-weight: 600; font-size: 11px; }
+  .rz .chips { display: flex; gap: 5px; } .rz .chip { background: #fff; border: 1px solid var(--line); padding: 2px 8px; font-size: 11px; } .rz .chip.on { background: var(--acc); color: #fff; border-color: var(--acc); }
+  .rz .cv { background: #fff; padding: 9px 11px; display: flex; justify-content: space-between; border: 1px solid var(--line); }
+  .rz .cv.sel { border-color: var(--acc); box-shadow: 0 0 0 2px #e6f1ff; }
+  .rz .cv small { display: block; color: #6b7280; font-size: 11px; }
+  .rz .tt { font-size: 10px; font-weight: 600; padding: 0 5px; background: #fbeee9; color: #b4533a; margin-right: 4px; }
+  .rz .hot { color: #e5372c; font-weight: 700; }
+  /* A: 8px */
+  .r8 { border-radius: 8px; } .r8 .cv { border-radius: 8px; } .r8 .chip { border-radius: 6px; } .r8 .btn, .r8 .pill { border-radius: 6px; } .r8 .tt { border-radius: 4px; }
+  /* B: 4px */
+  .r4 { border-radius: 6px; } .r4 .cv { border-radius: 4px; } .r4 .chip { border-radius: 4px; } .r4 .btn, .r4 .pill { border-radius: 4px; } .r4 .tt { border-radius: 3px; }
+  /* C: 2px */
+  .r2 { border-radius: 3px; } .r2 .cv { border-radius: 2px; box-shadow: none; } .r2 .chip { border-radius: 2px; } .r2 .btn, .r2 .pill { border-radius: 2px; } .r2 .tt { border-radius: 2px; }
+</style>
+
+<div class="cards">
+  <div class="card" data-choice="r8" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="rz r8">
+      <div class="top"><b>Hội thoại</b><span class="pill">63</span><span class="btn">+ Cài skill</span></div>
+      <div class="chips"><span class="chip on">Mọi project ▾</span><span class="chip">7 ngày ▾</span><span class="chip">🔥 Tốn</span></div>
+      <div class="cv sel"><div><b>Sửa lỗi 404 khi gửi mail</b><small><span class="tt">Claude Code</span>64 lượt</small></div><span class="hot">32.6M</span></div>
+      <div class="cv"><div><b>Review tài liệu điều tra</b><small>25 lượt</small></div><b>5.6M</b></div>
+    </div></div>
+    <div class="card-body"><h3>A. Vừa phải (8px)</h3><p>Mềm nhưng không tròn trịa; gần kiểu macOS mới.</p></div>
+  </div>
+  <div class="card" data-choice="r4" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="rz r4">
+      <div class="top"><b>Hội thoại</b><span class="pill">63</span><span class="btn">+ Cài skill</span></div>
+      <div class="chips"><span class="chip on">Mọi project ▾</span><span class="chip">7 ngày ▾</span><span class="chip">🔥 Tốn</span></div>
+      <div class="cv sel"><div><b>Sửa lỗi 404 khi gửi mail</b><small><span class="tt">Claude Code</span>64 lượt</small></div><span class="hot">32.6M</span></div>
+      <div class="cv"><div><b>Review tài liệu điều tra</b><small>25 lượt</small></div><b>5.6M</b></div>
+    </div></div>
+    <div class="card-body"><h3>B. Ít bo (4px)</h3><p>Sắc nét, hiện đại, giống Linear hay Vercel. Mình đề xuất mức này.</p></div>
+  </div>
+  <div class="card" data-choice="r2" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="rz r2">
+      <div class="top"><b>Hội thoại</b><span class="pill">63</span><span class="btn">+ Cài skill</span></div>
+      <div class="chips"><span class="chip on">Mọi project ▾</span><span class="chip">7 ngày ▾</span><span class="chip">🔥 Tốn</span></div>
+      <div class="cv sel"><div><b>Sửa lỗi 404 khi gửi mail</b><small><span class="tt">Claude Code</span>64 lượt</small></div><span class="hot">32.6M</span></div>
+      <div class="cv"><div><b>Review tài liệu điều tra</b><small>25 lượt</small></div><b>5.6M</b></div>
+    </div></div>
+    <div class="card-body"><h3>C. Gần vuông (2px)</h3><p>Rất phẳng, kiểu công cụ kỹ thuật; hơi cứng.</p></div>
+  </div>
+</div>

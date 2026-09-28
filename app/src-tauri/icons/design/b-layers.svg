@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E2E31"/><stop offset="1" stop-color="#141416"/></linearGradient><clipPath id="c"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+<filter id="drop" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity=".22"/></filter></defs>
+<g filter="url(#drop)"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/></g><g clip-path="url(#c)"><path d="M100 780 C320 740 480 640 690 470 L690 780 Z" fill="#8E8E93"/>
+<path d="M100 780 C320 740 480 640 690 470 L690 400 C480 570 320 690 100 740 Z" fill="#FF9F0A"/>
+<path d="M100 740 C320 690 480 570 690 400 L690 340 C480 510 320 640 100 705 Z" fill="#30B0C7"/>
+<path d="M100 705 C320 640 480 510 690 340 L690 300 C480 470 320 600 100 680 Z" fill="#0A84FF"/>
+<path d="M690 780 L690 680 C780 660 860 630 924 600 L924 780 Z" fill="#8E8E93"/>
+<path d="M690 680 C780 660 860 630 924 600 L924 565 C860 595 780 625 690 645 Z" fill="#0A84FF"/>
+<rect x="100" y="780" width="824" height="160" fill="#1C1C1E"/>
+<line x1="690" y1="230" x2="690" y2="800" stroke="#FF453A" stroke-width="14" stroke-linecap="round" stroke-dasharray="34 26"/></g>
+<rect x="100.5" y="100.5" width="823" height="823" rx="185" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="2"/></svg>

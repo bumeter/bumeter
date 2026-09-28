@@ -1,0 +1,97 @@
+<h2>Phong cách hình ảnh nào hợp với thongke?</h2>
+<p class="subtitle">Cùng một màn Hội thoại, vẽ theo 3 hướng. Bấm để chọn (chọn nhiều được nếu muốn trộn), rồi trả lời trong terminal.</p>
+
+<style>
+  .mini { font: 12px/1.35 -apple-system, "Inter", system-ui, sans-serif; border-radius: 10px; overflow: hidden; height: 300px; display: grid; }
+  .mini * { box-sizing: border-box; }
+  /* A: macOS tinh chỉnh */
+  .a { grid-template-columns: 110px 1fr; background: #fff; color: #1d1d1f; border: 1px solid #e5e5ea; }
+  .a .side { background: #f2f2f7; padding: 10px 8px; border-right: 1px solid #e5e5ea; }
+  .a .side div { padding: 5px 8px; border-radius: 6px; color: #3c3c43; }
+  .a .side .on { background: #e5e5ea; color: #000; font-weight: 600; }
+  .a .main { padding: 12px 14px; }
+  .a h4 { margin: 0 0 8px; font-size: 15px; }
+  .a .day { font-size: 10px; color: #8e8e93; text-transform: uppercase; margin: 10px 0 4px; letter-spacing: .3px; }
+  .a .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f3; }
+  .a .row b { font-weight: 600; } .a .row small { color: #8e8e93; display: block; }
+  .a .hot { color: #e5372c; font-weight: 600; }
+  /* B: thẻ hiện đại */
+  .b { grid-template-columns: 110px 1fr; background: #f6f7f9; color: #111827; }
+  .b .side { background: #fff; padding: 10px 8px; border-right: 1px solid #eceef1; }
+  .b .side div { padding: 6px 8px; border-radius: 8px; color: #4b5563; }
+  .b .side .on { background: #eef2ff; color: #4338ca; font-weight: 600; }
+  .b .main { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .b h4 { margin: 0; font-size: 15px; display: flex; gap: 6px; align-items: center; }
+  .b .pill { background: #e5e7eb; border-radius: 10px; padding: 0 7px; font-size: 11px; }
+  .b .chips span { display: inline-block; border-radius: 12px; padding: 2px 8px; font-size: 10.5px; margin-right: 4px; background: #fff; border: 1px solid #e5e7eb; }
+  .b .chips .on { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+  .b .card { background: #fff; border-radius: 12px; padding: 9px 11px; box-shadow: 0 1px 3px rgba(0,0,0,.07); display: flex; justify-content: space-between; }
+  .b .card small { color: #6b7280; display: block; }
+  .b .tag { font-size: 10px; border-radius: 6px; padding: 0 6px; margin-right: 4px; }
+  .b .t-c { background: #fbe9e3; color: #b4533a; } .b .t-k { background: #efe6ff; color: #7c3aed; }
+  .b .big { font-weight: 700; } .b .hot { color: #dc2626; }
+  /* C: bảng dữ liệu, tối */
+  .c { grid-template-columns: 44px 1fr; background: #0f1115; color: #d1d5db; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 11px; }
+  .c .side { background: #0b0d10; border-right: 1px solid #1f2329; display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 12px; color: #6b7280; }
+  .c .side .on { color: #34d399; }
+  .c .main { padding: 10px 12px; }
+  .c .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
+  .c .kpis div { background: #161a20; border: 1px solid #1f2329; border-radius: 6px; padding: 6px 8px; }
+  .c .kpis b { display: block; color: #f9fafb; font-size: 14px; }
+  .c table { width: 100%; border-collapse: collapse; }
+  .c td { padding: 5px 4px; border-bottom: 1px solid #1a1e24; }
+  .c .hot { color: #f87171; } .c .dim { color: #6b7280; } .c .k { color: #a78bfa; } .c .cl { color: #fb923c; }
+</style>
+
+<div class="cards" data-multiselect>
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mini a">
+        <div class="side"><div>Tổng quan</div><div class="on">Hội thoại</div><div>Skill</div><div>Cài đặt</div></div>
+        <div class="main">
+          <h4>Hội thoại</h4>
+          <div class="day">Hôm nay · Thứ Hai 28/09</div>
+          <div class="row"><div><b>Sửa lỗi 404 khi gửi mail</b><small>TICKET-101 · opus-5 · 64 lượt</small></div><div class="hot">32.6M</div></div>
+          <div class="row"><div><b>Đọc cấu trúc dự án voice</b><small>TICKET-203 · Kiro · 12 lượt</small></div><div>~210K</div></div>
+          <div class="day">Hôm qua</div>
+          <div class="row"><div><b>Review tài liệu điều tra</b><small>TICKET-103 · opus-5 · 25 lượt</small></div><div>5.6M</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>A. macOS tinh chỉnh</h3><p>Giữ hướng hiện tại nhưng thoáng hơn: nhiều khoảng trắng, chữ rõ thứ bậc, ít khung viền. Giống Mail/Notes.</p></div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mini b">
+        <div class="side"><div>Tổng quan</div><div class="on">Hội thoại</div><div>Skill</div><div>Cài đặt</div></div>
+        <div class="main">
+          <h4>Hội thoại <span class="pill">63</span></h4>
+          <div class="chips"><span class="on">Tất cả</span><span>🔥 Tốn</span><span>TICKET-101</span><span>opus-5</span></div>
+          <div class="card"><div><span class="tag t-c">Claude</span><b>Sửa lỗi 404 khi gửi mail</b><small>64 lượt · 09:52</small></div><div class="big hot">32.6M</div></div>
+          <div class="card"><div><span class="tag t-k">Kiro</span><b>Đọc cấu trúc dự án voice</b><small>12 lượt · 0.9 credit</small></div><div class="big">~210K</div></div>
+          <div class="card"><div><span class="tag t-c">Claude</span><b>Review tài liệu điều tra</b><small>25 lượt · hôm qua</small></div><div class="big">5.6M</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>B. Thẻ hiện đại</h3><p>Nền xám nhạt, mỗi hội thoại là một thẻ bo tròn có bóng, chip màu nổi bật. Giống skills-manager, Linear.</p></div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mini c">
+        <div class="side"><div>▦</div><div class="on">≡</div><div>◇</div><div>⚙</div></div>
+        <div class="main">
+          <div class="kpis"><div>token hôm nay<b>45.7M</b></div><div>lượt<b>17</b></div><div>quota 5h<b>32%</b></div></div>
+          <table>
+            <tr><td class="cl">CC</td><td>Sửa lỗi 404 khi gửi mail</td><td class="dim">64</td><td class="hot">32.6M</td></tr>
+            <tr><td class="k">KI</td><td>Đọc cấu trúc dự án voice</td><td class="dim">12</td><td>~210K</td></tr>
+            <tr><td class="cl">CC</td><td>Review tài liệu điều tra</td><td class="dim">25</td><td>5.6M</td></tr>
+            <tr><td class="cl">CC</td><td>Xây dựng tool thống kê</td><td class="dim">48</td><td>12.1M</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>C. Bảng dữ liệu, tối</h3><p>Dày thông tin, chữ đơn cách, số liệu nổi bật, sidebar chỉ có icon. Giống Grafana hoặc một công cụ terminal.</p></div>
+  </div>
+</div>

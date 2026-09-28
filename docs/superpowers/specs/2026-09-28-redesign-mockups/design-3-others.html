@@ -1,0 +1,104 @@
+<h2>Phần 3 — Skill, Cài đặt, Phân tích context</h2>
+<p class="subtitle">Cùng ngôn ngữ thẻ trắng trên nền xám, màu nhấn xanh dương.</p>
+
+<style>
+  .s { --bg:#f5f6f8; --card:#fff; --line:#e7e9ee; --t1:#111827; --t2:#6b7280; --t3:#9ca3af; --acc:#0a84ff; --acct:#e6f1ff; --hot:#e5372c; --warm:#e8890c;
+    font: 12px/1.4 -apple-system, "Inter", system-ui, sans-serif; color: var(--t1); background: var(--bg); border-radius: 12px; border: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .s * { box-sizing: border-box; }
+  .hd { display: flex; align-items: center; gap: 8px; } .hd h3 { margin: 0; font-size: 17px; }
+  .pill { background: #e5e7eb; border-radius: 10px; padding: 0 7px; font-size: 11px; font-weight: 600; }
+  .warnb { background: #fff4e5; color: #b45309; border: 1px solid #fcd9a5; border-radius: 12px; padding: 1px 9px; font-size: 11px; }
+  .sp { flex: 1; }
+  .seg { display: inline-flex; background: #e9ebef; border-radius: 9px; padding: 2px; } .seg span { padding: 2px 9px; border-radius: 7px; font-size: 11px; } .seg .on { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12); font-weight: 600; }
+  .pbtn { background: var(--acc); color: #fff; border-radius: 8px; padding: 4px 10px; font-weight: 600; font-size: 11px; }
+  .chips { display: flex; gap: 5px; flex-wrap: wrap; } .chip { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 2px 9px; font-size: 11px; } .chip.on { background: var(--acc); color: #fff; border-color: var(--acc); } .chip.d { border-style: dashed; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .card { background: var(--card); border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.04); display: flex; flex-direction: column; gap: 6px; }
+  .ch { display: flex; align-items: center; gap: 6px; } .ch b { flex: 1; font-size: 12.5px; }
+  .sw { width: 28px; height: 16px; border-radius: 8px; background: #28a745; position: relative; } .sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+  .sw.off { background: #d1d5db; } .sw.off::after { right: auto; left: 2px; }
+  .desc { color: var(--t2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bars { display: flex; gap: 10px; font-size: 10.5px; color: var(--t2); } .bars .w { color: var(--warm); font-weight: 600; }
+  .ft { display: flex; align-items: center; gap: 6px; border-top: 1px solid #f1f2f5; padding-top: 6px; font-size: 10.5px; color: var(--t3); }
+  .g { width: 15px; height: 15px; border-radius: 4px; display: inline-grid; place-items: center; color: #fff; font: 700 8.5px sans-serif; }
+  .tag { background: #f1f2f5; border-radius: 5px; padding: 0 5px; color: #4b5563; }
+  .split2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grp { background: #fff; border-radius: 12px; box-shadow: 0 1px 2px rgba(16,24,40,.06); overflow: hidden; }
+  .grp .t { font-size: 10.5px; font-weight: 600; color: var(--t3); text-transform: uppercase; padding: 8px 12px 2px; }
+  .it { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid #f1f2f5; }
+  .it .l { flex: 1; } .it .l small { display: block; color: var(--t3); font-size: 10.5px; }
+  .val { color: var(--t2); } .ok { color: #16a34a; font-weight: 600; }
+  .area { height: 90px; border-radius: 8px; background:
+      linear-gradient(to top, rgba(10,132,255,.55) 0 30%, transparent 30%),
+      linear-gradient(to top, rgba(144,70,255,.35) 0 55%, transparent 55%),
+      linear-gradient(to top, rgba(232,137,12,.30) 0 75%, transparent 75%); position: relative; }
+  .area::after { content: ""; position: absolute; left: 62%; top: 0; bottom: 0; border-left: 2px dashed #9ca3af; }
+  .legend { display: flex; gap: 10px; font-size: 10.5px; color: var(--t2); flex-wrap: wrap; } .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+  .partrow { display: grid; grid-template-columns: 110px 1fr 40px; gap: 8px; align-items: center; font-size: 11px; }
+  .meter { height: 6px; border-radius: 3px; background: #eef0f3; overflow: hidden; } .meter i { display: block; height: 100%; }
+</style>
+
+<div class="mockup">
+  <div class="mockup-header">Skill · dạng thẻ (vẫn có nút chuyển sang Bảng)</div>
+  <div class="mockup-body">
+    <div class="s">
+      <div class="hd"><h3>Skill</h3><span class="pill">24</span><span class="warnb">⚠ 4 skill tốn nền mà không dùng · ~320 tok/phiên</span><span class="sp"></span><div class="seg"><span>Bảng</span><span class="on">Thẻ</span></div><span class="pbtn">+ Cài skill</span></div>
+      <div class="chips"><span class="chip on">Tất cả</span><span class="chip">Đang dùng</span><span class="chip">Chưa dùng 30 ngày</span><span class="chip">Đã tắt</span><span class="chip">cá nhân</span><span class="chip">plugin</span><span class="chip d">Tốn nền mà không dùng</span></div>
+      <div class="grid">
+        <div class="card"><div class="ch"><b>pj-review</b><span class="sw"></span></div><div class="desc">Review code theo khung P0–P3</div><div class="bars"><span>Nền ~90</span><span>5 lần dùng</span><span>TB 5.7M</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tag">cá nhân</span><span class="sp"></span>16/09</div></div>
+        <div class="card"><div class="ch"><b>superpowers:brainstorming</b><span class="sw"></span></div><div class="desc">Explore intent before implementation</div><div class="bars"><span>Nền ~70</span><span>4 lần dùng</span><span>TB 450K</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tag">superpowers</span><span class="sp"></span>24/09</div></div>
+        <div class="card" style="border:1px solid #fcd9a5"><div class="ch"><b>pj-debug</b><span class="sw"></span></div><div class="desc">Debug có hệ thống theo 4 phase</div><div class="bars"><span class="w">Nền ~75</span><span>0 lần dùng</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tag">cá nhân</span><span class="sp"></span>—</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="split2">
+  <div class="mockup">
+    <div class="mockup-header">Cài đặt · nhóm thành thẻ kiểu System Settings</div>
+    <div class="mockup-body">
+      <div class="s">
+        <div class="hd"><h3>Cài đặt</h3></div>
+        <div class="grp"><div class="t">Chung</div>
+          <div class="it"><div class="l">Ngôn ngữ</div><span class="val">Tiếng Việt ▾</span></div>
+          <div class="it"><div class="l">Giao diện</div><span class="val">Theo hệ thống ▾</span></div>
+        </div>
+        <div class="grp"><div class="t">Công cụ</div>
+          <div class="it"><span class="g" style="background:#d77655">C</span><div class="l">Claude Code<small>~/.claude/projects · 643 lượt</small></div><span class="ok">● Đang theo dõi</span></div>
+          <div class="it"><span class="g" style="background:#9046ff">K</span><div class="l">Kiro<small>~/.kiro/sessions/cli · 755 lượt</small></div><span class="ok">● Đang theo dõi</span></div>
+        </div>
+        <div class="grp"><div class="t">Giới hạn & thông báo</div>
+          <div class="it"><div class="l">Theo dõi quota (statusline)<small>cập nhật mỗi khi Claude Code chạy</small></div><span class="sw"></span></div>
+          <div class="it"><div class="l">Báo quota ở mức</div><span class="val">70%, 90%</span></div>
+          <div class="it"><div class="l">Lượt tốn bất thường</div><span class="sw"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Phân tích context · mở từ chi tiết hội thoại</div>
+    <div class="mockup-body">
+      <div class="s">
+        <div class="hd"><h3>Phân tích context</h3><span class="sp"></span><span class="chip">← Hội thoại</span></div>
+        <div class="card"><div class="ch"><b>Context theo thời gian (ước lượng)</b></div><div class="area"></div>
+          <div class="legend"><span><i style="background:rgba(10,132,255,.7)"></i>File đã đọc</span><span><i style="background:rgba(144,70,255,.5)"></i>Tool I/O</span><span><i style="background:rgba(232,137,12,.5)"></i>Hệ thống</span><span>┆ compact</span></div></div>
+        <div class="card"><div class="ch"><b>Lượt gọi #41 · context 852K</b></div>
+          <div class="partrow"><span>File đã đọc</span><div class="meter"><i style="width:48%;background:#0a84ff"></i></div><span>48%</span></div>
+          <div class="partrow"><span>Tool I/O</span><div class="meter"><i style="width:31%;background:#9046ff"></i></div><span>31%</span></div>
+          <div class="partrow"><span>Hệ thống</span><div class="meter"><i style="width:15%;background:#e8890c"></i></div><span>15%</span></div>
+        </div>
+        <div class="card" style="border-left:3px solid #e8890c"><b>Gợi ý</b><div class="desc" style="white-space:normal">File handler.ts bị đọc 4 lần (~51K token). Nên đọc một lần, hoặc dùng offset/limit.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Thay đổi chính so với hiện tại</h3>
+  <ul>
+    <li><b>Skill</b>: giữ các tính năng vừa làm (thẻ, công tắc, chip, nhãn cảnh báo), chỉ đổi sang ngôn ngữ thẻ mới; thẻ tốn nền mà không dùng có viền cam. Có thêm chip "Tất cả".</li>
+    <li><b>Cài đặt</b>: nhóm thành các thẻ kiểu System Settings (Chung, Công cụ, Giới hạn & thông báo, Chẩn đoán). Mục mới <b>"Công cụ"</b> hiện thư mục log và trạng thái từng công cụ. Chọn <b>Giao diện sáng/tối/theo hệ thống</b>. Ngưỡng và bật/tắt thông báo lưu ngay, không cần nút Lưu.</li>
+    <li><b>Phân tích context</b>: biểu đồ, thành phần của lượt gọi và gợi ý là các thẻ riêng; gợi ý có viền màu như ở Tổng quan.</li>
+  </ul>
+</div>

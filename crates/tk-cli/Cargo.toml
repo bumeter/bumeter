@@ -1,0 +1,22 @@
+[package]
+name = "tk-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "tk"
+path = "src/main.rs"
+
+[dependencies]
+tk-core = { path = "../tk-core" }
+tk-adapters = { path = "../tk-adapters" }
+tk-service = { path = "../tk-service" }
+tk-skills = { path = "../tk-skills" }
+serde_json.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
