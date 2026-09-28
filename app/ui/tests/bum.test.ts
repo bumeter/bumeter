@@ -151,8 +151,9 @@ describe('bum() — SVG linh vật', () => {
     expect(el.outerHTML).toContain('var(--ink3)');
   });
 
-  it('worry có giọt mồ hôi màu #5ab4ff', () => {
+  it('worry có giọt mồ hôi dùng biến var(--bum-sweat), không hard-code màu trực tiếp trên fill', () => {
     const el = bum('worry', 32);
-    expect(el.outerHTML).toContain('#5ab4ff');
+    expect(el.outerHTML).toContain('var(--bum-sweat');
+    expect(el.outerHTML).not.toContain('fill="#5ab4ff"');
   });
 });

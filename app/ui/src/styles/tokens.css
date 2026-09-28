@@ -21,6 +21,7 @@
   --bum-face: #3a1c0c;
   --bum-cheek: #ffb27a;
   --bum-blaze: #ff4b2b;
+  --bum-sweat: #5ab4ff;
 
   --r-panel: 16px;
   --r-box: 12px;
@@ -77,6 +78,7 @@
     --bum-face: var(--surf);
     --bum-cheek: #ffb27a;
     --bum-blaze: #ff4b2b;
+    --bum-sweat: #5ab4ff;
 
     --sidebar: var(--surf);
     --sidebar-glass: var(--surf);
@@ -119,6 +121,7 @@
   --bum-face: var(--surf);
   --bum-cheek: #ffb27a;
   --bum-blaze: #ff4b2b;
+  --bum-sweat: #5ab4ff;
 
   --sidebar: var(--surf);
   --sidebar-glass: var(--surf);
@@ -160,4 +163,5 @@
   --bum-face: #3a1c0c;
   --bum-cheek: #ffb27a;
   --bum-blaze: #ff4b2b;
+  --bum-sweat: #5ab4ff;
 }

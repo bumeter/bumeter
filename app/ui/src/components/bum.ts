@@ -60,7 +60,7 @@ const BODY_FILL = 'var(--bum-body, #ff7a1a)';
 const FACE_FILL = 'var(--bum-face, #3a1c0c)';
 const CHEEK_FILL = 'var(--bum-cheek, #ffb27a)';
 const BLAZE_FILL = 'var(--bum-blaze, #ff4b2b)';
-const SWEAT_FILL = '#5ab4ff';
+const SWEAT_FILL = 'var(--bum-sweat, #5ab4ff)';
 
 function body(): SVGElement {
   return svg('path', { d: BODY, fill: BODY_FILL });
