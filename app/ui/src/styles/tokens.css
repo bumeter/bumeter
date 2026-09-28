@@ -1,68 +1,141 @@
-/* Design token — phong cách macOS, chạy trên mọi hệ điều hành (spec mục 6.0). */
+/* Design token — phong cách Bumeter: cam ấm, thân thiện, phẳng (spec mục 2, 3.1). */
 :root {
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", "Inter", system-ui, sans-serif;
-  --bg: #ffffff;
-  --sidebar: #ececef;
-  --sidebar-glass: rgba(232, 232, 237, 0.78);
-  --toolbar: rgba(246, 246, 248, 0.92);
-  --label: #1d1d1f;
-  --label-2: rgba(60, 60, 67, 0.64);
-  --label-3: rgba(60, 60, 67, 0.40);
-  --separator: rgba(0, 0, 0, 0.09);
-  --fill: rgba(120, 120, 128, 0.10);
-  --fill-2: rgba(120, 120, 128, 0.17);
-  --accent: #007aff;
-  --accent-tint: rgba(0, 122, 255, 0.12);
-  --selection: #0a64d6;
+  --font: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+
+  /* Token mới (mockup chuẩn bumeter-ui-mascot.html, .u sáng) */
+  --bg: #faf7f4;
+  --surf: #ffffff;
+  --sunk: #f4efea;
+  --line: #efe8e1;
+  --ink: #221a15;
+  --ink2: #6b5f57;
+  --ink3: #9a8d84;
+  --acc: #ff7a1a;
+  --acc2: #e8640a;
+  --tint: #fff0e3;
+  --red: #ff4b2b;
+  --grn: #22a05a;
+
+  --r-panel: 16px;
+  --r-box: 12px;
+  --r-ctl: 10px;
+  --r-tag: 5px;
+  --sp: 4px;
+
+  /* Bí danh token cũ → token mới, để layout.css hiện có ăn theo bảng màu cam
+     mới mà không phải viết lại từng luật (task sau sẽ thay markup dần). */
+  --sidebar: var(--surf);
+  --sidebar-glass: var(--surf);
+  --toolbar: var(--surf);
+  --label: var(--ink);
+  --label-2: var(--ink2);
+  --label-3: var(--ink3);
+  --separator: var(--line);
+  --fill: var(--sunk);
+  --fill-2: var(--sunk);
+  --accent: var(--acc);
+  --accent-tint: var(--tint);
+  --selection: var(--acc);
   --on-selection: #ffffff;
-  --green: #28a745;
-  --orange: #e8890c;
-  --red: #e5372c;
+  --green: var(--grn);
+  --orange: var(--acc2);
   --purple: #a94fd6;
-  --grey: #8e8e93;
-  --callout-bg: rgba(255, 159, 10, 0.10);
-  --callout-border: rgba(255, 159, 10, 0.38);
-  --button-bg: #ffffff;
-  --button-border: rgba(0, 0, 0, 0.14);
-  --radius-s: 6px;
-  --radius-m: 9px;
-  --radius-l: 12px;
+  --grey: var(--ink3);
+  --callout-bg: var(--tint);
+  --callout-border: var(--acc);
+  --button-bg: var(--surf);
+  --button-border: var(--line);
+  --radius-s: var(--r-ctl);
+  --radius-m: var(--r-box);
+  --radius-l: var(--r-panel);
   --hair: 0.5px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1e1e1e;
-    --sidebar: #2a2a2c;
-    --sidebar-glass: rgba(40, 40, 42, 0.74);
-    --toolbar: rgba(38, 38, 40, 0.92);
-    --label: rgba(255, 255, 255, 0.88);
-    --label-2: rgba(235, 235, 245, 0.62);
-    --label-3: rgba(235, 235, 245, 0.34);
-    --separator: rgba(255, 255, 255, 0.09);
-    --fill: rgba(120, 120, 128, 0.22);
-    --fill-2: rgba(120, 120, 128, 0.32);
-    --accent: #0a84ff;
-    --accent-tint: rgba(10, 132, 255, 0.22);
-    --selection: #0a5bc4;
-    --green: #30d158;
-    --orange: #ff9f0a;
-    --red: #ff453a;
+    --bg: #15120f;
+    --surf: #1f1a16;
+    --sunk: #29231e;
+    --line: #312a24;
+    --ink: #f5efe9;
+    --ink2: #b9ada4;
+    --ink3: #857a72;
+    --acc: #ff8a33;
+    --acc2: #ff9d52;
+    --tint: #3a2515;
+    --red: #ff5a3a;
+    --grn: #3dcc7e;
+
+    --sidebar: var(--surf);
+    --sidebar-glass: var(--surf);
+    --toolbar: var(--surf);
+    --label: var(--ink);
+    --label-2: var(--ink2);
+    --label-3: var(--ink3);
+    --separator: var(--line);
+    --fill: var(--sunk);
+    --fill-2: var(--sunk);
+    --accent: var(--acc);
+    --accent-tint: var(--tint);
+    --selection: var(--acc);
+    --green: var(--grn);
+    --orange: var(--acc2);
     --purple: #bf5af2;
-    --grey: #98989d;
-    --callout-bg: rgba(255, 159, 10, 0.12);
-    --callout-border: rgba(255, 159, 10, 0.32);
-    --button-bg: #48484a;
-    --button-border: rgba(255, 255, 255, 0.08);
+    --grey: var(--ink3);
+    --callout-bg: var(--tint);
+    --callout-border: var(--acc);
+    --button-bg: var(--surf);
+    --button-border: var(--line);
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #1e1e1e; --sidebar: #2a2a2c; --sidebar-glass: rgba(40, 40, 42, 0.74); --toolbar: rgba(38, 38, 40, 0.92);
-  --label: rgba(255, 255, 255, 0.88); --label-2: rgba(235, 235, 245, 0.62); --label-3: rgba(235, 235, 245, 0.34);
-  --separator: rgba(255, 255, 255, 0.09); --fill: rgba(120, 120, 128, 0.22); --fill-2: rgba(120, 120, 128, 0.32);
-  --accent: #0a84ff; --accent-tint: rgba(10, 132, 255, 0.22); --selection: #0a5bc4;
-  --green: #30d158; --orange: #ff9f0a; --red: #ff453a; --purple: #bf5af2; --grey: #98989d;
-  --callout-bg: rgba(255, 159, 10, 0.12); --callout-border: rgba(255, 159, 10, 0.32);
-  --button-bg: #48484a; --button-border: rgba(255, 255, 255, 0.08);
+  --bg: #15120f;
+  --surf: #1f1a16;
+  --sunk: #29231e;
+  --line: #312a24;
+  --ink: #f5efe9;
+  --ink2: #b9ada4;
+  --ink3: #857a72;
+  --acc: #ff8a33;
+  --acc2: #ff9d52;
+  --tint: #3a2515;
+  --red: #ff5a3a;
+  --grn: #3dcc7e;
+
+  --sidebar: var(--surf);
+  --sidebar-glass: var(--surf);
+  --toolbar: var(--surf);
+  --label: var(--ink);
+  --label-2: var(--ink2);
+  --label-3: var(--ink3);
+  --separator: var(--line);
+  --fill: var(--sunk);
+  --fill-2: var(--sunk);
+  --accent: var(--acc);
+  --accent-tint: var(--tint);
+  --selection: var(--acc);
+  --green: var(--grn);
+  --orange: var(--acc2);
+  --purple: #bf5af2;
+  --grey: var(--ink3);
+  --callout-bg: var(--tint);
+  --callout-border: var(--acc);
+  --button-bg: var(--surf);
+  --button-border: var(--line);
+}
+
+:root[data-theme="light"] {
+  --bg: #faf7f4;
+  --surf: #ffffff;
+  --sunk: #f4efea;
+  --line: #efe8e1;
+  --ink: #221a15;
+  --ink2: #6b5f57;
+  --ink3: #9a8d84;
+  --acc: #ff7a1a;
+  --acc2: #e8640a;
+  --tint: #fff0e3;
+  --red: #ff4b2b;
+  --grn: #22a05a;
 }

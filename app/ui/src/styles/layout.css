@@ -54,7 +54,7 @@ body {
 
 .segmented { display: inline-flex; background: var(--fill); border-radius: 7px; padding: 2px; gap: 2px; }
 .segmented button { border: 0; background: transparent; font: 500 12px var(--font); color: var(--label); padding: 3px 11px; border-radius: 5px; }
-.segmented button[aria-pressed="true"] { background: var(--button-bg); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15), 0 0 0 var(--hair) rgba(0, 0, 0, 0.06); }
+.segmented button[aria-pressed="true"] { background: var(--button-bg); }
 
 .chips { display: flex; gap: 6px; padding: 9px 14px 8px; border-bottom: var(--hair) solid var(--separator); flex-wrap: wrap; flex: none; }
 .chip { font: 500 12px var(--font); padding: 3px 10px; border-radius: 12px; background: var(--fill); color: var(--label-2); border: 0; }
@@ -63,7 +63,7 @@ body {
 .button {
   font: 500 12px var(--font); height: 24px; padding: 0 10px; border-radius: var(--radius-s);
   background: var(--button-bg); border: var(--hair) solid var(--button-border); color: var(--label);
-  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.08); display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: 5px;
 }
 .button.primary { background: var(--accent); color: #fff; border-color: transparent; }
 .button:focus-visible, .chip:focus-visible, .side-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -226,7 +226,7 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 
 /* Phạm vi công cụ (đầu sidebar) */
 .glyph { --tc: var(--grey); width: 18px; height: 18px; border-radius: 5px; display: inline-grid; place-items: center; font: 700 10.5px var(--font); color: #fff; background: var(--tc); flex: none; }
-.glyph.all { background: linear-gradient(135deg, var(--accent), var(--orange)); }
+.glyph.all { background: var(--accent); }
 .scope { width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-m); border: var(--hair) solid var(--button-border); background: var(--button-bg); font: 600 13px var(--font); color: var(--label); text-align: left; }
 .scope .caret { margin-left: auto; color: var(--label-3); }
 .scope:focus-visible, .scope-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -329,9 +329,9 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .chip.dashed[aria-pressed="true"] { border-color: var(--orange); color: var(--orange); background: var(--callout-bg); }
 .chip-sep { width: 1px; height: 16px; background: var(--separator); margin: 0 2px; }
 .skill-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; padding: 12px 14px; }
-.skill-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--radius-l); border: var(--hair) solid var(--separator); background: var(--bg); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: default; min-width: 0; }
+.skill-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--radius-l); border: var(--hair) solid var(--separator); background: var(--bg); cursor: default; min-width: 0; }
 .skill-card:hover { border-color: var(--button-border); }
-.skill-card[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-tint); }
+.skill-card[aria-selected="true"] { border-color: var(--accent); background: var(--accent-tint); }
 .skill-card .card-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .skill-card .card-head .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
 .skill-card .desc { font-size: 12px; color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -341,7 +341,7 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .state.enabled { color: var(--green); }
 .state.disabled { color: var(--label-3); }
 .switch { width: 30px; height: 18px; border-radius: 9px; border: 0; padding: 2px; background: var(--fill-2); flex: none; display: inline-flex; transition: background 0.15s; }
-.switch .knob { width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); transition: transform 0.15s; }
+.switch .knob { width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
 .switch[aria-checked="true"] { background: var(--green); }
 .switch[aria-checked="true"] .knob { transform: translateX(12px); }
 @media (prefers-reduced-motion: reduce) { .switch, .switch .knob { transition: none; } }

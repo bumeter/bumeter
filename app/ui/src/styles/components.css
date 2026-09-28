@@ -1,0 +1,130 @@
+/* Component dùng chung cho giao diện Bumeter (spec mục 3.1/3.2).
+   Phẳng: nền màu đặc, không đổ bóng cho nút/chip/panel — bóng chỉ
+   dành cho lớp nổi (ngăn kéo, hộp thoại, menu), xem layout.css: .sheet/.overlay. */
+
+.panel {
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  padding: 16px 18px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: var(--r-ctl);
+  padding: 7px 13px;
+  font: 700 12px var(--font);
+  background: var(--sunk);
+  color: var(--ink);
+  cursor: default;
+}
+.btn.primary {
+  background: var(--acc);
+  color: #fff;
+}
+.btn:disabled {
+  opacity: 0.5;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 5px 11px;
+  font: 600 11.5px var(--font);
+  color: var(--ink);
+}
+.chip.on {
+  background: var(--tint);
+  border-color: transparent;
+  color: var(--acc2);
+}
+.chip:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  font: 600 11.5px var(--font);
+  color: var(--ink2);
+  background: var(--sunk);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  font: 500 10.5px var(--font);
+  padding: 1px 6px;
+  border-radius: var(--r-tag);
+  background: var(--sunk);
+  color: var(--ink2);
+}
+
+.kpi {
+  background: var(--sunk);
+  border-radius: var(--r-box);
+  padding: 10px 12px;
+  color: var(--ink2);
+  font: 600 11px var(--font);
+}
+.kpi b {
+  display: block;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+
+.fuel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fuel .bar {
+  width: 72px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--sunk);
+  overflow: hidden;
+}
+.fuel .bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--acc);
+}
+.fuel .bar i.hot {
+  background: var(--red);
+}
+.fuel b {
+  width: 54px;
+  text-align: right;
+  font-weight: 800;
+}
+
+.bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--sunk);
+  overflow: hidden;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--acc);
+}

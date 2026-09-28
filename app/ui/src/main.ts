@@ -1,6 +1,12 @@
-import '@fontsource-variable/inter';
+import '@fontsource/be-vietnam-pro/400.css';
+import '@fontsource/be-vietnam-pro/500.css';
+import '@fontsource/be-vietnam-pro/600.css';
+import '@fontsource/be-vietnam-pro/700.css';
+import '@fontsource/be-vietnam-pro/800.css';
+import '@fontsource/be-vietnam-pro/900.css';
 import './styles/tokens.css';
 import './styles/layout.css';
+import './styles/components.css';
 
 import { api } from './api';
 import { setLang, t } from './i18n';
