@@ -1,0 +1,160 @@
+<h2>Giao diện Bumeter theo linh vật Bum</h2>
+<p class="subtitle">Cam #FF7A1A chủ đạo, chữ Be Vietnam Pro, thân thiện, bo mềm vừa phải, nút phẳng. Bum báo trạng thái ở sidebar, ở Tổng quan và ở màn trống. Trên: Tổng quan (sáng). Giữa: Hội thoại (tối). Dưới: màn trống.</p>
+
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="body" viewBox="0 0 48 48"><path d="M24 3c3.9 7.6 15 12.9 15 24.8C39 37.3 32.3 44 24 44S9 37.3 9 27.8c0-7 4-11 6.5-15 1 3.4 3 5.4 3 5.4C18.7 11.4 20.3 7 24 3z" fill="var(--body,#ff7a1a)"/></symbol>
+  <symbol id="calm" viewBox="0 0 48 48"><use href="#body"/><ellipse cx="18.6" cy="29.2" rx="2.4" ry="3" fill="var(--face,#3a1c0c)"/><ellipse cx="29.4" cy="29.2" rx="2.4" ry="3" fill="var(--face,#3a1c0c)"/><path d="M20.2 35.4c2.3 2 5.3 2 7.6 0" fill="none" stroke="var(--face,#3a1c0c)" stroke-width="2.3" stroke-linecap="round"/><circle cx="14.2" cy="34" r="2.1" fill="#ffb27a"/><circle cx="33.8" cy="34" r="2.1" fill="#ffb27a"/></symbol>
+  <symbol id="happy" viewBox="0 0 48 48"><use href="#body"/><path d="M16 29.6c1.4-2.4 3.8-2.4 5.2 0M26.8 29.6c1.4-2.4 3.8-2.4 5.2 0" fill="none" stroke="var(--face,#3a1c0c)" stroke-width="2.3" stroke-linecap="round"/><path d="M19 34.2c1.6 3.6 8.4 3.6 10 0z" fill="var(--face,#3a1c0c)"/><circle cx="14.2" cy="34" r="2.1" fill="#ffb27a"/><circle cx="33.8" cy="34" r="2.1" fill="#ffb27a"/></symbol>
+  <symbol id="worry" viewBox="0 0 48 48"><use href="#body"/><path d="M15.8 26.8 20.6 25.2M32.2 26.8 27.4 25.2" stroke="var(--face,#3a1c0c)" stroke-width="2" stroke-linecap="round"/><ellipse cx="18.6" cy="30.2" rx="2.2" ry="2.8" fill="var(--face,#3a1c0c)"/><ellipse cx="29.4" cy="30.2" rx="2.2" ry="2.8" fill="var(--face,#3a1c0c)"/><path d="M20.4 37.2c2.2-1.8 5-1.8 7.2 0" fill="none" stroke="var(--face,#3a1c0c)" stroke-width="2.3" stroke-linecap="round"/><path d="M35.6 20.5c1.2 1.9 1.6 3 1.6 3.8a1.6 1.6 0 0 1-3.2 0c0-.8.4-1.9 1.6-3.8z" fill="#5ab4ff"/></symbol>
+  <symbol id="sleep" viewBox="0 0 48 48"><use href="#body"/><path d="M16 30c1.4 1.6 3.8 1.6 5.2 0M26.8 30c1.4 1.6 3.8 1.6 5.2 0" fill="none" stroke="var(--face,#3a1c0c)" stroke-width="2.3" stroke-linecap="round"/><path d="M22.2 35.6h3.6" stroke="var(--face,#3a1c0c)" stroke-width="2.3" stroke-linecap="round"/><text x="33" y="15" font-family="Be Vietnam Pro" font-weight="900" font-size="8" fill="#8b919a">z</text><text x="38" y="9.5" font-family="Be Vietnam Pro" font-weight="900" font-size="6" fill="#8b919a">z</text></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4z"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c1.5 3.5 6 5.4 6 10.5a6 6 0 0 1-12 0c0-2.7 1.5-4 2.2-5.4.7 1.8 1.8 2.7 1.8 2.7 0-3.5.6-5.4 2-7.8z"/></symbol>
+</svg>
+
+<style>
+  .u { --bg:#faf7f4; --surf:#fff; --sunk:#f4efea; --line:#efe8e1; --ink:#221a15; --ink2:#6b5f57; --ink3:#9a8d84; --acc:#ff7a1a; --acc2:#e8640a; --tint:#fff0e3; --red:#ff4b2b; --grn:#22a05a;
+    font: 12.5px/1.5 "Be Vietnam Pro", system-ui, sans-serif; font-variant-numeric: tabular-nums; color: var(--ink); background: var(--bg); border-radius: 14px; overflow: hidden; display: grid; }
+  .u.dark { --bg:#15120f; --surf:#1f1a16; --sunk:#29231e; --line:#312a24; --ink:#f5efe9; --ink2:#b9ada4; --ink3:#857a72; --acc:#ff8a33; --acc2:#ff9d52; --tint:#3a2515; --red:#ff5a3a; --grn:#3dcc7e; --face:#1f1a16; }
+  .u * { box-sizing: border-box; }
+  .u svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .sb { background: var(--surf); border-right: 1px solid var(--line); padding: 16px 12px; display: flex; flex-direction: column; gap: 3px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 17px; letter-spacing: -.6px; margin: 0 6px 16px; }
+  .scope { display: flex; align-items: center; gap: 8px; padding: 8px 11px; border-radius: 10px; background: var(--sunk); font-weight: 600; margin-bottom: 10px; font-size: 12px; }
+  .scope .x { width: 16px; height: 16px; border-radius: 5px; background: var(--ink2); }
+  .nav { display: flex; align-items: center; gap: 10px; padding: 8px 11px; border-radius: 10px; color: var(--ink2); font-weight: 600; }
+  .nav.on { background: var(--tint); color: var(--acc2); font-weight: 700; }
+  .nav .n { margin-left: auto; font-size: 11px; color: var(--ink3); font-weight: 500; } .nav.on .n { color: var(--acc2); }
+  .bumcard { margin-top: auto; background: var(--tint); border-radius: 14px; padding: 12px; display: flex; gap: 10px; align-items: center; }
+  .bumcard b { display: block; font-size: 12.5px; } .bumcard span { color: var(--ink2); font-size: 11px; }
+  .track { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--acc) 22%, transparent); margin-top: 6px; overflow: hidden; } .track i { display: block; height: 100%; border-radius: 3px; background: var(--acc); }
+  .main { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .hd { display: flex; align-items: center; gap: 10px; } .hd h3 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.7px; } .hd .c { color: var(--ink3); font-weight: 600; font-size: 14px; }
+  .seg { display: inline-flex; background: var(--sunk); border-radius: 10px; padding: 3px; margin-left: auto; }
+  .seg span { padding: 5px 12px; border-radius: 8px; font-size: 11.5px; color: var(--ink2); font-weight: 600; } .seg .on { background: var(--surf); color: var(--ink); font-weight: 700; }
+  .search { margin-left: auto; display: flex; align-items: center; gap: 8px; background: var(--surf); border: 1px solid var(--line); border-radius: 10px; padding: 7px 11px; color: var(--ink3); width: 220px; }
+  .search kbd { margin-left: auto; font: 600 10.5px "Be Vietnam Pro"; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; color: var(--ink2); }
+  .panel { background: var(--surf); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+  .hero { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 12px; }
+  .say { display: flex; gap: 14px; align-items: center; }
+  .say .bubble { background: var(--tint); border-radius: 14px; padding: 10px 12px; font-weight: 600; position: relative; }
+  .say .bubble small { display: block; font-weight: 500; color: var(--ink2); margin-top: 2px; }
+  .big { font-size: 30px; font-weight: 900; letter-spacing: -1px; line-height: 1.05; }
+  .k { color: var(--ink2); font-size: 11.5px; font-weight: 600; } .dlt { color: var(--grn); font-size: 11.5px; font-weight: 700; }
+  .grid2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 12px; }
+  .ttl { display: flex; justify-content: space-between; font-weight: 800; font-size: 13.5px; } .ttl span { color: var(--ink3); font-weight: 500; font-size: 11.5px; }
+  .bars { display: flex; align-items: flex-end; gap: 5px; height: 100px; margin-top: 12px; }
+  .bars i { flex: 1; background: color-mix(in srgb, var(--acc) 30%, var(--sunk)); border-radius: 5px 5px 2px 2px; } .bars i.pk { background: var(--acc); }
+  .ins { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); align-items: flex-start; }
+  .ins:first-of-type { border-top: 0; }
+  .ins .ic { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; flex: none; }
+  .ins b { display: block; font-size: 12.5px; } .ins p { margin: 1px 0 0; color: var(--ink2); font-size: 11.5px; }
+  .ins a { margin-left: auto; color: var(--acc2); font-weight: 700; font-size: 11.5px; white-space: nowrap; }
+  .chips { display: flex; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; background: var(--surf); border: 1px solid var(--line); border-radius: 9px; padding: 5px 11px; font-size: 11.5px; font-weight: 600; }
+  .chip.on { background: var(--tint); border-color: transparent; color: var(--acc2); } .chip svg.i { width: 12px; height: 12px; }
+  .lst { background: var(--surf); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .dayh { padding: 11px 16px 6px; font-weight: 800; font-size: 12px; display: flex; justify-content: space-between; } .dayh span:last-child { color: var(--ink3); font-weight: 500; }
+  .row { display: grid; grid-template-columns: 1fr 40px 150px; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--line); align-items: center; }
+  .row.sel { background: var(--tint); }
+  .row .ti { font-weight: 700; display: flex; align-items: center; gap: 8px; } .row .mt { color: var(--ink3); font-size: 11px; padding-left: 24px; }
+  .row .n { text-align: right; color: var(--ink2); }
+  .lg { width: 16px; height: 16px; border-radius: 5px; display: inline-grid; place-items: center; color: #fff; font: 700 9px sans-serif; flex: none; }
+  .fuel { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+  .fuel .bar { width: 72px; height: 7px; border-radius: 4px; background: var(--sunk); overflow: hidden; } .fuel .bar i { display: block; height: 100%; border-radius: 4px; background: var(--acc); } .fuel .bar i.hot { background: var(--red); }
+  .fuel b { width: 54px; text-align: right; font-weight: 800; }
+  .hot { color: var(--red); }
+  .det { background: var(--surf); border-left: 1px solid var(--line); padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .det h4 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -.5px; } .det .mt { color: var(--ink2); font-size: 11.5px; }
+  .kp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .kp div { background: var(--sunk); border-radius: 12px; padding: 10px 12px; color: var(--ink2); font-size: 11px; font-weight: 600; } .kp b { display: block; color: var(--ink); font-size: 17px; font-weight: 900; letter-spacing: -.5px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 10px; padding: 7px 13px; font-size: 12px; font-weight: 700; background: var(--sunk); color: var(--ink); }
+  .btn.p { background: var(--acc); color: #fff; }
+  .tr { display: grid; grid-template-columns: 40px 1fr 62px; gap: 8px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .tr .h { color: var(--ink3); } .tr .q { font-weight: 600; } .tr .a { color: var(--ink2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .tr .v { text-align: right; font-weight: 800; }
+  .why { display: flex; gap: 8px; background: var(--tint); border-radius: 12px; padding: 9px 11px; margin-top: 6px; font-size: 11.5px; align-items: flex-start; }
+  .empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 34px 20px; text-align: center; }
+  .empty b { font-size: 15px; } .empty p { margin: 0; color: var(--ink2); max-width: 340px; }
+</style>
+
+<div class="mockup">
+  <div class="mockup-header">Tổng quan · sáng</div>
+  <div class="mockup-body">
+    <div class="u" style="grid-template-columns: 214px 1fr; height: 480px">
+      <div class="sb">
+        <div class="brand"><svg width="26" height="26"><use href="#calm"/></svg>bumeter</div>
+        <div class="scope"><span class="x"></span>Tất cả công cụ<svg class="i" style="margin-left:auto;color:var(--ink3)"><use href="#i-down"/></svg></div>
+        <div class="nav on"><svg class="i"><use href="#i-grid"/></svg>Tổng quan</div>
+        <div class="nav"><svg class="i"><use href="#i-chat"/></svg>Hội thoại<span class="n">63</span></div>
+        <div class="nav"><svg class="i"><use href="#i-bolt"/></svg>Skill<span class="n">24</span></div>
+        <div class="nav"><svg class="i"><use href="#i-gear"/></svg>Cài đặt</div>
+        <div class="bumcard"><svg width="36" height="36"><use href="#happy"/></svg><div style="flex:1"><b>Quota 5 giờ 32%</b><span>reset lúc 18:10</span><div class="track"><i style="width:32%"></i></div></div></div>
+      </div>
+      <div class="main">
+        <div class="hd"><h3>Tổng quan</h3><div class="seg"><span>Hôm nay</span><span>7 ngày</span><span class="on">30 ngày</span><span>90 ngày</span></div></div>
+        <div class="hero">
+          <div class="panel say"><svg width="64" height="64"><use href="#happy"/></svg><div><div class="k">Token 30 ngày</div><div class="big">1.33B</div><div class="dlt">Ít hơn 12% so với kỳ trước</div></div></div>
+          <div class="panel"><div class="k">Lượt</div><div class="big">646</div><div class="k" style="font-weight:500">21 mỗi ngày dùng</div></div>
+          <div class="panel"><div class="k">Hội thoại</div><div class="big">63</div><div class="k" style="font-weight:500">Claude Code 20, Kiro 43</div></div>
+        </div>
+        <div class="grid2">
+          <div class="panel"><div class="ttl">Token theo ngày<span>Bấm cột để lọc</span></div>
+            <div class="bars"><i style="height:30%"></i><i style="height:55%"></i><i style="height:22%"></i><i style="height:12%"></i><i style="height:48%"></i><i style="height:40%"></i><i style="height:52%"></i><i style="height:20%"></i><i style="height:66%"></i><i style="height:34%"></i><i style="height:28%"></i><i style="height:44%"></i><i class="pk" style="height:100%"></i><i style="height:38%"></i><i style="height:26%"></i><i style="height:50%"></i></div></div>
+          <div class="panel"><div class="ttl">Bum gợi ý</div>
+            <div class="ins"><span class="ic" style="background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red)"><svg class="i"><use href="#i-flame"/></svg></span><div><b>59 lượt tốn bất thường</b><p>Phần lớn do đọc lại context lớn.</p></div><a>Xem</a></div>
+            <div class="ins"><span class="ic" style="background:var(--tint);color:var(--acc2)"><svg class="i"><use href="#i-bolt"/></svg></span><div><b>4 skill không dùng vẫn tốn</b><p>Khoảng 320 token mỗi phiên.</p></div><a>Tắt bớt</a></div>
+            <div class="ins"><span class="ic" style="background:var(--sunk);color:var(--ink2)"><svg class="i"><use href="#i-chat"/></svg></span><div><b>TICKET-101 chiếm 21%</b><p>329M token trong một hội thoại.</p></div><a>Mở</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Hội thoại · tối</div>
+  <div class="mockup-body">
+    <div class="u dark" style="grid-template-columns: 214px 1fr 1fr; height: 440px">
+      <div class="sb">
+        <div class="brand"><svg width="26" height="26"><use href="#calm"/></svg>bumeter</div>
+        <div class="scope"><span class="x"></span>Tất cả công cụ</div>
+        <div class="nav"><svg class="i"><use href="#i-grid"/></svg>Tổng quan</div>
+        <div class="nav on"><svg class="i"><use href="#i-chat"/></svg>Hội thoại<span class="n">63</span></div>
+        <div class="nav"><svg class="i"><use href="#i-bolt"/></svg>Skill<span class="n">24</span></div>
+        <div class="nav"><svg class="i"><use href="#i-gear"/></svg>Cài đặt</div>
+        <div class="bumcard"><svg width="36" height="36"><use href="#worry"/></svg><div style="flex:1"><b>Quota 5 giờ 78%</b><span>reset lúc 18:10</span><div class="track"><i style="width:78%"></i></div></div></div>
+      </div>
+      <div class="main" style="padding:20px 16px">
+        <div class="hd"><h3>Hội thoại</h3><span class="c">63</span><div class="search" style="width:190px"><svg class="i"><use href="#i-search"/></svg>Tìm<kbd>Ctrl K</kbd></div></div>
+        <div class="chips"><span class="chip">Mọi project<svg class="i"><use href="#i-down"/></svg></span><span class="chip">30 ngày<svg class="i"><use href="#i-down"/></svg></span><span class="chip">Model 2<svg class="i"><use href="#i-down"/></svg></span><span class="chip on"><svg class="i"><use href="#i-flame"/></svg>Tốn</span></div>
+        <div class="lst">
+          <div class="dayh"><span>Hôm nay, thứ Hai 28/09</span><span>45M</span></div>
+          <div class="row sel"><div><div class="ti"><span class="lg" style="background:#d97757">C</span>Sửa lỗi 404 khi gửi mail</div><div class="mt">TICKET-101, 09:52</div></div><span class="n">64</span><div class="fuel"><span class="bar"><i class="hot" style="width:100%"></i></span><b class="hot">32.6M</b></div></div>
+          <div class="row"><div><div class="ti"><span class="lg" style="background:#9046ff">K</span>Đọc cấu trúc dự án voice</div><div class="mt">TICKET-203, 0.9 credit</div></div><span class="n">12</span><div class="fuel"><span class="bar"><i style="width:4%"></i></span><b style="color:var(--ink2)">~210K</b></div></div>
+          <div class="row"><div><div class="ti"><span class="lg" style="background:#d97757">C</span>Xây dựng tool thống kê token</div><div class="mt">08:10</div></div><span class="n">48</span><div class="fuel"><span class="bar"><i style="width:37%"></i></span><b>12.1M</b></div></div>
+        </div>
+      </div>
+      <div class="det">
+        <h4>Sửa lỗi 404 khi gửi mail</h4><div class="mt">TICKET-101, opus-5, 09:52 đến 11:40</div>
+        <div class="kp"><div>Token<b style="color:var(--acc2)">71M</b></div><div>Lượt<b>64</b></div><div>Context lớn nhất<b class="hot">852K</b></div></div>
+        <div style="display:flex;gap:8px"><span class="btn p">Phân tích context</span><span class="btn">Đánh dấu</span></div>
+        <div>
+          <div class="tr"><span class="h">09:52</span><div><div class="q">test chạy e2e với lambda ở local</div><div class="a">Mình sẽ chạy test local bằng sam local invoke…</div></div><span class="v hot">14.9M</span></div>
+          <div class="tr"><span class="h">11:28</span><div><div class="q">giờ bạn cập nhật tiến độ nhé</div><div class="why"><svg width="22" height="22" style="flex:none"><use href="#worry"/></svg><span>99.8% là đọc lại 841K context cũ. Chạy /compact trước bước tổng kết nhé.</span></div></div><span class="v hot">9.4M</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Màn trống (chưa có dữ liệu)</div>
+  <div class="mockup-body">
+    <div class="u"><div class="empty"><svg width="84" height="84"><use href="#sleep"/></svg><b>Bum đang chờ hội thoại đầu tiên</b><p>Mở Claude Code hoặc Kiro và hỏi một câu. Hội thoại sẽ hiện ở đây ngay khi có.</p><span class="btn p">Xem công cụ đang theo dõi</span></div></div>
+  </div>
+</div>
