@@ -16,6 +16,12 @@
   --red: #ff4b2b;
   --grn: #22a05a;
 
+  /* Linh vật Bum (components/bum.ts) — mặc định sáng. */
+  --bum-body: #ff7a1a;
+  --bum-face: #3a1c0c;
+  --bum-cheek: #ffb27a;
+  --bum-blaze: #ff4b2b;
+
   --r-panel: 16px;
   --r-box: 12px;
   --r-ctl: 10px;
@@ -66,6 +72,12 @@
     --red: #ff5a3a;
     --grn: #3dcc7e;
 
+    /* Tối: mặt Bum lấy màu nền panel (#1f1a16) để trông như "khoét" ra khỏi thân. */
+    --bum-body: #ff7a1a;
+    --bum-face: var(--surf);
+    --bum-cheek: #ffb27a;
+    --bum-blaze: #ff4b2b;
+
     --sidebar: var(--surf);
     --sidebar-glass: var(--surf);
     --toolbar: var(--surf);
@@ -103,6 +115,11 @@
   --red: #ff5a3a;
   --grn: #3dcc7e;
 
+  --bum-body: #ff7a1a;
+  --bum-face: var(--surf);
+  --bum-cheek: #ffb27a;
+  --bum-blaze: #ff4b2b;
+
   --sidebar: var(--surf);
   --sidebar-glass: var(--surf);
   --toolbar: var(--surf);
@@ -138,4 +155,9 @@
   --tint: #fff0e3;
   --red: #ff4b2b;
   --grn: #22a05a;
+
+  --bum-body: #ff7a1a;
+  --bum-face: #3a1c0c;
+  --bum-cheek: #ffb27a;
+  --bum-blaze: #ff4b2b;
 }
