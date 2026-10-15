@@ -240,3 +240,16 @@ div.bar i {
 .settings .status.ok { color: var(--grn); font-weight: 600; }
 .settings .message { color: var(--ink2); font-size: 12px; margin: 0; }
 .settings .message.error { color: var(--red); }
+
+/* Phạm vi công cụ ở thanh bên: nút gạt có logo, nút đang chọn nền cam. */
+.scope-seg { display: flex; gap: 2px; padding: 3px; margin: 2px 0 6px; border-radius: var(--r-ctl); background: var(--sunk); }
+.seg-opt { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 4px; height: 30px; padding: 0 5px; border: 0; border-radius: 8px; background: transparent; color: var(--ink2); font: 700 11.5px var(--font); cursor: default; }
+/* Icon "tất cả" chỉ cần khi nút chỉ còn icon (cỡ vừa/hẹp). */
+.seg-opt .seg-all-ic { display: none; }
+.seg-opt .seg-all-ic svg { width: 16px; height: 16px; display: block; }
+.seg-opt .seg-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg-opt .glyph { width: 16px; height: 16px; flex: none; }
+.seg-opt:hover { color: var(--ink); }
+.seg-opt[aria-checked="true"] { background: var(--acc); color: #fff; }
+.seg-opt.missing { opacity: .55; }
+.seg-opt:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }

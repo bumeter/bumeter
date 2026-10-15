@@ -214,13 +214,6 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 /* Phạm vi công cụ (đầu sidebar) */
 .glyph { --tc: var(--grey); width: 18px; height: 18px; border-radius: 5px; display: inline-grid; place-items: center; font: 700 10.5px var(--font); color: #fff; background: var(--tc); flex: none; }
 .glyph.all { background: var(--accent); }
-.scope { width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-m); border: var(--hair) solid var(--button-border); background: var(--button-bg); font: 600 13px var(--font); color: var(--label); text-align: left; }
-.scope .caret { margin-left: auto; color: var(--label-3); }
-.scope:focus-visible, .scope-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.scope-menu { margin: 6px 0 4px; border-radius: var(--radius-m); background: var(--fill); padding: 4px; display: flex; flex-direction: column; }
-.scope-item { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border: 0; border-radius: var(--radius-s); background: transparent; font: 500 12.5px var(--font); color: var(--label); text-align: left; }
-.scope-item[aria-checked="true"] { background: var(--fill-2); }
-.scope-item .count { margin-left: auto; color: var(--label-3); font-size: 12px; }
 
 /* Tag công cụ và model: màu lấy từ backend qua --tc */
 .ttag { --tc: var(--grey); display: inline-flex; align-items: center; gap: 4px; font: 600 10.5px var(--font); padding: 1px 7px 1px 2px; border-radius: 9px; margin-right: 6px; vertical-align: 1px;
@@ -362,11 +355,12 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .app[data-layout="medium"] .sidebar { align-items: center; overflow: visible; position: relative; z-index: 2; }
 .app[data-layout="medium"] .brand { margin: 0 0 12px; }
 .app[data-layout="medium"] .wordmark, .app[data-layout="medium"] .side-section, .app[data-layout="medium"] .side-item .label,
-.app[data-layout="medium"] .side-item .count, .app[data-layout="medium"] .scope-label, .app[data-layout="medium"] .scope .caret,
+.app[data-layout="medium"] .side-item .count, .app[data-layout="medium"] .seg-label,
 .app[data-layout="medium"] .bumcard .bum-text { display: none; }
-.app[data-layout="medium"] .side-item, .app[data-layout="medium"] .scope { width: 44px; height: 36px; padding: 0; justify-content: center; }
-.app[data-layout="medium"] .scope { margin-bottom: 6px; }
-.app[data-layout="medium"] .scope-menu { position: absolute; left: calc(100% - 4px); top: 52px; min-width: 200px; background: var(--surf); border: var(--hair) solid var(--separator); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14); }
+.app[data-layout="medium"] .side-item { width: 44px; height: 36px; padding: 0; justify-content: center; }
+.app[data-layout="medium"] .scope-seg { flex-direction: column; width: 44px; margin-bottom: 8px; }
+.app[data-layout="medium"] .seg-opt { flex: none; width: 38px; height: 32px; padding: 0; }
+.app[data-layout="medium"] .seg-all-ic, .app[data-layout="narrow"] .seg-all-ic { display: block; }
 .app[data-layout="medium"] .bumcard { padding: 8px; background: transparent; }
 
 /* narrow: một cột, thanh tab ở trên */
@@ -375,11 +369,12 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .app[data-layout="narrow"] .sidebar { flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; border-right: 0; border-bottom: var(--hair) solid var(--separator); position: relative; }
 .app[data-layout="narrow"] .brand { margin: 0 6px 0 0; }
 .app[data-layout="narrow"] .wordmark, .app[data-layout="narrow"] .side-section, .app[data-layout="narrow"] .side-item .label,
-.app[data-layout="narrow"] .side-item .count, .app[data-layout="narrow"] .scope-label, .app[data-layout="narrow"] .scope .caret,
+.app[data-layout="narrow"] .side-item .count, .app[data-layout="narrow"] .seg-label,
 .app[data-layout="narrow"] .bumcard .bum-text { display: none; }
-.app[data-layout="narrow"] .side-item, .app[data-layout="narrow"] .scope { width: 40px; height: 36px; padding: 0; justify-content: center; flex: none; }
+.app[data-layout="narrow"] .side-item { width: 40px; height: 36px; padding: 0; justify-content: center; flex: none; }
+.app[data-layout="narrow"] .scope-seg { flex: none; margin: 0 6px 0 0; }
+.app[data-layout="narrow"] .seg-opt { width: 34px; height: 30px; padding: 0; flex: none; }
 .app[data-layout="narrow"] .bumcard { margin: 0 0 0 auto; padding: 4px; background: transparent; flex: none; }
-.app[data-layout="narrow"] .scope-menu { position: fixed; left: 8px; top: 52px; z-index: 5; min-width: 200px; background: var(--surf); border: var(--hair) solid var(--separator); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14); }
 
 /* Tổng quan (Bumeter): thẻ, biểu đồ + gợi ý, project/model */
 .overview .ov-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }

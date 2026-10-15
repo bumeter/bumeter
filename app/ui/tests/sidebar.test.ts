@@ -69,19 +69,22 @@ describe('sidebar', () => {
     expect(el.querySelector('.bumcard .fuel')).not.toBeNull();
   });
 
-  it('bộ chọn phạm vi: mở menu, chọn Kiro thì cả app lọc theo Kiro, quota ẩn vì Kiro không có', async () => {
+  it('bộ chọn phạm vi: nút gạt luôn hiện đủ, chọn Kiro thì cả app lọc theo Kiro, quota ẩn vì Kiro không có', async () => {
     fake(handlers);
     await mountSidebar(el);
-    (el.querySelector('[data-action="scope"]') as HTMLButtonElement).click();
-    const menu = [...el.querySelectorAll('.scope-item')].map((b) => b.textContent);
-    expect(menu).toEqual(['∗Tất cả595', 'Claude Code380', 'Kiro215']);
+    const group = el.querySelector('.scope-seg[role="radiogroup"]')!;
+    expect(group).not.toBeNull();
+    const opts = [...group.querySelectorAll('[role="radio"]')] as HTMLButtonElement[];
+    expect(opts.map((b) => b.textContent)).toEqual(['Tất cả', 'Claude', 'Kiro']);
+    expect(opts.map((b) => b.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false']);
+    expect(opts[1].getAttribute('aria-label')).toBe('Claude Code · 380');
     expect(el.querySelector('[data-scope="kiro"] img')?.getAttribute('src')).toBe('tool-icons/kiro.svg');
     (el.querySelector('[data-scope="kiro"]') as HTMLButtonElement).click();
     expect(state.scope).toBe('kiro');
     expect(state.filter.tool).toBe('kiro');
     await flush();
-    expect(el.querySelector('.scope')?.textContent).toContain('Kiro');
-    expect(el.querySelector('.scope-menu')).toBeNull();
+    expect(el.querySelector('[data-scope="kiro"]')?.getAttribute('aria-checked')).toBe('true');
+    expect(el.querySelector('[data-scope="all"]')?.getAttribute('aria-checked')).toBe('false');
     expect(el.querySelector('[data-view="conversations"] .count')?.textContent).toBe('5');
     expect(el.querySelector('.bumcard')).not.toBeNull();
     expect(el.querySelector('.bumcard .fuel')).toBeNull();
@@ -108,7 +111,8 @@ describe('sidebar', () => {
     setLang('en');
     await mountSidebar(el);
     expect(el.textContent).toContain('Conversations');
-    expect(el.textContent).toContain('All tools');
+    expect(el.querySelector('.scope-seg')?.getAttribute('aria-label')).toBe('All tools');
+    expect(el.querySelector('[data-scope="all"]')?.textContent).toBe('All');
     expect(el.textContent).toContain('5-hour quota 78%');
   });
 });
