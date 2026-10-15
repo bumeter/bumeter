@@ -1,4 +1,4 @@
-# PROGRESS — thongke (cập nhật 2026-09-28, chiều)
+# PROGRESS — Bumeter (trước là thongke) (cập nhật 2026-09-28, chiều)
 
 > File này để người/AI **tiếp tục công việc đúng ngay** khi mở repo. Đọc hết file là hiểu dự án đang ở đâu, việc gì xong, việc gì dang dở. Cập nhật mỗi khi xong một mảng lớn.
 
@@ -6,7 +6,7 @@
 
 ## 1. Dự án là gì
 
-**thongke** — app desktop (Tauri 2) chạy nền, đọc log của các công cụ AI lập trình và trả lời: hội thoại/lượt nào tốn token, dùng skill nào, vì sao đắt, quota 5 giờ/7 ngày còn bao nhiêu.
+**Bumeter** (tên cũ: thongke; CLI `bum`, thư mục dữ liệu `~/.local/share/bumeter`, tự chuyển từ `thongke` khi khởi động; biến `BUM_*` thắng `TK_*`) — app desktop (Tauri 2) chạy nền, đọc log của các công cụ AI lập trình và trả lời: hội thoại/lượt nào tốn token, dùng skill nào, vì sao đắt, quota 5 giờ/7 ngày còn bao nhiêu.
 
 **Thuật ngữ:** Hội thoại (một session) → Lượt (một câu hỏi + trả lời) → Lượt gọi (một request tới model). UI song ngữ **vi** (mặc định) / **en**.
 
@@ -25,7 +25,7 @@ Cargo.toml                  # workspace: tk-core, tk-adapters, tk-service, tk-cl
 crates/tk-core/             # lõi: engine đọc log, SQLite, handlers (toàn bộ query RPC), models, limits
 crates/tk-adapters/         # nguồn log: claude_code/ (JSONL ~/.claude/projects), kiro/ (whole-file ~/.kiro/sessions/cli)
 crates/tk-service/          # tk-service JSON-RPC qua socket (client TUI/VS Code dùng sau này)
-crates/tk-cli/              # lệnh tk: scan, audit, session, skills, statusline, prompts…
+crates/tk-cli/              # lệnh bum: scan, audit, session, skills, statusline, prompts…
 crates/tk-skills/           # liệt kê/tắt bật gỡ skill có hoàn tác (Claude + Kiro); market.rs = tìm trên skills.sh (qua `curl`)
 app/src-tauri/              # app Tauri: commands (gọi `call {method, params}` → tk-core handlers), tray, window
 app/ui/src/                 # toàn bộ UI
@@ -63,7 +63,7 @@ docs/screens/*.png          # ảnh chụp bằng dữ liệu giả
 
 | Cột mốc | Nội dung | Trạng thái |
 |---|---|---|
-| **M1** Lõi + Tray | đọc log, bỏ trùng, gán skill, SQLite, `tk audit`, tray, quota, thông báo | ✅ `docs/m1-verification.md` (token khớp 100%) |
+| **M1** Lõi + Tray | đọc log, bỏ trùng, gán skill, SQLite, `bum audit`, tray, quota, thông báo | ✅ `docs/m1-verification.md` (token khớp 100%) |
 | **M2** Lần hỏi | khung 3 cột, danh sách, tìm kiếm/lọc, chi tiết, ⭐/📝, cài đặt | ✅ `docs/m2-verification.md` — màn này đã được thay bằng **Hội thoại** |
 | **M3** Skill | liệt kê, chi phí nền, dùng ở đâu, tắt/bật/cỡ/gỡ có hoàn tác | ✅ `docs/m3-verification.md` |
 | **M4** Project + Ngày | 2 màn tổng hợp, bấm để lọc | ✅ — đã gộp vào **Tổng quan** (cùng màn Model) |
@@ -73,7 +73,7 @@ docs/screens/*.png          # ảnh chụp bằng dữ liệu giả
 | **Tìm skill trên skills.sh** | tab "Tìm trên skills.sh" trong hộp Cài skill; cài = clone GitHub, chỉ lấy thư mục skill, có hoàn tác; không telemetry | ✅ kiểm chứng thật: tìm 0,8 giây, cài `mattpocock/skills/code-review` 1,4 giây, hoàn tác sạch (thư mục tạm) |
 | **Giao diện học từ skills-manager** | logo công cụ + màu thương hiệu, màn Skill dạng thẻ/bảng + chip lọc + công tắc, skills.sh dạng thẻ, thẻ gợi ý ở Tổng quan | ✅ ảnh `docs/screens/skills-cards-*.png`, `overview-insights-*.png` |
 | **M6** Đóng gói | file cài, autostart, single-instance, CI | 🟡 Ubuntu `.deb` (9.6M) + `.AppImage` (86M) build lại 2026-09-25 với bản Hội thoại (`docs/build-ubuntu.md`, cần glibc 2.39 = Ubuntu 24.04+); **chưa** Windows/macOS, autostart, CI |
-| **M7** Terminal | `tk tui`, `tk daemon`, `tk prompts --json` | ❌ chưa bắt đầu |
+| **M7** Terminal | `bum tui`, `bum daemon`, `bum prompts --json` | ❌ chưa bắt đầu |
 | **M8** VS Code | extension, panel webview dùng lại `app/ui` | ❌ chưa bắt đầu |
 
 **Kiểm thử hiện trạng (2026-09-28):** `cargo test --workspace` = **180 test pass** · Vitest = **64/64** · `tsc --noEmit` sạch.
@@ -84,7 +84,7 @@ docs/screens/*.png          # ảnh chụp bằng dữ liệu giả
 - Backend registry: `LogSource::info()` → `SourceInfo` (nhãn, chữ cái, màu, khả năng); `tk_adapters::registry()`; RPC app `sources` = registry + `tool_stats`.
 - RPC `list_conversations` (nhóm theo ngày giờ máy; lọc q/project/models[]/tool/from/to/quick), `conversation_turns` (trả `{title, turns}`), `conversation_transcript` (app command, đọc log).
 - `project_stats`/`day_stats` nhận `tool` (phạm vi công cụ).
-- i18n: `Config.language` (vi/en); thông báo, tray, statusline, `tk status` dịch theo đó; backend trả **mã** cho "vì sao tốn" (`Explain`) và gợi ý phân tích phiên (`Suggestion`), UI tự dịch.
+- i18n: `Config.language` (vi/en); thông báo, tray, statusline, `bum status` dịch theo đó; backend trả **mã** cho "vì sao tốn" (`Explain`) và gợi ý phân tích phiên (`Suggestion`), UI tự dịch.
 - UI: phạm vi công cụ ở đầu sidebar (nhớ bằng localStorage); sidebar = Tổng quan / Hội thoại / Skill / Cài đặt; màn Hội thoại + chi tiết lượt (hỏi/đáp, tool call, vì sao tốn, ⭐/📝); Tổng quan có 3 gợi ý; chọn ngôn ngữ trong Cài đặt.
 
 ## 6. Việc dang dở (ưu tiên trên xuống dưới)
@@ -104,10 +104,10 @@ cd app/ui && npm test                  # 64 test UI (vitest run)
 cd app/ui && npx tsc --noEmit          # typecheck (npm run build cũng chạy sẵn)
 cd app/ui && npm run build             # UI → app/ui/dist (phải chạy TRƯỚC khi tauri build)
 cd app/ui && npm run dev               # xem UI trên trình duyệt bằng mock.ts (?theme=dark&view=skills)
-./target/release/thongke-app           # chạy app đã build
+./target/release/bumeter              # chạy app đã build
 # bundle Linux: xem docs/build-ubuntu.md
 #   cargo build --release -p tk-cli
-#   cp target/release/tk app/src-tauri/binaries/tk-x86_64-unknown-linux-gnu
+#   cp target/release/bum app/src-tauri/binaries/bum-x86_64-unknown-linux-gnu
 #   (cd app/ui && npm run build) && (cd app && ./ui/node_modules/.bin/tauri build --bundles deb appimage)
 ```
 
@@ -122,7 +122,7 @@ cd app/ui && npm run dev               # xem UI trên trình duyệt bằng mock
 
 ## 9. Bẫy đã gặp (đọc trước khi “debug” oan)
 
-- **Không `grep` chuỗi tiếng Việt trong binary** — Tauri nén asset (brotli) vào binary nên `grep "Công cụ" thongke-app` = 0 dù UI đúng. Kiểm chứng bằng cách chạy app + chụp màn (`import -window <id> /tmp/shot.png`).
+- **Không `grep` chuỗi tiếng Việt trong binary** — Tauri nén asset (brotli) vào binary nên `grep "Công cụ" bumeter` = 0 dù UI đúng. Kiểm chứng bằng cách chạy app + chụp màn (`import -window <id> /tmp/shot.png`).
 - App **chạy nền tray**, cửa sổ chỉ sinh khi gọi `window::open` (`app/src-tauri/src/window.rs`); có process trong `ps` ≠ có cửa sổ. `single-instance`: launch lần 2 chỉ focus cửa sổ cũ.
 - Window 10×10 `InputOnly` trong `xwininfo` = cửa sổ chưa mở, không phải app hỏng.
 - Sau khi build lại, phải mở app **mới** (đóng bản cũ trước) nếu không sẽ xem UI cũ.

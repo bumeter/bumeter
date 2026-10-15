@@ -9,7 +9,7 @@ import { state, subscribe, update } from '../state';
 import type { View } from '../state';
 import { allSources, glyph, loadSources, toolDef } from '../tools';
 
-const SCOPE_KEY = 'thongke.scope';
+const SCOPE_KEY = 'bumeter.scope';
 
 /** Phạm vi đã chọn lần trước (chỉ là tiện ích, lỗi storage thì bỏ qua). */
 export function rememberedScope(): string | undefined {

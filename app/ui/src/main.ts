@@ -22,7 +22,7 @@ const forced = params.get('theme');
 if (forced === 'light' || forced === 'dark') applyTheme(forced);
 const VIEWS: View[] = ['overview', 'conversations', 'skills', 'settings', 'session'];
 const skillView = params.get('skillView');
-if (skillView === 'cards' || skillView === 'table') { try { localStorage.setItem('thongke.skillView', skillView); } catch { /* bỏ qua */ } }
+if (skillView === 'cards' || skillView === 'table') { try { localStorage.setItem('bumeter.skillView', skillView); } catch { /* bỏ qua */ } }
 
 export async function boot() {
   const { mountSidebar, rememberedScope } = await import('./views/sidebar');

@@ -20,7 +20,7 @@ describe('cài đặt', () => {
   it('hiện trạng thái statusline và bật qua hộp xác nhận', async () => {
     let status: any = { kind: 'custom', command: 'bash ~/.claude/statusline-command.sh' };
     const f = fake({
-      settings_get: () => ({ config: cfg, statusline: status, data_dir: '/home/u/.local/share/thongke', parse_errors: 0 }),
+      settings_get: () => ({ config: cfg, statusline: status, data_dir: '/home/u/.local/share/bumeter', parse_errors: 0 }),
       statusline_plan: () => ({ description: 'Sẽ đổi statusLine.command <script>', noop: false }),
       statusline_apply: () => { status = { kind: 'hooked', command: 'x' }; return true; },
     });

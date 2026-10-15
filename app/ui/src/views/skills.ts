@@ -53,7 +53,7 @@ function matches(r: SkillRow, f: Filters): boolean {
   return status && (!f.source || r.entry.source.kind === f.source) && (!f.costly || isCostly(r));
 }
 
-const VIEW_KEY = 'thongke.skillView';
+const VIEW_KEY = 'bumeter.skillView';
 function savedView(): 'table' | 'cards' {
   try { return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'table'; } catch { return 'table'; }
 }
