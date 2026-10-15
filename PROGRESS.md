@@ -87,6 +87,13 @@ docs/screens/*.png          # ảnh chụp bằng dữ liệu giả
 - i18n: `Config.language` (vi/en); thông báo, tray, statusline, `bum status` dịch theo đó; backend trả **mã** cho "vì sao tốn" (`Explain`) và gợi ý phân tích phiên (`Suggestion`), UI tự dịch.
 - UI: phạm vi công cụ ở đầu sidebar (nhớ bằng localStorage); sidebar = Tổng quan / Hội thoại / Skill / Cài đặt; màn Hội thoại + chi tiết lượt (hỏi/đáp, tool call, vì sao tốn, ⭐/📝); Tổng quan có 3 gợi ý; chọn ngôn ngữ trong Cài đặt.
 
+## 5b. Thiết kế lại giao diện + đổi tên Bumeter (nhánh feat/bumeter)
+
+- Xong: token/component dùng chung (cam, nút phẳng, không gradient, chữ Be Vietnam Pro nhúng offline), linh vật Bum 5 biểu cảm, bố cục theo độ rộng (wide ≥1200 / medium 700–1199 có ngăn kéo / narrow <700), làm lại Tổng quan, Hội thoại, Skill, Cài đặt; theme sáng/tối/hệ thống trong config; tray đổi biểu cảm Bum; CLI `bum`, thư mục dữ liệu `bumeter` tự chuyển (có rollback, giữ thư mục cũ nếu không chuyển được), hook statusline trỏ `bum`.
+- Rà giao diện (Task 12): hộp thoại có `aria-labelledby`, Esc đóng, trả focus; tắt autocomplete ô nguồn/tìm; sửa quy tắc `.bar` chung đè cột biểu đồ ngày; ô chọn ngôn ngữ bị cắt chữ.
+- Ảnh: `docs/screens/bumeter-<view>-<w>-<lang>-<theme>.png` (Tổng quan + Hội thoại ở 1360/1000/640 × vi/en × sáng/tối; Skill + Cài đặt ở 1360 vi sáng/tối). Chụp bằng `vite preview` + Chrome headless với dữ liệu mock; URL hỗ trợ `?theme=&lang=&view=&scope=&conversation=&turn=&skillView=&open=1`. Ảnh cũ (m2–m5, conversations-*, overview-*, skills-*) giữ lại vì các tài liệu kiểm chứng cũ còn trỏ tới.
+- Đang làm: build bộ cài `.deb`/`.AppImage` tên Bumeter; kiểm tra trên máy thật (IPC, ngăn kéo khi thu nhỏ, tray đổi Bum, `bum status`, dữ liệu cũ còn).
+
 ## 6. Việc dang dở (ưu tiên trên xuống dưới)
 
 0. **Đối chiếu skills-manager** (`docs/research/2026-09-28-skills-manager-comparison.md`): nên làm trước (1) nhường thao tác skill cho skills-manager khi skill do nó quản lý — máy này có `~/.skills-manager`; (2) CI build bộ cài, Linux trên ubuntu-22.04 để gỡ giới hạn glibc 2.39, thêm Windows/macOS.
