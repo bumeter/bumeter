@@ -161,4 +161,46 @@ describe('cài đặt', () => {
     expect(saves(f)).toHaveLength(1);
     expect(saves(f)[0].params.config.context_threshold).toBe(123000);
   });
+  it('ngôn ngữ lưu độc lập khi ô số khác đang sai: chỉ đổi language trên cấu hình đã lưu', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('quota_thresholds', 'abc');
+    const sel = el.querySelector('select[name="language"]') as HTMLSelectElement;
+    sel.value = 'en';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush(); await flush();
+    expect(saves(f)).toHaveLength(1);
+    expect(saves(f)[0].params.config.language).toBe('en');
+    expect(saves(f)[0].params.config.quota_thresholds).toEqual([70, 90]);
+    expect(state.lang).toBe('en');
+    setLang('vi'); update({ lang: 'vi' });
+  });
+
+  it('theme lưu ngay, độc lập với ô số đang sai', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('anomaly_multiplier', '-1');
+    (el.querySelector('[data-theme-value="dark"]') as HTMLButtonElement).click();
+    await flush(); await flush();
+    expect(saves(f).some((c) => c.params.config.theme === 'dark' && c.params.config.anomaly_multiplier === 3)).toBe(true);
+  });
+
+  it('lưu lỗi: select ngôn ngữ và theme quay về giá trị cũ', async () => {
+    fake({ settings_get: () => hookedInfo({ ...cfg, theme: 'light' }), save_config: () => { throw new Error('đĩa đầy'); } });
+    applyTheme('light');
+    await mountSettings(el);
+    const sel = el.querySelector('select[name="language"]') as HTMLSelectElement;
+    sel.value = 'en';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush(); await flush();
+    expect(sel.value).toBe('vi');
+    expect(state.lang).toBe('vi');
+    (el.querySelector('[data-theme-value="dark"]') as HTMLButtonElement).click();
+    await flush(); await flush();
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect((el.querySelector('[data-theme-value="light"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true');
+    expect((el.querySelector('[data-theme-value="dark"]') as HTMLElement).getAttribute('aria-pressed')).toBe('false');
+    expect(el.querySelector('.message')?.classList.contains('error')).toBe(true);
+  });
+
 });

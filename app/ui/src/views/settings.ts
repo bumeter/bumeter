@@ -110,9 +110,29 @@ export async function mountSettings(el: HTMLElement) {
     timer = setTimeout(() => { void save(false); }, SAVE_DEBOUNCE_MS);
   };
 
+  /** Ngôn ngữ/theme lưu độc lập với các ô số: chỉ đổi 2 trường này trên cấu hình đã lưu gần nhất.
+   *  Lưu lỗi thì đưa lựa chọn về giá trị cũ. */
+  const saveAppearance = async (next: { language: Lang; theme: ThemeChoice }): Promise<boolean> => {
+    const prev = { language, theme };
+    language = next.language; theme = next.theme;
+    const cfg: Config = { ...info.config, language, theme };
+    try {
+      await api.saveConfig(cfg);
+      info.config = { ...info.config, language, theme };
+      say(t('set.saved'));
+      return true;
+    } catch (e) {
+      language = prev.language; theme = prev.theme;
+      langSel.value = language;
+      applyTheme(theme);
+      markTheme(theme);
+      say(t('set.saveError', { e: String(e) }), true);
+      return false;
+    }
+  };
+
   langSel.addEventListener('change', async () => {
-    language = langSel.value as Lang;
-    if (!(await save(true)) || language === state.lang) return;
+    if (!(await saveAppearance({ language: langSel.value as Lang, theme })) || language === state.lang) return;
     // Đổi ngôn ngữ: cả app vẽ lại (màn này được mount lại), lời nhắn giữ qua `carried`.
     setLang(language);
     carried = t('set.saved');
@@ -123,12 +143,14 @@ export async function mountSettings(el: HTMLElement) {
     h('button', {
       type: 'button', 'data-theme-value': value, 'aria-pressed': String(theme === value),
       onclick: (() => {
-        theme = value;
         applyTheme(value);
-        themeSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-value') === value)));
-        schedule();
+        markTheme(value);
+        void saveAppearance({ language, theme: value });
       }) as EventListener,
     }, label);
+  function markTheme(value: ThemeChoice) {
+    themeSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-value') === value)));
+  }
   const themeSeg = h('div', { class: 'segmented', role: 'group', 'aria-label': t('set.theme') },
     themeBtn('light', t('set.themeLight')), themeBtn('dark', t('set.themeDark')), themeBtn('system', t('set.themeSystem')));
 
