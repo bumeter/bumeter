@@ -5,6 +5,7 @@ export const vi = {
   'aria.detail': 'Chi tiết',
   'common.back': '← Quay lại',
   'common.cancel': 'Huỷ',
+  'common.close': 'Đóng',
   'common.confirm': 'Đồng ý',
   'common.error': 'Lỗi: {e}',
   'common.estimated': 'ước lượng',

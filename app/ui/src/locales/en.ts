@@ -6,6 +6,7 @@ export const en: Record<keyof typeof vi, string> = {
   'aria.detail': 'Details',
   'common.back': '← Back',
   'common.cancel': 'Cancel',
+  'common.close': 'Close',
   'common.confirm': 'Confirm',
   'common.error': 'Error: {e}',
   'common.estimated': 'estimated',
