@@ -79,3 +79,38 @@ fn registry_describes_each_tool_and_its_capabilities() {
     assert_eq!((claude.icon.as_deref(), claude.color.as_str()), (Some("claude_code.svg"), "#d77655"));
     assert_eq!((kiro.icon.as_deref(), kiro.color.as_str()), (Some("kiro.svg"), "#9046ff"));
 }
+
+/// Kiro CLI (từ ~06/2026) ghi `session_created_reason: "subagent"` cho cả phiên người dùng chat;
+/// phiên có `.history` (lịch sử gõ) là phiên người dùng.
+#[test]
+fn session_marked_subagent_but_with_history_is_a_user_session() {
+    let ev = Kiro::new(root()).parse_file(&root().join("k3.json")).unwrap();
+    assert_eq!(ev.iter().filter(|e| matches!(e, RawEvent::Prompt { .. })).count(), 2);
+    assert!(ev.iter().any(|e| matches!(e, RawEvent::Title { .. })));
+    assert!(!ev.iter().any(|e| matches!(e, RawEvent::ApiCall { sidechain: true, .. })));
+}
+
+/// DB cũ đã đọc file Kiro bằng parser cũ (mất câu hỏi): mở DB bản mới phải đọc lại, không cộng dồn.
+#[test]
+fn old_database_rereads_kiro_files_once_without_double_counting() {
+    let dir = tempfile::tempdir().unwrap();
+    let logs = dir.path().join("cli");
+    std::fs::create_dir_all(&logs).unwrap();
+    for f in ["k3.json", "k3.jsonl", "k3.history"] {
+        std::fs::copy(root().join(f), logs.join(f)).unwrap();
+    }
+    let db = dir.path().join("t.db");
+    let total = {
+        let mut e = Engine::new(Store::open(&db).unwrap(), vec![Box::new(Kiro::new(&logs))]);
+        e.full_scan().unwrap();
+        e.store().usage_totals().unwrap().total()
+    };
+    // Giả lập trạng thái do parser cũ để lại: có offset, không có câu hỏi, schema v4.
+    rusqlite::Connection::open(&db).unwrap()
+        .execute_batch("DELETE FROM prompts; DELETE FROM session_titles; PRAGMA user_version = 4;").unwrap();
+
+    let mut e = Engine::new(Store::open(&db).unwrap(), vec![Box::new(Kiro::new(&logs))]);
+    e.full_scan().unwrap();
+    assert_eq!(e.store().prompt_items(None, None, None, None).unwrap().len(), 2);
+    assert_eq!(e.store().usage_totals().unwrap().total(), total);
+}

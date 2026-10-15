@@ -102,7 +102,8 @@ impl LogSource for Kiro {
         let model_info = &st["rts_model_state"]["model_info"];
         let model = format!("kiro:{}", model_info["model_id"].as_str().unwrap_or("auto"));
         let window = model_info["context_window_tokens"].as_f64().unwrap_or(DEFAULT_WINDOW);
-        let subagent = v["session_created_reason"].as_str() == Some("subagent");
+        // Kiro CLI mới ghi "subagent" cho cả phiên người dùng chat; phiên đó có `.history` (lịch sử gõ).
+        let subagent = v["session_created_reason"].as_str() == Some("subagent") && !path.with_extension("history").exists();
         let turns = st["conversation_metadata"]["user_turn_metadatas"].as_array().cloned().unwrap_or_default();
         let prompts = read_prompts(&path.with_extension("jsonl"));
         let cwd = v["cwd"].as_str().map(str::to_string);
