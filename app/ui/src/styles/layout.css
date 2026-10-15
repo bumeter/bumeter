@@ -79,19 +79,6 @@ body {
   display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px 6px;
   font: 600 11px var(--font); color: var(--label-3); border-bottom: var(--hair) solid var(--separator);
 }
-.conv-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 9px 16px; border-bottom: var(--hair) solid var(--separator); align-items: center; cursor: default; }
-.conv-row:hover { background: var(--fill); }
-.conv-row .text { font: 500 13px var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.conv-row .star { color: var(--orange); }
-.conv-row .meta { font-size: 11.5px; color: var(--label-2); margin-top: 3px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.conv-row .value { text-align: right; font: 600 13px var(--font); }
-.conv-row .value small { display: block; font-weight: 400; font-size: 11px; color: var(--label-3); margin-top: 2px; }
-.conv-row .value.warm { color: var(--orange); }
-.conv-row .value.hot { color: var(--red); }
-.conv-row[aria-selected="true"] { background: var(--selection); color: var(--on-selection); border-radius: 7px; margin: 3px 6px; padding: 9px 10px; border-bottom-color: transparent; }
-.conv-row[aria-selected="true"] .meta, .conv-row[aria-selected="true"] .value small { color: rgba(255, 255, 255, 0.78); }
-.conv-row[aria-selected="true"] .value, .conv-row[aria-selected="true"] .star { color: #fff; }
-.conv-row[aria-selected="true"] .tag { background: rgba(255, 255, 255, 0.2); color: #fff; border-color: rgba(255, 255, 255, 0.6); }
 .tag { font: 500 10.5px var(--font); padding: 1px 6px; border-radius: 4px; background: var(--fill); color: var(--label-2); border: var(--hair) solid transparent; }
 .tag.skill { background: color-mix(in srgb, var(--purple) 15%, transparent); color: var(--purple); }
 .tag.cont { background: transparent; border: 1px dashed color-mix(in srgb, var(--purple) 70%, transparent); color: var(--purple); }
@@ -251,14 +238,6 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .chips { align-items: center; }
 
 /* Danh sách hội thoại */
-.conv-row { border: 0; width: 100%; text-align: left; }
-.conv-row .main { min-width: 0; }
-.conv-row .title { font: 600 13px var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.conv-row .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-.conv-row .est, .turn .est { color: var(--label-2); font-weight: 500; }
-.conv-row[aria-selected="true"] .ttag { background: rgba(255, 255, 255, 0.22); color: #fff; }
-.conv-row[aria-selected="true"] .ttag .glyph { background: rgba(255, 255, 255, 0.3); }
-.conv-row[aria-selected="true"] .est { color: rgba(255, 255, 255, 0.85); }
 
 /* Chi tiết hội thoại: danh sách lượt, mở rộng để xem hỏi/đáp */
 .dh { padding: 14px 20px 12px; border-bottom: var(--hair) solid var(--separator); flex: none; }
@@ -319,7 +298,6 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 /* Logo công cụ thay cho ô chữ cái */
 .glyph.logo { background: transparent; overflow: hidden; }
 .glyph.logo img { width: 100%; height: 100%; display: block; object-fit: contain; }
-.conv-row[aria-selected="true"] .ttag .glyph.logo { background: transparent; }
 
 /* Màn Skill: số đếm, nhãn cảnh báo, chip, thẻ, công tắc */
 .count-pill { font: 600 11.5px var(--font); color: var(--label-2); background: var(--fill); border-radius: 10px; padding: 1px 8px; }
