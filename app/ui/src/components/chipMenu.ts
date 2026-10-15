@@ -27,23 +27,29 @@ function menu<T>(o: { label: string; options: Opt<T>[]; multi: boolean; selected
     paint();
     if (o.multi) paintPop(); else close();
   };
-  const onDoc = (e: Event) => { if (pop && !pop.contains(e.target as Node) && !chip.contains(e.target as Node)) close(); };
-  function close() {
+  const onDoc = (e: Event) => { if (pop && !pop.contains(e.target as Node) && !chip.contains(e.target as Node)) close(false); };
+  // Đóng; trả focus về chip trừ khi người dùng đã chủ động chuyển focus đi nơi khác.
+  function close(refocus = true) {
     if (!pop) return;
     pop.remove(); pop = null;
     document.removeEventListener('mousedown', onDoc);
     chip.setAttribute('aria-expanded', 'false');
+    if (refocus) chip.focus();
   }
   function open() {
     const sel = o.selected();
     active = Math.max(0, o.options.findIndex((op) => sel.includes(op.value)));
     pop = h('div', { class: 'menu-pop', role: 'listbox', tabindex: -1, 'aria-label': o.label, 'aria-multiselectable': o.multi ? 'true' : null,
+      onfocusout: ((e: FocusEvent) => {
+        const to = e.relatedTarget as Node | null;
+        if (pop && to && !pop.contains(to) && !chip.contains(to)) close(false);
+      }) as EventListener,
       onkeydown: ((e: KeyboardEvent) => {
         const n = o.options.length;
         if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % n; paintPop(); }
         else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active - 1 + n) % n; paintPop(); }
         else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(active); }
-        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); chip.focus(); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
       }) as EventListener });
     chip.setAttribute('aria-expanded', 'true');
     document.body.append(pop);

@@ -34,14 +34,14 @@ describe('openDrawer', () => {
     d.el.click();
     expect(onClose).not.toHaveBeenCalled();
     (document.querySelector('.drawer-backdrop') as HTMLElement).click();
-    d.close();
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.drawer')).toBeNull();
   });
   it('close button closes once', () => {
     const onClose = vi.fn();
     const d = openDrawer(h('p'), { label: 'L', onClose });
     (d.el.querySelector('.drawer-close') as HTMLElement).click();
-    d.close();
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.drawer')).toBeNull();
   });
 });

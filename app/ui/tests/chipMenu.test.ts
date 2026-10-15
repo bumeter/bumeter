@@ -51,6 +51,32 @@ describe('chipMenu', () => {
   });
 });
 
+describe('chipMenu focus', () => {
+  it('returns focus to chip after click and Enter selection', () => {
+    const c = chipMenu({ label: 'T', value: 'a', options: opts, onChange: () => {} });
+    document.body.append(c); c.click();
+    (document.querySelectorAll('[role=option]')[1] as HTMLElement).click();
+    expect(document.activeElement).toBe(c);
+    c.click();
+    key(document.querySelector('[role=listbox]')!, 'Enter');
+    expect(document.activeElement).toBe(c);
+  });
+  it('multi: closing via Esc returns focus to chip', () => {
+    const c = chipMultiMenu({ label: 'T', values: [], options: opts, onChange: () => {} });
+    document.body.append(c); c.click();
+    key(document.querySelector('[role=listbox]')!, 'Escape');
+    expect(document.activeElement).toBe(c);
+  });
+  it('focus leaving the popover closes it', () => {
+    const other = document.createElement('button'); document.body.append(other);
+    const c = chipMenu({ label: 'T', value: 'a', options: opts, onChange: () => {} });
+    document.body.append(c); c.click();
+    const lb = document.querySelector('[role=listbox]')!;
+    lb.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: other }));
+    expect(document.querySelector('[role=listbox]')).toBeNull();
+  });
+});
+
 describe('chipMultiMenu', () => {
   it('toggles multiple and shows count', () => {
     const onChange = vi.fn();
