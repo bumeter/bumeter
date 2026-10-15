@@ -9,6 +9,7 @@ import './styles/layout.css';
 import './styles/components.css';
 
 import { api } from './api';
+import { applyTheme } from './theme';
 import { setLang, t } from './i18n';
 import type { Lang } from './i18n';
 import { watchLayout } from './layout';
@@ -18,7 +19,7 @@ import type { View } from './state';
 const params = new URLSearchParams(location.search);
 // ?theme=light|dark, ?lang=vi|en, ?view=…, ?scope=… để xem thử / chụp ảnh.
 const forced = params.get('theme');
-if (forced === 'light' || forced === 'dark') document.documentElement.dataset.theme = forced;
+if (forced === 'light' || forced === 'dark') applyTheme(forced);
 const VIEWS: View[] = ['overview', 'conversations', 'skills', 'settings', 'session'];
 const skillView = params.get('skillView');
 if (skillView === 'cards' || skillView === 'table') { try { localStorage.setItem('thongke.skillView', skillView); } catch { /* bỏ qua */ } }
@@ -34,7 +35,11 @@ export async function boot() {
 
   // Ngôn ngữ lưu trong config của app; ?lang= ghi đè để xem thử.
   let lang: Lang = 'vi';
-  try { lang = (await api.settings()).config.language ?? 'vi'; } catch { /* mặc định vi */ }
+  try {
+    const cfg = (await api.settings()).config;
+    lang = cfg.language ?? 'vi';
+    if (!forced) applyTheme(cfg.theme ?? 'system'); // ?theme= trên URL thắng config
+  } catch { /* mặc định vi, theo hệ thống */ }
   const q = params.get('lang');
   if (q === 'vi' || q === 'en') lang = q;
   setLang(lang);

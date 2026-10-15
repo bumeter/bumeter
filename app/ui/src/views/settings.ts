@@ -2,123 +2,202 @@ import { api } from '../api';
 import type { Config, SettingsInfo } from '../api';
 import { h } from '../dom';
 import { setLang, t } from '../i18n';
-import type { Lang } from '../i18n';
+import type { Key, Lang } from '../i18n';
 import { state, update } from '../state';
+import { applyTheme } from '../theme';
+import type { ThemeChoice } from '../theme';
+import { allSources, glyph, loadSources } from '../tools';
+
+/** Chờ sau lần sửa cuối rồi mới lưu, để gõ dở ("7" trong "70") không bị lưu. */
+export const SAVE_DEBOUNCE_MS = 400;
 
 let cleanup: (() => void) | null = null;
 /** Lời nhắn còn lại sau khi đổi ngôn ngữ (màn được mount lại). */
 let carried = '';
 
+type NumField = 'anomaly_multiplier' | 'context_threshold' | 'quota_thresholds';
+type Parsed = { ok: true; value: number | number[] } | { ok: false; error: Key };
+
+function parseField(name: NumField, raw: string): Parsed {
+  const v = raw.trim();
+  if (name === 'quota_thresholds') {
+    const parts = v.split(',').map((x) => x.trim());
+    const nums = parts.map((x) => (/^\d+$/.test(x) ? Number(x) : NaN));
+    if (!v || nums.some((n) => !(n >= 1 && n <= 100))) return { ok: false, error: 'set.errQuota' };
+    return { ok: true, value: nums };
+  }
+  const n = v === '' ? NaN : Number(v);
+  if (!Number.isFinite(n) || n <= 0) return { ok: false, error: 'set.errNumber' };
+  return { ok: true, value: name === 'context_threshold' ? Math.round(n * 1000) : n };
+}
+
 export async function mountSettings(el: HTMLElement) {
   cleanup?.();
-  let info: SettingsInfo = await api.settings();
-  let message = carried;
-  carried = '';
+  await loadSources();
+  const info: SettingsInfo = await api.settings();
+  let status = info.statusline;
   let confirm: { text: string; run: () => Promise<unknown> } | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let theme: ThemeChoice = info.config.theme ?? 'system';
 
-  const field = (label: string, name: string, value: string | number, hint: string) =>
-    h('label', { class: 'field' }, h('span', {}, label), h('input', { name, value: String(value), inputmode: 'decimal' }), h('small', {}, hint));
-  const toggle = (label: string, name: string, on: boolean) =>
-    h('label', { class: 'toggle' }, h('input', { type: 'checkbox', name, checked: on }), label);
+  const msg = h('p', { class: 'message', role: 'status' }, carried);
+  carried = '';
+  const say = (text: string, error = false) => { msg.textContent = text; msg.classList.toggle('error', error); };
 
-  const statusText = () => {
-    const s = info.statusline;
-    if (s.kind === 'hooked') return h('div', { class: 'status ok' }, t('set.hooked'));
-    if (s.kind === 'custom') return h('div', { class: 'status' }, t('set.custom'), h('code', {}, s.command));
-    return h('div', { class: 'status' }, t('set.none'));
+  const errors = new Map<NumField, HTMLElement>();
+  const inputs = new Map<NumField, HTMLInputElement>();
+  const field = (label: string, name: NumField, value: string | number, hint: string) => {
+    const input = h('input', { name, value: String(value), inputmode: 'decimal', 'aria-describedby': `err-${name}` }) as HTMLInputElement;
+    const err = h('small', { class: 'field-error', id: `err-${name}`, role: 'alert' });
+    inputs.set(name, input); errors.set(name, err);
+    input.addEventListener('input', () => schedule());
+    input.addEventListener('blur', () => { validate(name); });
+    return h('label', { class: 'field' }, h('span', {}, label), input, h('small', {}, hint), err);
   };
-
-  const ask = async (planned: Promise<{ description: string }>, run: () => Promise<unknown>) => {
-    try {
-      const p = await planned;
-      confirm = { text: p.description, run };
-    } catch (e) {
-      message = t('common.error', { e: String(e) });
-    }
-    render();
+  /** Hiện hoặc xoá lỗi của ô; trả về giá trị hợp lệ. */
+  const validate = (name: NumField): Parsed => {
+    const input = inputs.get(name)!;
+    const r = parseField(name, input.value);
+    errors.get(name)!.textContent = r.ok ? '' : t(r.error);
+    input.setAttribute('aria-invalid', r.ok ? 'false' : 'true');
+    return r;
   };
+  const notify: Record<string, HTMLInputElement> = {};
+  const toggle = (label: string, name: string, on: boolean) => {
+    const input = h('input', { type: 'checkbox', name, checked: on }) as HTMLInputElement;
+    notify[name] = input;
+    input.addEventListener('change', () => schedule());
+    return h('label', { class: 'toggle' }, input, label);
+  };
+  const langSel = h('select', { name: 'language', class: 'select', 'aria-label': t('set.languageLabel') },
+    h('option', { value: 'vi', selected: (info.config.language ?? 'vi') === 'vi' }, 'Tiếng Việt'),
+    h('option', { value: 'en', selected: info.config.language === 'en' }, 'English')) as HTMLSelectElement;
+  let language: Lang = info.config.language ?? 'vi';
 
-  const readConfig = (): Config => {
-    const val = (n: string) => (el.querySelector(`input[name="${n}"]`) as HTMLInputElement).value;
-    const on = (n: string) => (el.querySelector(`input[name="${n}"]`) as HTMLInputElement).checked;
+  const current = (): Config | null => {
+    const parsed = (['anomaly_multiplier', 'context_threshold', 'quota_thresholds'] as NumField[]).map((n) => [n, validate(n)] as const);
+    if (parsed.some(([, r]) => !r.ok)) return null;
+    const v = Object.fromEntries(parsed.map(([n, r]) => [n, (r as { value: number | number[] }).value]));
     return {
       ...info.config,
-      anomaly_multiplier: Number(val('anomaly_multiplier')) || info.config.anomaly_multiplier,
-      context_threshold: Math.round((Number(val('context_threshold')) || info.config.context_threshold / 1000) * 1000),
-      quota_thresholds: val('quota_thresholds').split(',').map((x) => Number(x.trim())).filter((x) => x > 0 && x <= 100),
-      notify: { quota: on('notify_quota'), blocked: on('notify_blocked'), anomaly: on('notify_anomaly'), context: on('notify_context') },
-      language: ((el.querySelector('select[name="language"]') as HTMLSelectElement | null)?.value as Lang) ?? info.config.language,
+      anomaly_multiplier: v.anomaly_multiplier as number,
+      context_threshold: v.context_threshold as number,
+      quota_thresholds: v.quota_thresholds as number[],
+      notify: { quota: notify.notify_quota.checked, blocked: notify.notify_blocked.checked, anomaly: notify.notify_anomaly.checked, context: notify.notify_context.checked },
+      language,
+      theme,
     };
   };
 
-  const render = () => {
-    const c = info.config;
-    const hooked = info.statusline.kind === 'hooked';
-    el.replaceChildren(
-      h('div', { class: 'toolbar' }, h('h1', {}, t('nav.settings'))),
-      h('div', { class: 'scroll pad settings' },
-        h('section', { class: 'group' },
-          h('h2', {}, t('set.language')),
-          h('label', { class: 'field' }, h('span', {}, t('set.languageLabel')),
-            h('select', { name: 'language', class: 'select', 'aria-label': t('set.languageLabel') },
-              h('option', { value: 'vi', selected: (c.language ?? 'vi') === 'vi' }, 'Tiếng Việt'),
-              h('option', { value: 'en', selected: c.language === 'en' }, 'English')),
-            h('small', {}, t('set.languageHint')))),
-        h('section', { class: 'group' },
-          h('h2', {}, t('set.limits')),
-          statusText(),
-          h('div', { class: 'actions' },
-            hooked
-              ? h('button', { class: 'button', 'data-action': 'statusline-undo', onclick: (() => void ask(Promise.resolve({ description: t('set.undoConfirm') }), api.statuslineUndo)) as EventListener }, t('set.undo'))
-              : h('button', { class: 'button primary', 'data-action': 'statusline-enable', onclick: (() => void ask(api.statuslinePlan(), api.statuslineApply)) as EventListener }, t('set.enable')))),
-        confirm
-          ? h('div', { class: 'confirm', role: 'dialog', 'aria-label': t('common.confirm') },
-              h('pre', {}, confirm.text),
-              h('div', { class: 'actions' },
-                h('button', { class: 'button primary', 'data-action': 'confirm', onclick: (async () => {
-                  const run = confirm!.run;
-                  confirm = null;
-                  try { await run(); message = t('set.savedStatusline'); } catch (e) { message = t('common.error', { e: String(e) }); }
-                  info = await api.settings();
-                  render();
-                }) as EventListener }, t('common.confirm')),
-                h('button', { class: 'button', onclick: (() => { confirm = null; render(); }) as EventListener }, t('common.cancel'))))
-          : null,
-        h('section', { class: 'group' },
-          h('h2', {}, t('set.thresholds')),
-          field(t('set.anomaly'), 'anomaly_multiplier', c.anomaly_multiplier, t('set.anomalyHint')),
-          field(t('set.context'), 'context_threshold', Math.round(c.context_threshold / 1000), t('set.contextHint')),
-          field(t('set.quota'), 'quota_thresholds', c.quota_thresholds.join(', '), t('set.quotaHint'))),
-        h('section', { class: 'group' },
-          h('h2', {}, t('set.notify')),
-          toggle(t('set.notifyQuota'), 'notify_quota', c.notify.quota),
-          toggle(t('set.notifyBlocked'), 'notify_blocked', c.notify.blocked),
-          toggle(t('set.notifyAnomaly'), 'notify_anomaly', c.notify.anomaly),
-          toggle(t('set.notifyContext'), 'notify_context', c.notify.context)),
-        h('div', { class: 'actions' },
-          h('button', { class: 'button primary', 'data-action': 'save', onclick: (async () => {
-            const cfg = readConfig();
-            let ok = true;
-            try { await api.saveConfig(cfg); } catch (e) { ok = false; message = t('common.error', { e: String(e) }); }
-            info = await api.settings();
-            if (ok && cfg.language && cfg.language !== state.lang) {
-              // Đổi ngôn ngữ: cả app vẽ lại (màn này được mount lại), lời nhắn giữ qua `carried`.
-              setLang(cfg.language);
-              carried = t('set.saved');
-              update({ lang: cfg.language });
-              return;
-            }
-            if (ok) message = t('set.saved');
-            render();
-          }) as EventListener }, t('common.save'))),
-        message ? h('p', { class: 'message' }, message) : null,
-        h('section', { class: 'group' },
-          h('h2', {}, t('set.diagnostics')),
-          h('div', { class: 'sub' }, t('set.dataDir'), h('code', {}, info.data_dir)),
-          h('div', { class: 'sub' }, t('set.parseErrors', { n: info.parse_errors })))),
+  /** Lưu giá trị hợp lệ; giá trị lỗi chỉ báo tại ô, không gọi save_config. */
+  const save = async (): Promise<boolean> => {
+    if (timer) { clearTimeout(timer); timer = null; }
+    const cfg = current();
+    if (!cfg) return false;
+    try {
+      await api.saveConfig(cfg);
+      info.config = cfg;
+      say(t('set.saved'));
+      return true;
+    } catch (e) {
+      say(t('set.saveError', { e: String(e) }), true);
+      return false;
+    }
+  };
+  const schedule = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { void save(); }, SAVE_DEBOUNCE_MS);
+  };
+
+  langSel.addEventListener('change', async () => {
+    language = langSel.value as Lang;
+    if (!(await save()) || language === state.lang) return;
+    // Đổi ngôn ngữ: cả app vẽ lại (màn này được mount lại), lời nhắn giữ qua `carried`.
+    setLang(language);
+    carried = t('set.saved');
+    update({ lang: language });
+  });
+
+  const themeBtn = (value: ThemeChoice, label: string) =>
+    h('button', {
+      type: 'button', 'data-theme-value': value, 'aria-pressed': String(theme === value),
+      onclick: (() => {
+        theme = value;
+        applyTheme(value);
+        themeSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-value') === value)));
+        schedule();
+      }) as EventListener,
+    }, label);
+  const themeSeg = h('div', { class: 'segmented', role: 'group', 'aria-label': t('set.theme') },
+    themeBtn('light', t('set.themeLight')), themeBtn('dark', t('set.themeDark')), themeBtn('system', t('set.themeSystem')));
+
+  const toolRows = allSources().map((s) => h('div', { class: 'tool-row', 'data-tool': s.info.id },
+    glyph(s.info.id),
+    h('div', { class: 'tool-main' }, h('div', { class: 'tool-name' }, s.info.label), h('code', {}, s.root)),
+    h('span', { class: 'pill' }, t('set.toolTurns', { n: s.prompts })),
+    s.found ? h('span', { class: 'pill ok' }, t('set.toolFound')) : h('span', { class: 'pill missing' }, t('set.toolMissing'))));
+
+  // Trạng thái statusline + hộp xác nhận: vẽ riêng để không làm mất giá trị đang gõ ở ô khác.
+  const limitsHost = h('div', {});
+  const renderLimits = () => {
+    const hooked = status.kind === 'hooked';
+    const text = status.kind === 'hooked' ? h('div', { class: 'status ok' }, t('set.hooked'))
+      : status.kind === 'custom' ? h('div', { class: 'status' }, t('set.custom'), h('code', {}, status.command))
+      : h('div', { class: 'status' }, t('set.none'));
+    const ask = async (planned: Promise<{ description: string }>, run: () => Promise<unknown>) => {
+      try { confirm = { text: (await planned).description, run }; } catch (e) { say(t('common.error', { e: String(e) }), true); }
+      renderLimits();
+    };
+    limitsHost.replaceChildren(
+      text,
+      h('div', { class: 'actions' },
+        hooked
+          ? h('button', { class: 'btn', type: 'button', 'data-action': 'statusline-undo', onclick: (() => void ask(Promise.resolve({ description: t('set.undoConfirm') }), api.statuslineUndo)) as EventListener }, t('set.undo'))
+          : h('button', { class: 'btn primary', type: 'button', 'data-action': 'statusline-enable', onclick: (() => void ask(api.statuslinePlan(), api.statuslineApply)) as EventListener }, t('set.enable'))),
+      confirm
+        ? h('div', { class: 'confirm', role: 'dialog', 'aria-label': t('common.confirm') },
+            h('pre', {}, confirm.text),
+            h('div', { class: 'actions' },
+              h('button', { class: 'btn primary', type: 'button', 'data-action': 'confirm', onclick: (async () => {
+                const run = confirm!.run;
+                confirm = null;
+                try { await run(); say(t('set.savedStatusline')); } catch (e) { say(t('common.error', { e: String(e) }), true); }
+                status = (await api.settings()).statusline;
+                renderLimits();
+              }) as EventListener }, t('common.confirm')),
+              h('button', { class: 'btn', type: 'button', onclick: (() => { confirm = null; renderLimits(); }) as EventListener }, t('common.cancel'))))
+        : '',
     );
   };
 
-  render();
-  cleanup = () => {};
+  const c = info.config;
+  el.replaceChildren(
+    h('div', { class: 'toolbar' }, h('h1', {}, t('nav.settings'))),
+    h('div', { class: 'scroll pad settings' },
+      h('section', { class: 'panel' },
+        h('h2', {}, t('set.general')),
+        h('div', { class: 'row' }, h('span', {}, t('set.languageLabel')), langSel),
+        h('small', {}, t('set.languageHint')),
+        h('div', { class: 'row' }, h('span', {}, t('set.theme')), themeSeg)),
+      h('section', { class: 'panel' }, h('h2', {}, t('set.tools')), ...toolRows),
+      h('section', { class: 'panel' },
+        h('h2', {}, t('set.limitsNotify')),
+        limitsHost,
+        field(t('set.anomaly'), 'anomaly_multiplier', c.anomaly_multiplier, t('set.anomalyHint')),
+        field(t('set.context'), 'context_threshold', Math.round(c.context_threshold / 1000), t('set.contextHint')),
+        field(t('set.quota'), 'quota_thresholds', c.quota_thresholds.join(', '), t('set.quotaHint')),
+        toggle(t('set.notifyQuota'), 'notify_quota', c.notify.quota),
+        toggle(t('set.notifyBlocked'), 'notify_blocked', c.notify.blocked),
+        toggle(t('set.notifyAnomaly'), 'notify_anomaly', c.notify.anomaly),
+        toggle(t('set.notifyContext'), 'notify_context', c.notify.context),
+        h('small', {}, t('set.saved'))),
+      msg,
+      h('section', { class: 'panel' },
+        h('h2', {}, t('set.diagnostics')),
+        h('div', { class: 'sub' }, t('set.dataDir'), h('code', {}, info.data_dir)),
+        h('div', { class: 'sub' }, t('set.parseErrors', { n: info.parse_errors })))),
+  );
+  renderLimits();
+  // Rời màn khi còn lần sửa chờ lưu: lưu nốt (nếu hợp lệ) thay vì làm mất.
+  cleanup = () => { if (timer) void save(); };
 }

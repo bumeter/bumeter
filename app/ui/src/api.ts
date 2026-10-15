@@ -25,6 +25,7 @@ export interface Change { prompt_keys: string[]; session_ids: string[] }
 
 export interface Config {
   language?: 'vi' | 'en';
+  theme?: 'system' | 'light' | 'dark';
   anomaly_multiplier: number; context_threshold: number; quota_thresholds: number[];
   notify: { quota: boolean; blocked: boolean; anomaly: boolean; context: boolean }; claude_projects_dir: string | null;
 }
