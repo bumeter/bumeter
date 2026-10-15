@@ -274,4 +274,17 @@ describe('bố cục theo độ rộng', () => {
     expect(drawer.querySelector('[data-key="p1"].open')).not.toBeNull();
     expect(state.turn).toBe('p1');
   });
+
+  it('đang ở view khác: đổi bố cục không đụng #detail và không mở ngăn kéo', async () => {
+    await mountWith('medium');
+    update({ view: 'skills' });
+    detailEl.replaceChildren(Object.assign(document.createElement('p'), { id: 'other', textContent: 'skill detail' }));
+    update({ layout: 'wide' });
+    await flush(); await flush();
+    expect(detailEl.innerHTML).toBe('<p id="other">skill detail</p>');
+    update({ layout: 'medium' });
+    await flush(); await flush();
+    expect(detailEl.innerHTML).toBe('<p id="other">skill detail</p>');
+    expect(document.querySelector('.drawer')).toBeNull();
+  });
 });

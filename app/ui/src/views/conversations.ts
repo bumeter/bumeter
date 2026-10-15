@@ -244,7 +244,7 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
       markSelected(true);
       if (drawer && state.conversation) drawer.el.setAttribute('aria-label', titles.get(state.conversation) ?? t('conv.untitled'));
     }
-    if (changed.includes('layout')) syncLayout();
+    if (changed.includes('layout') && state.view === 'conversations') syncLayout();
     if (changed.includes('view') && state.view !== 'conversations') { closeDrawer(); closeNarrow(); unmountConversation(); }
   });
   const offData = await api.onDataChanged(() => void load());
