@@ -35,9 +35,12 @@ struct Backup {
     existed: bool,
     /// Nội dung gốc trước lần bật đầu tiên.
     content: String,
-    /// `statusLine` gốc (null nếu chưa có).
-    previous_status_line: Value,
+    /// `statusLine` gốc (null nếu chưa có). Bản sao lưu đời đầu không có trường này:
+    /// `read_backup` lấy lại từ `content`.
+    #[serde(default)]
+    previous_status_line: Option<Value>,
     /// Lệnh ta đã ghi lần gần nhất, để biết người dùng có sửa sau đó không.
+    #[serde(default)]
     written_command: String,
 }
 
@@ -140,7 +143,14 @@ impl StatuslineSetup {
 
     fn read_backup(&self) -> anyhow::Result<Option<Backup>> {
         match std::fs::read(self.backup_path()) {
-            Ok(raw) => Ok(Some(serde_json::from_slice(&raw)?)),
+            Ok(raw) => {
+                let mut b: Backup = serde_json::from_slice(&raw)?;
+                if b.previous_status_line.is_none() {
+                    let original: Value = serde_json::from_str(&b.content).unwrap_or(Value::Null);
+                    b.previous_status_line = Some(original.get("statusLine").cloned().unwrap_or(Value::Null));
+                }
+                Ok(Some(b))
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(e.into()),
         }
@@ -197,7 +207,7 @@ impl StatuslineSetup {
             Status::Hooked { command } => {
                 // Đường dẫn tk đã đổi: dựng lại từ lệnh gốc, không bọc thêm lớp nữa.
                 let original = match self.read_backup()? {
-                    Some(b) => b.previous_status_line["command"].as_str().map(str::to_string),
+                    Some(b) => b.previous_status_line.as_ref().and_then(|p| p["command"].as_str()).map(str::to_string),
                     None => unwrap_hook(&command),
                 };
                 let new = original.as_deref().map(|o| self.wrap(o)).unwrap_or_else(|| self.marker());
@@ -230,7 +240,7 @@ impl StatuslineSetup {
                 settings_path: path.clone(),
                 existed: current.is_some(),
                 content: current.as_ref().map(|(s, _)| s.clone()).unwrap_or_default(),
-                previous_status_line: v.get("statusLine").cloned().unwrap_or(Value::Null),
+                previous_status_line: Some(v.get("statusLine").cloned().unwrap_or(Value::Null)),
                 written_command: cmd.clone(),
             },
         };
@@ -250,7 +260,7 @@ impl StatuslineSetup {
                 if v["statusLine"]["command"].as_str() != Some(b.written_command.as_str()) {
                     bail!("statusLine đã bị sửa sau khi bật, không tự hoàn tác để tránh mất thay đổi của bạn");
                 }
-                match &b.previous_status_line {
+                match b.previous_status_line.as_ref().unwrap_or(&Value::Null) {
                     Value::Null => { v.as_object_mut().map(|o| o.remove("statusLine")); }
                     prev => v["statusLine"] = prev.clone(),
                 }

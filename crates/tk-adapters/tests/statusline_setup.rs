@@ -248,3 +248,23 @@ fn legacy_hook_unchanged_when_no_bum_exists_anywhere() {
     assert_eq!(std::fs::read(settings(dir.path())).unwrap(), before);
     assert_eq!(command(dir.path()), old);
 }
+
+/// Bản sao lưu từ phiên bản đầu chỉ có `settings_path`/`existed`/`content`.
+#[test]
+fn legacy_hook_migrates_with_old_format_backup_and_undo_restores_original() {
+    let dir = tempfile::tempdir().unwrap();
+    let bum = fake_tk(dir.path(), "bin-a/bum");
+    let s = setup_with(dir.path(), bum);
+    let original = json!({"model": "x", "statusLine": {"type": "command", "command": "bash ~/.claude/sl.sh"}}).to_string();
+    let old_backup = json!({"settings_path": settings(dir.path()), "existed": true, "content": original});
+    std::fs::create_dir_all(dir.path().join("backups")).unwrap();
+    std::fs::write(dir.path().join("backups/statusline-backup.json"), old_backup.to_string()).unwrap();
+    let old = format!("\"{}/bin-a/tk\" statusline --tee | bash ~/.claude/sl.sh", dir.path().display());
+    write_settings(dir.path(), &json!({"model": "x", "statusLine": {"type": "command", "command": old}}).to_string());
+
+    assert!(s.migrate_legacy_hook().unwrap());
+    assert_eq!(command(dir.path()), format!("\"{}/bin-a/bum\" statusline --tee | bash ~/.claude/sl.sh", dir.path().display()));
+
+    s.undo().unwrap();
+    assert_eq!(command(dir.path()), "bash ~/.claude/sl.sh");
+}
