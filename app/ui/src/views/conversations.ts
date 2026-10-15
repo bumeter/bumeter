@@ -195,7 +195,7 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
       : null;
     body.replaceChildren(
       ...list.days.flatMap((d) => [
-        h('div', { class: 'group-header' }, h('span', {}, fmtDayHeader(d.day)), h('span', { class: 'num' }, `${d.conversations.length} · ${fmtTokens(d.tokens)}`)),
+        h('div', { class: d.day === localDay(new Date().toISOString()) ? 'group-header today' : 'group-header' }, h('span', {}, fmtDayHeader(d.day)), h('span', { class: 'num' }, `${d.conversations.length} · ${fmtTokens(d.tokens)}`)),
         ...d.conversations.map((c) => convRow(c, showTool, max, pick)),
       ]),
       ...(more ? [more] : []));

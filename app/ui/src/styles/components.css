@@ -164,8 +164,11 @@ div.bar i {
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 14px 6px; }
 .filters .menus, .filters .quick { display: contents; }
 .conv-panel { margin: 6px 14px 14px; padding: 4px 0 6px; border-radius: var(--r-panel); background: var(--surf); border: 1px solid var(--line); }
-.conv-panel .group-header { position: sticky; top: 0; background: var(--surf); border: 0; padding: 12px 16px 4px; font: 800 12px var(--font); color: var(--ink); }
-.conv-panel .group-header span:last-child { color: var(--ink3); font-weight: 600; }
+/* Tiêu đề ngày: dải nền chìm, chữ nhỏ nhạt — khác hẳn dòng hội thoại (đậm, nền thẻ). */
+.conv-panel .group-header { position: sticky; top: 0; background: var(--sunk); border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 7px 16px; font: 600 11.5px var(--font); letter-spacing: .02em; color: var(--ink2); }
+.conv-panel .group-header span:last-child { color: var(--ink2); font-weight: 500; }
+.conv-panel .group-header.today span:first-child { color: var(--acc2); font-weight: 700; }
+.conv-panel .group-header + .conv-row { border-top: 0; }
 .conv-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 36px auto; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--ink); text-align: left; cursor: default; }
 .conv-row:not(:has(.tool-logo)) { grid-template-columns: minmax(0, 1fr) 36px auto; }
 .conv-row:hover { background: var(--sunk); }
