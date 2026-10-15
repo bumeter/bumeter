@@ -89,3 +89,8 @@ describe('styles: components.css khai báo đủ class dùng chung', () => {
     expect(/\.bar\b/.test(css) || /\.fuel\b/.test(css)).toBe(true);
   });
 });
+
+it('quy tắc .bar chung không đè rect SVG của biểu đồ ngày', () => {
+  const css = readFileSync('src/styles/components.css', 'utf8');
+  expect(/^\.bar\s*\{/m.test(css)).toBe(false);
+});

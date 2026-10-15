@@ -17,7 +17,7 @@ import { state, subscribe, update } from './state';
 import type { View } from './state';
 
 const params = new URLSearchParams(location.search);
-// ?theme=light|dark, ?lang=vi|en, ?view=…, ?scope=… để xem thử / chụp ảnh.
+// ?theme=light|dark, ?lang=vi|en, ?view=…, ?scope=…, ?open=1 để xem thử / chụp ảnh.
 const forced = params.get('theme');
 if (forced === 'light' || forced === 'dark') applyTheme(forced);
 const VIEWS: View[] = ['overview', 'conversations', 'skills', 'settings', 'session'];
@@ -74,6 +74,16 @@ export async function boot() {
   });
   await mountSidebar(document.getElementById('sidebar')!);
   await show();
+  // ?open=1: mở chi tiết của hội thoại đang chọn như khi bấm (ngăn kéo ở medium, toàn màn ở narrow) — để chụp ảnh.
+  if (params.get('open') === '1' && state.view === 'conversations') {
+    const started = Date.now();
+    const tryOpen = () => {
+      const row = document.querySelector<HTMLElement>('.conv-row[aria-selected="true"]');
+      if (row) row.click();
+      else if (Date.now() - started < 3000) setTimeout(tryOpen, 50);
+    };
+    tryOpen();
+  }
 }
 
 boot();
