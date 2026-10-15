@@ -70,6 +70,10 @@ fn move_db_files(dir: &Path, rename: RenameFn) -> io::Result<()> {
         }
         let to = dir.join(format!("bumeter.db{suffix}"));
         if let Err(e) = rename(&from, &to) {
+            // Hai tiến trình cùng chuyển: nguồn đã biến mất nhưng đích đã có = tiến trình kia đã làm, đi tiếp.
+            if e.kind() == io::ErrorKind::NotFound && to.exists() {
+                continue;
+            }
             for (f, t) in done.iter().rev() {
                 let _ = std::fs::rename(t, f);
             }
@@ -92,15 +96,23 @@ impl Paths {
 
     /// `BUM_DATA_DIR` thắng `TK_DATA_DIR`; chỉ khi không đặt biến nào mới dùng thư mục mặc định (và chuyển dữ liệu cũ).
     fn resolve_with(bum: Option<OsString>, tk: Option<OsString>, default_base: impl FnOnce() -> PathBuf) -> Self {
+        Self::resolve_with_rename(bum, tk, default_base, &|a, b| std::fs::rename(a, b))
+    }
+
+    fn resolve_with_rename(bum: Option<OsString>, tk: Option<OsString>, default_base: impl FnOnce() -> PathBuf, rename: RenameFn) -> Self {
         if let Some(dir) = bum.or(tk) {
             return Self::new(dir);
         }
         let base = default_base();
-        match migrate_legacy(&base) {
+        match migrate_with(&base, rename) {
             Ok(MigrateOutcome::KeptLegacy(reason)) => {
+                let new = base.join(NEW_DIR);
+                // Tiến trình khác đã chuyển xong trong lúc ta chuyển: dùng db mới.
+                if new.join("bumeter.db").exists() {
+                    return Self::new(new);
+                }
                 eprintln!("bumeter: không chuyển được dữ liệu cũ ({reason}); tiếp tục dùng tên file cũ");
                 // Thư mục đã đổi tên (chỉ file db chưa) thì ở thư mục mới, nếu không thì ở thư mục cũ.
-                let new = base.join(NEW_DIR);
                 Self { data_dir: if new.exists() { new } else { base.join(OLD_DIR) }, legacy: true }
             }
             Ok(_) => Self::new(base.join(NEW_DIR)),
@@ -308,5 +320,47 @@ mod tests {
         let p = Paths::new(format!("/{}", "a".repeat(120)));
         assert!(p.socket().file_name().unwrap().to_string_lossy().starts_with("bumeter-"));
         assert_eq!(p.db().file_name().unwrap(), "bumeter.db");
+    }
+    /// Tiến trình khác vừa đổi tên giúp (rename báo NotFound nhưng đích đã có): coi như xong, không hoàn tác.
+    #[test]
+    fn concurrent_process_moved_db_files_is_not_rolled_back() {
+        let t = tempfile::tempdir().unwrap();
+        legacy_dir(t.path());
+        let other_did_it = |a: &Path, b: &Path| {
+            if b.file_name().unwrap().to_string_lossy().starts_with("bumeter.db") {
+                std::fs::rename(a, b).unwrap();
+                Err(io::Error::new(io::ErrorKind::NotFound, "đã bị tiến trình khác chuyển"))
+            } else {
+                std::fs::rename(a, b)
+            }
+        };
+        assert_eq!(migrate_with(t.path(), &other_did_it).unwrap(), MigrateOutcome::Moved);
+        let new = t.path().join("bumeter");
+        for f in ["bumeter.db", "bumeter.db-wal", "bumeter.db-shm"] {
+            assert!(new.join(f).exists(), "{f}");
+        }
+        assert!(!new.join("thongke.db").exists());
+    }
+
+    /// Tiến trình khác chuyển xong cả thư mục trong lúc ta định đổi tên: dùng `bumeter/bumeter.db`, không rơi về tên cũ.
+    #[test]
+    fn kept_legacy_but_new_db_exists_uses_new_db() {
+        let t = tempfile::tempdir().unwrap();
+        legacy_dir(t.path());
+        let base = t.path().to_path_buf();
+        let other_finished = |a: &Path, b: &Path| {
+            if b.file_name().unwrap() == NEW_DIR {
+                std::fs::rename(a, b).unwrap();
+                for suffix in ["-wal", "-shm", ""] {
+                    std::fs::rename(b.join(format!("thongke.db{suffix}")), b.join(format!("bumeter.db{suffix}"))).unwrap();
+                }
+                Err(io::Error::new(io::ErrorKind::NotFound, "thư mục cũ đã biến mất"))
+            } else {
+                std::fs::rename(a, b)
+            }
+        };
+        let p = Paths::resolve_with_rename(None, None, || base.clone(), &other_finished);
+        assert_eq!(p.db(), base.join("bumeter/bumeter.db"));
+        assert!(p.db().exists());
     }
 }
