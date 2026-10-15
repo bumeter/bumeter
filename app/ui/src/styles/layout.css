@@ -355,12 +355,9 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .app[data-layout="medium"] .sidebar { align-items: center; overflow: visible; position: relative; z-index: 2; }
 .app[data-layout="medium"] .brand { margin: 0 0 12px; }
 .app[data-layout="medium"] .wordmark, .app[data-layout="medium"] .side-section, .app[data-layout="medium"] .side-item .label,
-.app[data-layout="medium"] .side-item .count, .app[data-layout="medium"] .seg-label,
+.app[data-layout="medium"] .side-item .count,
 .app[data-layout="medium"] .bumcard .bum-text { display: none; }
 .app[data-layout="medium"] .side-item { width: 44px; height: 36px; padding: 0; justify-content: center; }
-.app[data-layout="medium"] .scope-seg { flex-direction: column; width: 44px; margin-bottom: 8px; }
-.app[data-layout="medium"] .seg-opt { flex: none; width: 38px; height: 32px; padding: 0; }
-.app[data-layout="medium"] .seg-all-ic, .app[data-layout="narrow"] .seg-all-ic { display: block; }
 .app[data-layout="medium"] .bumcard { padding: 8px; background: transparent; }
 
 /* narrow: một cột, thanh tab ở trên */
@@ -369,11 +366,11 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .app[data-layout="narrow"] .sidebar { flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; border-right: 0; border-bottom: var(--hair) solid var(--separator); position: relative; }
 .app[data-layout="narrow"] .brand { margin: 0 6px 0 0; }
 .app[data-layout="narrow"] .wordmark, .app[data-layout="narrow"] .side-section, .app[data-layout="narrow"] .side-item .label,
-.app[data-layout="narrow"] .side-item .count, .app[data-layout="narrow"] .seg-label,
+.app[data-layout="narrow"] .side-item .count, .app[data-layout="narrow"] .tool-switch .seg-label,
 .app[data-layout="narrow"] .bumcard .bum-text { display: none; }
+.app[data-layout="narrow"] .tool-switch .seg-all-ic { display: block; }
+.app[data-layout="narrow"] .tool-switch .seg-opt { width: 30px; padding: 0; }
 .app[data-layout="narrow"] .side-item { width: 40px; height: 36px; padding: 0; justify-content: center; flex: none; }
-.app[data-layout="narrow"] .scope-seg { flex: none; margin: 0 6px 0 0; }
-.app[data-layout="narrow"] .seg-opt { width: 34px; height: 30px; padding: 0; flex: none; }
 .app[data-layout="narrow"] .bumcard { margin: 0 0 0 auto; padding: 4px; background: transparent; flex: none; }
 
 /* Tổng quan (Bumeter): thẻ, biểu đồ + gợi ý, project/model */

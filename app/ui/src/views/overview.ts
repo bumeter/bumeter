@@ -10,6 +10,7 @@ import { fmtCredits, fmtTokens } from '../fmt';
 import { t } from '../i18n';
 import { state, subscribe, update } from '../state';
 import { allSources, modelTag, toolDef } from '../tools';
+import { toolSwitch } from '../components/toolSwitch';
 
 const W = 900;
 const H = 160;
@@ -121,7 +122,7 @@ export async function mountOverview(el: HTMLElement) {
     const convs = inScope.reduce((n, s) => n + (convCounts[s.info.id] ?? 0), 0);
     const tips = insights();
     el.replaceChildren(
-      h('div', { class: 'toolbar' }, h('h1', {}, t('nav.overview')), h('span', { class: 'spacer' }),
+      h('div', { class: 'toolbar' }, h('h1', {}, t('nav.overview')), h('span', { class: 'spacer' }), toolSwitch(),
         h('div', { class: 'segmented', role: 'group', 'aria-label': t('filter.range') },
           ...RANGES.map((r) => h('button', { 'data-range': r, 'aria-pressed': String(r === range), onclick: (() => { range = r; render(); void loadConvs(); }) as EventListener },
             r === 1 ? t('range.today') : r === 7 ? t('range.7d') : t('range.nd', { n: r }))))),

@@ -11,6 +11,7 @@ import type { Key } from '../i18n';
 import { state, subscribe, update } from '../state';
 import { glyph, shortModel, toolDef } from '../tools';
 import { mountConversation, unmountConversation } from './conversation';
+import { toolSwitch } from '../components/toolSwitch';
 
 const SEARCH_DEBOUNCE_MS = 200;
 const PAGE = 200;
@@ -90,7 +91,7 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
   const pill = h('span', { class: 'pill-slot' }, countPill(0));
   const body = h('div', { class: 'scroll panel conv-panel', role: 'listbox', 'aria-label': t('nav.conversations') });
   const listWrap = h('div', { class: 'conv-list' },
-    h('div', { class: 'toolbar' }, h('h1', {}, t('nav.conversations')), pill, h('label', { class: 'search' }, icon(ICONS.search), input)),
+    h('div', { class: 'toolbar' }, h('h1', {}, t('nav.conversations')), pill, h('label', { class: 'search' }, icon(ICONS.search), input), toolSwitch({ compact: true })),
     filters, summary, body);
   el.replaceChildren(listWrap);
 

@@ -8,6 +8,7 @@ import { fmtShortDate, fmtTime, fmtTokens, totalOf } from '../fmt';
 import { t } from '../i18n';
 import { state, subscribe, update } from '../state';
 import { glyph, toolDef, toolTag } from '../tools';
+import { toolSwitch } from '../components/toolSwitch';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -299,7 +300,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
               return h('button', { class: 'warn-badge', type: 'button', 'data-action': 'costly-unused', title: text, onclick: (() => { filters.costly = true; filters.status = null; renderList(); }) as EventListener }, text);
             })()
           : null,
-        h('span', { class: 'spacer' }),
+        h('span', { class: 'spacer' }), toolSwitch({ compact: true }),
         h('div', { class: 'segmented', role: 'group', 'aria-label': t('sk.viewMode') },
           ...(['table', 'cards'] as const).map((v) => h('button', { type: 'button', 'data-view-mode': v, 'aria-pressed': String(view === v),
             onclick: (() => { view = v; saveView(v); renderList(); }) as EventListener }, t(v === 'table' ? 'sk.viewTable' : 'sk.viewCards')))),

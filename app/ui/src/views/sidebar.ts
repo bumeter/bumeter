@@ -7,25 +7,13 @@ import { compact, h, icon, ICONS } from '../dom';
 import { t } from '../i18n';
 import { state, subscribe, update } from '../state';
 import type { View } from '../state';
-import { allSources, glyph, loadSources } from '../tools';
+import { allSources, loadSources } from '../tools';
 
-const SCOPE_KEY = 'bumeter.scope';
 /** Chu kỳ tính lại biểu cảm Bum ở thanh bên. */
 const BUM_REFRESH_MS = 60_000;
 
 /** Phạm vi đã chọn lần trước (chỉ là tiện ích, lỗi storage thì bỏ qua). */
-export function rememberedScope(): string | undefined {
-  try { return localStorage.getItem(SCOPE_KEY) || undefined; } catch { return undefined; }
-}
-
-function rememberScope(scope: string | undefined) {
-  try { if (scope) localStorage.setItem(SCOPE_KEY, scope); else localStorage.removeItem(SCOPE_KEY); } catch { /* bỏ qua */ }
-}
-
-export function setScope(scope: string | undefined) {
-  rememberScope(scope);
-  update({ scope, filter: { ...state.filter, tool: scope, models: [] }, conversation: null, turn: null });
-}
+export { rememberedScope, setScope } from '../components/toolSwitch';
 
 let cleanup: (() => void) | null = null;
 
@@ -44,15 +32,6 @@ export async function mountSidebar(el: HTMLElement) {
     const inScope = sources.filter((s) => !state.scope || s.info.id === state.scope);
     const conversations = inScope.reduce((n, s) => n + s.sessions, 0);
 
-    // Nút gạt phạm vi: thấy đủ lựa chọn, bấm một lần là đổi. Tên ngắn trên nút, tên đầy đủ + số lượt ở nhãn/tooltip.
-    const scopeOpt = (id: string | undefined, short: string, full: string, count: number, s?: Source) => {
-      const missing = s && !s.found;
-      const label = missing ? `${full} · ${t('scope.notFound', { path: s.root })}` : `${full} · ${count}`;
-      return h('button', { class: missing ? 'seg-opt missing' : 'seg-opt', role: 'radio', 'data-scope': id ?? 'all', 'aria-checked': String(state.scope === id),
-        'aria-label': label, title: label, onclick: (() => { if (state.scope !== id) setScope(id); }) as EventListener },
-        id ? glyph(id) : h('span', { class: 'seg-all-ic' }, icon(ICONS.layers)), h('span', { class: 'seg-label' }, short));
-    };
-
     const { mood, pct, showQuota } = bumMood(bumInfo, { scope: state.scope, sources, limits });
     const resets = showQuota ? limits?.five_hour?.resets_at : null;
     const resetTime = resets ? new Date(resets * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) : null;
@@ -67,9 +46,6 @@ export async function mountSidebar(el: HTMLElement) {
 
     el.replaceChildren(...compact([
       h('div', { class: 'brand' }, bum('calm', 26), h('span', { class: 'wordmark' }, 'bumeter')),
-      h('div', { class: 'scope-seg', role: 'radiogroup', 'aria-label': t('scope.all') },
-        scopeOpt(undefined, t('scope.allShort'), t('scope.all'), sources.reduce((n, s) => n + s.prompts, 0)),
-        ...sources.map((s) => scopeOpt(s.info.id, s.info.label.split(' ')[0], s.info.label, s.prompts, s))),
       h('div', { class: 'side-section' }, t('nav.section')),
       nav('overview', t('nav.overview'), ICONS.grid),
       nav('conversations', t('nav.conversations'), ICONS.chat, conversations),
