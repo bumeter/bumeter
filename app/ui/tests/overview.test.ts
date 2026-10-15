@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { fake, flush, SOURCES } from './fake';
+import { convList, fake, flush, SOURCES } from './fake';
 import { comparePeriods, mountOverview } from '../src/views/overview';
 import { setLang } from '../src/i18n';
 import { state, update } from '../src/state';
@@ -57,7 +57,29 @@ beforeEach(async () => {
   update({ view: 'overview', scope: undefined, filter: {}, conversation: null, turn: null });
 });
 
+const startOf = (n: number) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - n); return d.toISOString(); };
+
 describe('Tổng quan', () => {
+  it('thẻ Hội thoại đếm theo khoảng đang chọn và theo công cụ (không dùng sources[].sessions)', async () => {
+    // Số theo khoảng: 30 ngày → CC 3, Kiro 2; Hôm nay → CC 1, Kiro 0.
+    const totals: Record<string, Record<string, number>> = { [startOf(29)]: { claude_code: 3, kiro: 2 }, [startOf(0)]: { claude_code: 1, kiro: 0 } };
+    const f = fake({ ...handlers(), list_conversations: (p: any) => ({ ...convList([]), total_conversations: totals[p.from]?.[p.tool] ?? 99 }) });
+    await mountOverview(el);
+    await flush();
+    const card = () => el.querySelector('[data-card="convs"]')!;
+    expect(card().querySelector('.big')?.textContent).toBe('5');
+    expect(card().querySelector('.sub')?.textContent).toBe('Claude Code 3 · Kiro 2');
+    const conv = f.calls.filter((c) => c.method === 'list_conversations');
+    expect(conv.every((c) => c.params.limit === 1 && c.params.to === undefined)).toBe(true);
+    (el.querySelector('[data-range="1"]') as HTMLButtonElement).click();
+    await flush(); await flush();
+    expect(card().querySelector('.big')?.textContent).toBe('1');
+    update({ scope: 'kiro' });
+    await flush(); await flush();
+    expect(el.querySelector('[data-card="convs"] .big')?.textContent).toBe('0');
+  });
+
+
   it('gộp ngày, project, model; không còn $', async () => {
     fake(handlers());
     await mountOverview(el);

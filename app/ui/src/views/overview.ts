@@ -76,7 +76,10 @@ export async function mountOverview(el: HTMLElement) {
   let report: SkillReport | null = null;
   let limits: LimitState | null = null;
   let info: BumInfo = EMPTY_BUM_INFO;
+  /** Số hội thoại có lượt trong khoảng đang chọn, theo công cụ. */
+  let convCounts: Record<string, number> = {};
   let seq = 0;
+  let convSeq = 0;
 
   const go = (filter: object) => update({ view: 'conversations', filter: { tool: state.scope, ...filter }, conversation: null, turn: null });
 
@@ -115,12 +118,12 @@ export async function mountOverview(el: HTMLElement) {
       : cmp.pct < 0 ? h('div', { class: 'cmp grn' }, t('ov.vsLess', { pct: Math.round(-cmp.pct) }))
       : h('div', { class: 'cmp red' }, t('ov.vsMore', { pct: Math.round(cmp.pct) }));
     const inScope = sources.filter((s) => !state.scope || s.info.id === state.scope);
-    const convs = inScope.reduce((n, s) => n + s.sessions, 0);
+    const convs = inScope.reduce((n, s) => n + (convCounts[s.info.id] ?? 0), 0);
     const tips = insights();
     el.replaceChildren(
       h('div', { class: 'toolbar' }, h('h1', {}, t('nav.overview')), h('span', { class: 'spacer' }),
         h('div', { class: 'segmented', role: 'group', 'aria-label': t('filter.range') },
-          ...RANGES.map((r) => h('button', { 'data-range': r, 'aria-pressed': String(r === range), onclick: (() => { range = r; render(); }) as EventListener },
+          ...RANGES.map((r) => h('button', { 'data-range': r, 'aria-pressed': String(r === range), onclick: (() => { range = r; render(); void loadConvs(); }) as EventListener },
             r === 1 ? t('range.today') : r === 7 ? t('range.7d') : t('range.nd', { n: r }))))),
       h('div', { class: 'scroll pad overview' }, ...compact([
         h('div', { class: 'ov-cards' },
@@ -131,7 +134,7 @@ export async function mountOverview(el: HTMLElement) {
               h('div', { class: 'sub' }, t('ov.turnsAvg', { n: active ? Math.round(turns / active) : 0 })))),
           h('div', { class: 'panel ov-card', 'data-card': 'convs' },
             h('div', { class: 'ov-card-body' }, h('div', { class: 'lbl' }, t('nav.conversations')), h('div', { class: 'big num' }, String(convs)),
-              state.scope ? null : h('div', { class: 'sub' }, sources.filter((s) => s.sessions > 0).map((s) => `${s.info.label} ${s.sessions}`).join(' · '))))),
+              state.scope ? null : h('div', { class: 'sub' }, sources.filter((s) => (convCounts[s.info.id] ?? 0) > 0).map((s) => `${s.info.label} ${convCounts[s.info.id]}`).join(' · '))))),
         h('div', { class: 'ov-mid' },
           h('div', { class: 'panel' },
             h('div', { class: 'section-title' }, h('span', {}, t('ov.byDay')), h('span', {}, t('ov.byDayHint'))),
@@ -163,6 +166,18 @@ export async function mountOverview(el: HTMLElement) {
     );
   };
 
+  /** Đếm hội thoại theo khoảng + công cụ: `list_conversations` trả tổng trước khi cắt `limit`. */
+  const loadConvs = async () => {
+    const my = ++convSeq;
+    const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - (range - 1));
+    const tools = allSources().map((s) => s.info.id).filter((id) => !state.scope || id === state.scope);
+    const totals = await Promise.all(tools.map((tool) => api.listConversations({ from: from.toISOString(), tool, limit: 1 })
+      .then((l) => l.total_conversations).catch(() => 0)));
+    if (my !== convSeq) return;
+    convCounts = Object.fromEntries(tools.map((id, i) => [id, totals[i]]));
+    render();
+  };
+
   const load = async () => {
     const my = ++seq;
     const tool = state.scope;
@@ -173,10 +188,11 @@ export async function mountOverview(el: HTMLElement) {
     if (my !== seq) return;
     days = d; projects = p; models = m.filter((x) => !tool || x.tool === tool); counts = c; report = rep; limits = lim; info = bi;
     render();
+    await loadConvs();
   };
 
   const unsub = subscribe((_s, changed) => { if (changed.includes('scope')) void load(); });
   const offData = await api.onDataChanged(() => void load());
-  cleanup = () => { seq = Number.MAX_SAFE_INTEGER; unsub(); offData(); };
+  cleanup = () => { seq = Number.MAX_SAFE_INTEGER; convSeq = Number.MAX_SAFE_INTEGER; unsub(); offData(); };
   await load();
 }
