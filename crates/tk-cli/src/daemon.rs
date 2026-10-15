@@ -1,4 +1,4 @@
-//! `tk daemon`: host không giao diện; cảnh báo in ra stderr.
+//! `bum daemon`: host không giao diện; cảnh báo in ra stderr.
 use std::time::Instant;
 
 use tk_core::alerts::{Alert, AlertEngine};
@@ -56,7 +56,7 @@ pub fn run(paths: Paths, cfg: Config) -> anyhow::Result<()> {
             h.wait();
             Ok(())
         }
-        Err(StartError::AlreadyRunning) => anyhow::bail!("đã có host khác đang chạy (app hoặc tk daemon)"),
+        Err(StartError::AlreadyRunning) => anyhow::bail!("đã có host khác đang chạy (app hoặc bum daemon)"),
         Err(StartError::Other(e)) => Err(e),
     }
 }

@@ -96,7 +96,7 @@ fn scan(paths: &Paths) -> anyhow::Result<bool> {
 
 fn status(paths: &Paths) -> anyhow::Result<bool> {
     let today = tk_service::client::call(paths, "today_summary", Value::Null)
-        .map_err(|_| anyhow::anyhow!("không kết nối được host (chạy app hoặc `tk daemon` trước)"))?;
+        .map_err(|_| anyhow::anyhow!("không kết nối được host (chạy app hoặc `bum daemon` trước)"))?;
     let lang = config(paths).language;
     let tokens = tk_core::insight::fmt_tokens(today["total"].as_u64().unwrap_or(0));
     println!("{}: {} {}, {tokens} token", lang.pick("Hôm nay", "Today"), today["prompts"], lang.pick("lượt", "turns"));

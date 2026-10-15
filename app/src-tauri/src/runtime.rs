@@ -1,4 +1,4 @@
-//! App làm host: nếu `tk daemon` đang chạy thì yêu cầu nó tắt rồi chiếm quyền (spec mục 3.2.1).
+//! App làm host: nếu `bum daemon` đang chạy thì yêu cầu nó tắt rồi chiếm quyền (spec mục 3.2.1).
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
