@@ -66,3 +66,16 @@ fn alerts_are_localized() {
     assert_eq!(a.title(Lang::En), "Limit reached");
     assert!(a.body(Lang::En).starts_with("Hit the 5-hour limit"), "{}", a.body(Lang::En));
 }
+
+#[test]
+fn theme_defaults_to_system_and_round_trips() {
+    use tk_core::config::{Config, Theme};
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("config.toml");
+    std::fs::write(&p, "anomaly_multiplier = 4.0\n").unwrap();
+    assert_eq!(Config::load(&p).theme, Theme::System, "config cũ không có theme");
+    let cfg = Config { theme: Theme::Dark, ..Config::default() };
+    cfg.save(&p).unwrap();
+    assert!(std::fs::read_to_string(&p).unwrap().contains("theme = \"dark\""));
+    assert_eq!(Config::load(&p).theme, Theme::Dark);
+}

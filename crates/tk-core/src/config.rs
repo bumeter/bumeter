@@ -18,6 +18,16 @@ impl Default for Notify {
     }
 }
 
+/// Giao diện sáng/tối; `System` theo hệ điều hành.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -33,11 +43,13 @@ pub struct Config {
     pub kiro_sessions_dir: Option<PathBuf>,
     /// Ngôn ngữ giao diện và thông báo.
     pub language: crate::i18n::Lang,
+    /// Giao diện sáng/tối (mặc định theo hệ thống).
+    pub theme: Theme,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { anomaly_multiplier: 3.0, context_threshold: 300_000, quota_thresholds: vec![70, 90], notify: Notify::default(), claude_projects_dir: None, kiro_sessions_dir: None, language: crate::i18n::Lang::Vi }
+        Self { anomaly_multiplier: 3.0, context_threshold: 300_000, quota_thresholds: vec![70, 90], notify: Notify::default(), claude_projects_dir: None, kiro_sessions_dir: None, language: crate::i18n::Lang::Vi, theme: Theme::System }
     }
 }
 
