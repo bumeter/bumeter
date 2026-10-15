@@ -4149,6 +4149,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "dirs",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",
