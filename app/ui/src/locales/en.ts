@@ -195,6 +195,7 @@ export const en: Record<keyof typeof vi, string> = {
   'set.notifyBlocked': 'Limit reached and reset',
   'set.notifyAnomaly': 'Unusually costly turn',
   'set.notifyContext': 'Large context',
+  'set.autoSave': 'Saves automatically as you change things. Thresholds and notifications apply after reopening the app.',
   'set.saved': 'Saved. Thresholds and notifications apply after reopening the app.',
   'set.diagnostics': 'Diagnostics',
   'set.dataDir': 'Data: ',

@@ -194,6 +194,7 @@ export const vi = {
   'set.notifyBlocked': 'Hết lượt và đã reset',
   'set.notifyAnomaly': 'Lượt tốn bất thường',
   'set.notifyContext': 'Context lớn',
+  'set.autoSave': 'Tự lưu khi bạn thay đổi. Ngưỡng và thông báo có hiệu lực sau khi mở lại app.',
   'set.saved': 'Đã lưu. Ngưỡng và thông báo có hiệu lực sau khi mở lại app.',
   'set.diagnostics': 'Chẩn đoán',
   'set.dataDir': 'Dữ liệu: ',

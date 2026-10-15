@@ -213,7 +213,7 @@ export async function mountSettings(el: HTMLElement) {
         toggle(t('set.notifyBlocked'), 'notify_blocked', c.notify.blocked),
         toggle(t('set.notifyAnomaly'), 'notify_anomaly', c.notify.anomaly),
         toggle(t('set.notifyContext'), 'notify_context', c.notify.context),
-        h('small', {}, t('set.saved'))),
+        h('small', {}, t('set.autoSave'))),
       msg,
       h('section', { class: 'panel' },
         h('h2', {}, t('set.diagnostics')),

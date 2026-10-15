@@ -203,4 +203,10 @@ describe('cài đặt', () => {
     expect(el.querySelector('.message')?.classList.contains('error')).toBe(true);
   });
 
+  it('chưa lưu gì thì không hiện "Đã lưu", chỉ gợi ý tự lưu', async () => {
+    fake({ settings_get: () => hookedInfo() });
+    await mountSettings(el);
+    expect(el.textContent).not.toContain('Đã lưu');
+    expect(el.textContent).toContain('Tự lưu khi bạn thay đổi');
+  });
 });
