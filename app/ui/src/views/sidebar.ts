@@ -104,7 +104,7 @@ export async function mountSidebar(el: HTMLElement) {
     const settle = <T,>(p: Promise<T>, fallback: T) => p.catch(() => fallback);
     const [today, days, anomalies, settings] = await Promise.all([
       settle(api.todaySummary().then((x) => x.total), 0),
-      settle(api.dayStats(scope), []),
+      settle(api.dayStats(), []),
       settle(api.listConversations({ quick: 'anomalous', limit: 1, tool: scope }).then((l) => l.days[0]?.conversations[0]?.last_ts ?? null), null),
       settle(api.settings().then((x) => x.config.quota_thresholds), [] as number[]),
     ]);

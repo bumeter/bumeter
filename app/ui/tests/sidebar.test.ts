@@ -66,6 +66,20 @@ describe('sidebar', () => {
     expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).not.toBe('worry');
   });
 
+  it('thẻ Bum: trung bình ngày lấy toàn cục (day_stats không tool), khớp với token hôm nay toàn cục', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const { calls } = fake({
+      ...handlers,
+      today_summary: () => ({ prompts: 3, usage: {}, total: 50_000_000, cost_usd: 0, unpriced_models: [] }),
+      day_stats: (p: any) => [{ day: today, from: today, to: today, tokens: p?.tool ? 10_000_000 : 100_000_000, prompts: 5, cost_usd: 0 }],
+    });
+    update({ scope: 'kiro', filter: { tool: 'kiro' } });
+    await mountSidebar(el);
+    await flush();
+    expect(calls.filter((c) => c.method === 'day_stats').every((c) => !c.params?.tool)).toBe(true);
+    expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).toBe('happy');
+  });
+
   it('tiếng Anh', async () => {
     fake(handlers);
     setLang('en');
