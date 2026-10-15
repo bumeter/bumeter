@@ -47,8 +47,9 @@ fn is_hook(cmd: &str) -> bool {
 }
 
 /// Thay tên chương trình `tk` đứng ngay trước ` statusline` bằng `bum` (giữ nguyên thư mục).
+/// Chỉ dùng đường dẫn đã đổi nếu file đó tồn tại; không thì dùng `current_bum` (nếu tồn tại); không có cả hai: `None`.
 /// `None` nếu không có gì để đổi. Nhận cả `"/path/tk" statusline` lẫn `/path/tk statusline`.
-fn rewrite_legacy_bin(cmd: &str) -> Option<String> {
+fn rewrite_legacy_bin(cmd: &str, current_bum: &str) -> Option<String> {
     let mut out = String::with_capacity(cmd.len());
     let mut rest = cmd;
     let mut changed = false;
@@ -62,9 +63,22 @@ fn rewrite_legacy_bin(cmd: &str) -> Option<String> {
         let ext = &head[stem.len()..];
         let is_tk = stem == "tk" || stem.ends_with("/tk") || stem.ends_with("\\tk") || stem.ends_with("\"tk");
         if is_tk {
-            out.push_str(&stem[..stem.len() - 2]);
-            out.push_str("bum");
-            out.push_str(ext);
+            let sep: &[char] = if quote.is_empty() { &[' ', '"'] } else { &['"'] };
+            let start = stem.rfind(sep).map_or(0, |i| i + 1);
+            let candidate = format!("{}bum{ext}", &stem[start..stem.len() - 2]);
+            let chosen = if Path::new(&candidate).is_file() {
+                candidate
+            } else if Path::new(current_bum).is_file() {
+                current_bum.to_string()
+            } else {
+                return None;
+            };
+            out.push_str(&stem[..start]);
+            if quote.is_empty() && chosen.contains(' ') {
+                out.push_str(&format!("\"{chosen}\""));
+            } else {
+                out.push_str(&chosen);
+            }
             changed = true;
         } else {
             out.push_str(head);
@@ -157,7 +171,12 @@ impl StatuslineSetup {
     /// Trả `true` nếu đã sửa; chạy lại không đổi gì nữa.
     pub fn migrate_legacy_hook(&self) -> anyhow::Result<bool> {
         let Status::Hooked { command } = self.status()? else { return Ok(false) };
-        let Some(new) = rewrite_legacy_bin(&command) else { return Ok(false) };
+        let Some(new) = rewrite_legacy_bin(&command, &self.tk_bin) else {
+            if command.contains("tk statusline") || command.contains("tk\" statusline") {
+                eprintln!("bumeter: hook statusline còn trỏ tk nhưng không tìm thấy bum; giữ nguyên");
+            }
+            return Ok(false);
+        };
         self.apply(&Plan { description: String::new(), new_command: Some(new) })?;
         Ok(true)
     }

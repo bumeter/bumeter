@@ -205,10 +205,12 @@ fn legacy_tk_hook_is_rewritten_to_bum_with_backup_and_is_idempotent() {
 #[test]
 fn legacy_unquoted_tk_path_is_rewritten() {
     let dir = tempfile::tempdir().unwrap();
-    let s = setup_with(dir.path(), fake_tk(dir.path(), "bin-a/bum"));
-    write_settings(dir.path(), &json!({"statusLine": {"type": "command", "command": "/usr/bin/tk statusline --tee"}}).to_string());
+    let bum = fake_tk(dir.path(), "bin-a/bum");
+    let tk = fake_tk(dir.path(), "bin-a/tk");
+    let s = setup_with(dir.path(), bum.clone());
+    write_settings(dir.path(), &json!({"statusLine": {"type": "command", "command": format!("{tk} statusline --tee")}}).to_string());
     assert!(s.migrate_legacy_hook().unwrap());
-    assert_eq!(command(dir.path()), "/usr/bin/bum statusline --tee");
+    assert_eq!(command(dir.path()), format!("{bum} statusline --tee"));
     assert!(!s.migrate_legacy_hook().unwrap());
 }
 
@@ -221,4 +223,28 @@ fn legacy_migration_ignores_custom_and_missing_settings() {
     assert!(!s.migrate_legacy_hook().unwrap());
     assert_eq!(command(dir.path()), "bash ~/.claude/mytk.sh");
     assert!(!dir.path().join("backups").exists());
+}
+
+#[test]
+fn legacy_hook_falls_back_to_current_bum_when_sibling_is_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let current = fake_tk(dir.path(), "bin-b/bum");
+    let s = setup_with(dir.path(), current.clone());
+    // Thư mục của tk cũ không có bum bên cạnh.
+    let old = format!("\"{}/gone/tk\" statusline", dir.path().display());
+    write_settings(dir.path(), &json!({"statusLine": {"type": "command", "command": old}}).to_string());
+    assert!(s.migrate_legacy_hook().unwrap());
+    assert_eq!(command(dir.path()), format!("\"{current}\" statusline"));
+}
+
+#[test]
+fn legacy_hook_unchanged_when_no_bum_exists_anywhere() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = setup_with(dir.path(), dir.path().join("nope/bum").to_string_lossy().to_string());
+    let old = format!("\"{}/gone/tk\" statusline", dir.path().display());
+    write_settings(dir.path(), &json!({"statusLine": {"type": "command", "command": old.clone()}}).to_string());
+    let before = std::fs::read(settings(dir.path())).unwrap();
+    assert!(!s.migrate_legacy_hook().unwrap());
+    assert_eq!(std::fs::read(settings(dir.path())).unwrap(), before);
+    assert_eq!(command(dir.path()), old);
 }
