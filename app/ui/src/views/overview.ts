@@ -151,11 +151,12 @@ export async function mountOverview(el: HTMLElement) {
             h('div', { class: 'section-title' }, h('span', {}, t('ov.models')), h('span', {}, '')),
             ...models.map((m) => {
               const d = toolDef(m.tool);
-              return h('button', { class: 'ov-row', 'data-model': m.model, onclick: (() => go({ models: [m.model] })) as EventListener },
+              return h('button', { class: d.credits ? 'ov-row has-credit' : 'ov-row', 'data-model': m.model, onclick: (() => go({ models: [m.model] })) as EventListener },
                 h('span', { class: 'name' }, modelTag(m.model, m.tool)),
                 h('span', { class: 'num dim' }, t('ov.modelMeta', { calls: m.calls, n: m.prompts })),
                 h('span', { class: 'tok' }, meterEl(m.tokens, maxM, d.color), h('span', { class: 'num' }, d.realTokens ? fmtTokens(m.tokens) : `~${fmtTokens(m.tokens)}`)),
-                h('span', { class: 'num dim' }, d.credits ? fmtCredits(m.credits) : t('ov.output', { tokens: fmtTokens(m.output) })));
+                // Credit là số liệu chính của Kiro: cột riêng, luôn hiện (khác cột "đầu ra" phụ bị ẩn ở khung hẹp).
+                d.credits ? h('span', { class: 'num ov-credit' }, fmtCredits(m.credits)) : h('span', { class: 'num dim' }, t('ov.output', { tokens: fmtTokens(m.output) })));
             }),
             models.some((m) => !toolDef(m.tool).realTokens) ? h('p', { class: 'sub' }, t('ov.estNote')) : null)),
       ])),

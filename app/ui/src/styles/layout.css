@@ -283,6 +283,7 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .ov-row .skills { display: flex; gap: 4px; flex-wrap: wrap; overflow: hidden; }
 @media (max-width: 720px) {
   .ov-row { grid-template-columns: 1fr auto; }
+  .ov-row.has-credit { grid-template-columns: 1fr auto auto; }
   .ov-row .skills, .ov-row > .num.dim { display: none; }
 }
 
@@ -397,6 +398,8 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .overview .bum-tips .insight:last-child { border-bottom: 0; }
 .overview .ov-bottom .ov-row { grid-template-columns: minmax(80px, 1fr) minmax(120px, 1.2fr); }
 .overview .ov-bottom .ov-row .skills, .overview .ov-bottom .ov-row > .num.dim { display: none; }
+.overview .ov-bottom .ov-row.has-credit { grid-template-columns: minmax(80px, 1fr) minmax(120px, 1.2fr) auto; }
+.ov-row .ov-credit { text-align: right; white-space: nowrap; }
 svg.days rect.bar { fill: color-mix(in srgb, var(--acc) 30%, var(--surf)); opacity: 1; }
 svg.days rect.bar:hover { fill: color-mix(in srgb, var(--acc) 55%, var(--surf)); }
 svg.days rect.bar.hot, svg.days rect.bar.hot:hover { fill: var(--acc); }

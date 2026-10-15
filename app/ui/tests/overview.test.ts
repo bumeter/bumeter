@@ -69,6 +69,17 @@ describe('Tổng quan', () => {
     expect(el.textContent).not.toContain('$');
   });
 
+  it('credit Kiro ở thẻ Model có cột riêng, không bị quy tắc ẩn .num.dim', async () => {
+    fake(handlers());
+    await mountOverview(el);
+    const row = el.querySelector('[data-model="kiro:auto"]')!;
+    expect(row.classList.contains('has-credit')).toBe(true);
+    const cell = row.querySelector('.ov-credit')!;
+    expect(cell.textContent).toContain('1.2 credit');
+    expect(cell.classList.contains('dim')).toBe(false);
+    expect(el.querySelector('[data-model="claude-opus-5"] .ov-credit')).toBeNull();
+  });
+
   it('gợi ý: bất thường (đỏ) → skill tốn base (cam) → project (xám); bấm thì mở đúng nơi', async () => {
     fake({ ...handlers(), skills_list: () => skillReport });
     await mountOverview(el);

@@ -94,3 +94,14 @@ it('quy tắc .bar chung không đè rect SVG của biểu đồ ngày', () => {
   const css = readFileSync('src/styles/components.css', 'utf8');
   expect(/^\.bar\s*\{/m.test(css)).toBe(false);
 });
+
+describe('styles: Tổng quan — cột credit thẻ Model', () => {
+  const css = cssContents['layout.css'];
+  it('không quy tắc display:none nào nhắm vào .ov-credit', () => {
+    const rules = css.match(/[^{}]*\{[^}]*display:\s*none[^}]*\}/g) ?? [];
+    for (const r of rules) expect(r, r).not.toMatch(/ov-credit/);
+  });
+  it('dòng có credit ở ov-bottom có thêm cột cho credit', () => {
+    expect(css).toMatch(/\.overview \.ov-bottom \.ov-row\.has-credit\s*\{[^}]*grid-template-columns:[^;}]*auto/);
+  });
+});
