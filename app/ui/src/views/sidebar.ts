@@ -10,6 +10,8 @@ import type { View } from '../state';
 import { allSources, glyph, loadSources, toolDef } from '../tools';
 
 const SCOPE_KEY = 'bumeter.scope';
+/** Chu kỳ tính lại biểu cảm Bum ở thanh bên. */
+const BUM_REFRESH_MS = 60_000;
 
 /** Phạm vi đã chọn lần trước (chỉ là tiện ích, lỗi storage thì bỏ qua). */
 export function rememberedScope(): string | undefined {
@@ -102,7 +104,9 @@ export async function mountSidebar(el: HTMLElement) {
   });
   const offData = await api.onDataChanged(() => void load());
   const offLimits = await api.onLimitsChanged((l) => { limits = l; render(); });
-  cleanup = () => { unsub(); offData(); offLimits(); document.removeEventListener('click', onDoc); };
+  // Biểu cảm phụ thuộc thời gian (vừa bất thường, lâu không hỏi…): tính lại định kỳ dù không có dữ liệu mới.
+  const tick = setInterval(() => { void loadBum().then(render); }, BUM_REFRESH_MS);
+  cleanup = () => { clearInterval(tick); unsub(); offData(); offLimits(); document.removeEventListener('click', onDoc); };
   render();
   await load();
 }

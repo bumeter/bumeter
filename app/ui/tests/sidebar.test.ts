@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fake, flush, SOURCES } from './fake';
 import { mountSidebar } from '../src/views/sidebar';
 import { setLang } from '../src/i18n';
@@ -23,6 +23,29 @@ beforeEach(() => {
 });
 
 describe('sidebar', () => {
+  it('thẻ Bum tự tính lại biểu cảm mỗi 60 giây (không cần data-changed)', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    try {
+      const start = Date.parse('2026-09-11T06:00:00Z');
+      vi.setSystemTime(start);
+      const anomaly = new Date(start - 9 * 60_000).toISOString();
+      fake({ ...handlers, latest_anomaly_ts: () => anomaly,
+        limit_state: () => ({ five_hour: { used_percentage: 5, resets_at: 2_000_000_000 }, seven_day: null, updated_at: 1, stale: false, blocked: null }) });
+      await mountSidebar(el);
+      expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).toBe('blaze');
+      vi.setSystemTime(start + 2 * 60_000);
+      vi.advanceTimersByTime(60_000);
+      await flush(); await flush();
+      expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).not.toBe('blaze');
+      // Mount lại: interval cũ được dọn, không chạy chồng.
+      await mountSidebar(el);
+      expect(vi.getTimerCount()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+
   it('mục điều hướng mới, số hội thoại theo phạm vi và quota ghi rõ của Claude Code', async () => {
     fake(handlers);
     await mountSidebar(el);
