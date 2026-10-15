@@ -190,3 +190,22 @@
 .dh .actions { display: flex; gap: 8px; margin-top: 12px; }
 .callout.why { display: flex; gap: 10px; align-items: flex-start; background: var(--tint); border: 0; border-radius: var(--r-box); }
 .drawer-body .scroll.turns { overflow: visible; }
+
+/* Màn Skill (spec 4.3) */
+.sk-list { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.sk-list[hidden] { display: none; }
+.sk-narrow, .sk-detail { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.skill-card { border-radius: var(--r-box); background: var(--surf); border: 1px solid var(--line); }
+.skill-card.costly { border-color: var(--acc); }
+.skill-card[aria-selected="true"] { border-color: var(--acc); background: var(--tint); }
+.skill-card .off { font-size: 11px; color: var(--ink3); }
+.skill-cards .skill-card:hover { border-color: var(--acc); }
+.warn-badge { border: 0; background: var(--tint); color: var(--acc2); border-radius: var(--r-ctl); font-weight: 600; }
+.segmented { background: var(--sunk); border-radius: var(--r-ctl); }
+.segmented button[aria-pressed="true"] { background: var(--surf); color: var(--acc2); }
+.switch[aria-checked="true"] { background: var(--acc); }
+.chips .chip[aria-pressed="false"]:hover { border-color: var(--acc); }
+.op-message { background: var(--tint); border-radius: var(--r-box); }
+.callout.suggestion { background: var(--tint); border: 0; border-radius: var(--r-box); }
+.sk-list .empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 20px; color: var(--ink2); }
+.sk-list .empty p { margin: 0; }
