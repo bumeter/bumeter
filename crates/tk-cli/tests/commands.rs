@@ -6,7 +6,7 @@ fn fixture() -> std::path::PathBuf {
 }
 
 fn tk(args: &[&str], data: &Path) -> (String, bool) {
-    let out = Command::new(env!("CARGO_BIN_EXE_tk"))
+    let out = Command::new(env!("CARGO_BIN_EXE_bum"))
         .args(args)
         .env("TK_DATA_DIR", data)
         .env("TK_CLAUDE_DIR", fixture())
@@ -30,7 +30,7 @@ fn scan_fills_the_database() {
     let dir = tempfile::tempdir().unwrap();
     let (out, ok) = tk(&["scan"], dir.path());
     assert!(ok, "{out}");
-    assert!(dir.path().join("thongke.db").exists());
+    assert!(dir.path().join("bumeter.db").exists());
 }
 
 #[test]

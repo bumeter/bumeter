@@ -81,7 +81,7 @@ pub fn start_host(paths: Paths, cfg: Config, mut handler: Box<dyn HostHandler + 
     let mut engine = Engine::new(store, vec![Box::new(ClaudeCode::new(&root)), Box::new(tk_adapters::kiro::Kiro::new(kiro_root(&cfg)))]);
     let started = Instant::now();
     let report = engine.full_scan()?;
-    eprintln!("tk: quét lần đầu {} dòng trong {:?}", report.lines, started.elapsed());
+    eprintln!("bumeter: quét lần đầu {} dòng trong {:?}", report.lines, started.elapsed());
 
     let (tx, rx) = mpsc::channel::<HostMsg>();
     let mut dirs = engine.watch_roots();
@@ -120,7 +120,7 @@ pub fn start_host(paths: Paths, cfg: Config, mut handler: Box<dyn HostHandler + 
 }
 
 /// Khởi động host; nếu đã có host khác thì yêu cầu nó tắt (gửi lại mỗi lần thử) cho tới `timeout`.
-/// Trả `AlreadyRunning` nếu bên giữ lock không chịu nhả (ví dụ `tk scan` không có socket).
+/// Trả `AlreadyRunning` nếu bên giữ lock không chịu nhả (ví dụ `bum scan` không có socket).
 pub fn start_host_taking_over(
     paths: &Paths,
     cfg: &Config,

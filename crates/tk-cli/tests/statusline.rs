@@ -2,7 +2,7 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 fn run(args: &[&str], data_dir: &std::path::Path, stdin: &str) -> (String, bool) {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_tk"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_bum"))
         .args(args)
         .env("TK_DATA_DIR", data_dir)
         .stdin(Stdio::piped())

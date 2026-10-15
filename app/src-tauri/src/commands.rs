@@ -10,7 +10,7 @@ use crate::state::AppState;
 #[tauri::command(async)]
 pub fn call(state: State<'_, AppState>, method: String, params: Option<Value>) -> Result<Value, String> {
     #[cfg(debug_assertions)]
-    eprintln!("tk: ui call {method}");
+    eprintln!("bumeter: ui call {method}");
     let store = Store::open_readonly(&state.paths.db()).map_err(|e| e.to_string())?;
     // Phân tích phiên cần đọc log Claude trực tiếp (adapter), không qua dispatch của lõi.
     let params = params.unwrap_or(Value::Null);

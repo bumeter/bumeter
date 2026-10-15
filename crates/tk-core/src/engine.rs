@@ -130,7 +130,7 @@ impl Engine {
             match self.ingest_path(f) {
                 Ok(r) => report.merge(r),
                 Err(e) => {
-                    eprintln!("tk: bỏ qua {}: {e}", f.display());
+                    eprintln!("bumeter: bỏ qua {}: {e}", f.display());
                     report.file_errors += 1;
                 }
             }

@@ -16,7 +16,7 @@ use tk_service::host::claude_root;
 use tk_service::lock::HostLock;
 
 #[derive(Parser)]
-#[command(name = "tk", about = "Thống kê sử dụng AI")]
+#[command(name = "bum", about = "Bumeter: thống kê sử dụng AI")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -73,7 +73,7 @@ fn main() -> ExitCode {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => ExitCode::FAILURE,
         Err(e) => {
-            eprintln!("tk: {e}");
+            eprintln!("bum: {e}");
             ExitCode::FAILURE
         }
     }
@@ -82,7 +82,7 @@ fn main() -> ExitCode {
 fn scan(paths: &Paths) -> anyhow::Result<bool> {
     paths.ensure()?;
     let Some(_lock) = HostLock::try_acquire(&paths.lock())? else {
-        anyhow::bail!("host đang chạy và đã tự quét; không cần tk scan");
+        anyhow::bail!("host đang chạy và đã tự quét; không cần bum scan");
     };
     let root = claude_root(&config(paths));
     let kiro = tk_service::host::kiro_root(&config(paths));

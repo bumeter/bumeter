@@ -33,7 +33,7 @@ fn takeover_times_out_cleanly_when_lock_holder_has_no_socket() {
     let dir = tempfile::tempdir().unwrap();
     let paths = Paths::new(dir.path().join("d"));
     paths.ensure().unwrap();
-    let _held = HostLock::try_acquire(&paths.lock()).unwrap().unwrap(); // giống `tk scan` đang chạy
+    let _held = HostLock::try_acquire(&paths.lock()).unwrap().unwrap(); // giống `bum scan` đang chạy
     let cfg = Config { claude_projects_dir: Some(fixture()), kiro_sessions_dir: Some(std::path::PathBuf::from("/nonexistent-kiro")), ..Config::default() };
     let r = start_host_taking_over(&paths, &cfg, || Box::new(Quiet), Duration::from_millis(600));
     assert!(matches!(r, Err(StartError::AlreadyRunning)));

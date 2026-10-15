@@ -52,7 +52,7 @@ pub fn run(paths: Paths, cfg: Config) -> anyhow::Result<()> {
     let handler = LogAlerts { alerts: AlertEngine::new(cfg.clone(), chrono::Utc::now()), cfg: cfg.clone(), paths: paths.clone() };
     match start_host(paths, cfg, Box::new(handler)) {
         Ok(h) => {
-            eprintln!("tk: host đang chạy (Ctrl+C để dừng)");
+            eprintln!("bum: host đang chạy (Ctrl+C để dừng)");
             h.wait();
             Ok(())
         }

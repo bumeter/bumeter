@@ -1,4 +1,4 @@
-//! `tk audit`: so tổng token của pipeline với một cách đếm độc lập, đọc thẳng từ log (spec mục 12).
+//! `bum audit`: so tổng token của pipeline với một cách đếm độc lập, đọc thẳng từ log (spec mục 12).
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

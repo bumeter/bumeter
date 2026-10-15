@@ -44,7 +44,7 @@ pub fn run_host(engine: &mut Engine, rx: &Receiver<HostMsg>, limits_file: &Path,
                     } else {
                         match engine.ingest_path(&p) {
                             Ok(r) => report.merge(r),
-                            Err(e) => eprintln!("tk: lỗi đọc {}: {e}", p.display()),
+                            Err(e) => eprintln!("bumeter: lỗi đọc {}: {e}", p.display()),
                         }
                     }
                 }
@@ -64,7 +64,7 @@ pub fn run_host(engine: &mut Engine, rx: &Receiver<HostMsg>, limits_file: &Path,
             match engine.full_scan() {
                 Ok(r) if r.lines > 0 => handler.on_ingest(engine, &r),
                 Ok(_) => {}
-                Err(e) => eprintln!("tk: lỗi quét: {e}"),
+                Err(e) => eprintln!("bumeter: lỗi quét: {e}"),
             }
         }
     }

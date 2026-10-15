@@ -6,12 +6,12 @@ use tk_core::config::Config;
 
 use crate::state::AppState;
 
-/// Đường dẫn `tk`: `TK_BIN`, hoặc file nằm cạnh app, hoặc tìm trong PATH.
-fn tk_bin() -> String {
-    if let Ok(p) = std::env::var("TK_BIN") {
+/// Đường dẫn `bum`: `BUM_BIN` (hoặc `TK_BIN` cũ), hoặc file nằm cạnh app, hoặc tìm trong PATH.
+pub fn bum_bin() -> String {
+    if let Ok(p) = std::env::var("BUM_BIN").or_else(|_| std::env::var("TK_BIN")) {
         return p;
     }
-    let name = if cfg!(windows) { "tk.exe" } else { "tk" };
+    let name = if cfg!(windows) { "bum.exe" } else { "bum" };
     std::env::current_exe()
         .ok()
         .and_then(|e| e.parent().map(|d| d.join(name)))
@@ -20,8 +20,8 @@ fn tk_bin() -> String {
         .unwrap_or_else(|| name.to_string())
 }
 
-fn setup(state: &AppState) -> StatuslineSetup {
-    StatuslineSetup::new(StatuslineSetup::default_claude_dir(), state.paths.data_dir.join("backups"), tk_bin())
+pub fn setup(state: &AppState) -> StatuslineSetup {
+    StatuslineSetup::new(StatuslineSetup::default_claude_dir(), state.paths.data_dir.join("backups"), bum_bin())
 }
 
 #[tauri::command(async)]

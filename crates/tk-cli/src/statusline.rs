@@ -1,4 +1,4 @@
-//! `tk statusline`: không bao giờ thất bại, vì lỗi ở đây sẽ làm hỏng statusline của Claude Code.
+//! `bum statusline`: không bao giờ thất bại, vì lỗi ở đây sẽ làm hỏng statusline của Claude Code.
 use std::io::Read;
 
 use tk_core::limits;

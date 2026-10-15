@@ -28,7 +28,7 @@ pub fn spawn_watcher(dirs: &[PathBuf], limits_file: &Path, tx: Sender<HostMsg>) 
     let mut failed = Vec::new();
     for d in dirs.iter().filter(|d| d.exists()) {
         if let Err(e) = w.watch(d, RecursiveMode::Recursive) {
-            eprintln!("tk: không theo dõi được {}: {e} (sẽ dựa vào quét định kỳ)", d.display());
+            eprintln!("bumeter: không theo dõi được {}: {e} (sẽ dựa vào quét định kỳ)", d.display());
             failed.push(d.clone());
         }
     }

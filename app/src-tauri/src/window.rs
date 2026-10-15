@@ -8,7 +8,7 @@ pub fn open(app: &AppHandle) {
         return;
     }
     let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-        .title("thongke")
+        .title("Bumeter")
         .inner_size(1100.0, 720.0)
         .build();
 }

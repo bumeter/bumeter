@@ -106,7 +106,7 @@ pub fn start(app: &AppHandle) {
                 refresh_from_db(&app);
             }
             Err(e) => {
-                eprintln!("tk: không làm host được ({e}); chạy ở chế độ chỉ đọc");
+                eprintln!("bumeter: không làm host được ({e}); chạy ở chế độ chỉ đọc");
                 loop {
                     refresh_from_db(&app);
                     std::thread::sleep(Duration::from_secs(5));

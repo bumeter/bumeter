@@ -13,7 +13,7 @@ fn tk_skills_lists_personal_and_plugin_skills_read_only() {
     std::fs::write(bin.join("claude"), "#!/bin/sh\necho '[]'\n").unwrap();
     std::fs::set_permissions(bin.join("claude"), std::fs::Permissions::from_mode(0o755)).unwrap();
     let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap());
-    let out = Command::new(env!("CARGO_BIN_EXE_tk"))
+    let out = Command::new(env!("CARGO_BIN_EXE_bum"))
         .args(["skills"])
         .env("HOME", home.path())
         .env("PATH", path)

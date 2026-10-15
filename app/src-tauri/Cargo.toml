@@ -1,5 +1,5 @@
 [package]
-name = "thongke-app"
+name = "bumeter"
 version.workspace = true
 edition.workspace = true
 
