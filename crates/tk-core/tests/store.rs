@@ -93,3 +93,29 @@ fn session_title_is_stored_and_latest_wins() {
     s.ingest_batch(&offset(MAIN), &[RawEvent::Title { session_id: "s1".into(), title: "A".into() }, RawEvent::Title { session_id: "s1".into(), title: "B".into() }], 0).unwrap();
     assert_eq!(s.session_title("s1").unwrap().as_deref(), Some("B"));
 }
+
+#[test]
+fn latest_prompt_ts_is_newest_or_none() {
+    assert_eq!(Store::open_in_memory().unwrap().latest_prompt_ts().unwrap(), None);
+    assert_eq!(loaded().latest_prompt_ts().unwrap().as_deref(), Some("2026-09-11T04:35:00.000Z"));
+}
+
+#[test]
+fn latest_alert_ts_filters_by_prefix() {
+    let mut s = Store::open_in_memory().unwrap();
+    assert_eq!(s.latest_alert_ts("anomaly:").unwrap(), None);
+    s.alert_once("anomaly:p1", "2026-09-11T05:00:00.000Z").unwrap();
+    s.alert_once("anomaly:p2", "2026-09-11T06:00:00.000Z").unwrap();
+    s.alert_once("quota:70", "2026-09-11T07:00:00.000Z").unwrap();
+    assert_eq!(s.latest_alert_ts("anomaly:").unwrap().as_deref(), Some("2026-09-11T06:00:00.000Z"));
+}
+
+#[test]
+fn active_days_count_local_days_with_prompts() {
+    let s = loaded();
+    let (a, b) = ("2026-09-11T00:00:00.000Z", "2026-09-12T00:00:00.000Z");
+    assert_eq!(s.active_days_between(a, b, 0).unwrap(), 1);
+    assert_eq!(s.active_days_between(b, "2026-09-13T00:00:00.000Z", 0).unwrap(), 0);
+    // lệch múi giờ không làm hai lần hỏi cùng ngày tách thành hai ngày
+    assert_eq!(s.active_days_between(a, b, 7 * 3600).unwrap(), 1);
+}

@@ -29,7 +29,7 @@ impl TauriHandler {
         }
         let lang = self.app.state::<AppState>().lang();
         for a in list {
-            let _ = self.app.notification().builder().title(format!("thongke · {}", a.title(lang))).body(a.body(lang)).show();
+            let _ = self.app.notification().builder().title(format!("Bumeter · {}", a.title(lang))).body(a.body(lang)).show();
         }
     }
 
@@ -46,7 +46,7 @@ impl TauriHandler {
         let now = chrono::Utc::now();
         let (from, to) = local_day_bounds(now);
         if let (Ok(limits), Ok(today)) = (limit_state(&ctx, now), today_summary(e.store(), &st.pricing, &from, &to)) {
-            crate::tray::refresh(&self.app, &limits, &today);
+            crate::tray::refresh(&self.app, e.store(), &limits, &today);
         }
     }
 }
@@ -124,6 +124,6 @@ fn refresh_from_db(app: &AppHandle) {
     let now = chrono::Utc::now();
     let (from, to) = local_day_bounds(now);
     if let (Ok(limits), Ok(today)) = (limit_state(&ctx, now), today_summary(&store, &st.pricing, &from, &to)) {
-        crate::tray::refresh(app, &limits, &today);
+        crate::tray::refresh(app, &store, &limits, &today);
     }
 }

@@ -93,6 +93,26 @@ impl Store {
         self.conn().query_row("SELECT COUNT(*) FROM prompts WHERE ts >= ?1 AND ts < ?2", params![from, to], |r| u64_at(r, 0))
     }
 
+    /// `ts` của lần hỏi mới nhất, None nếu chưa có.
+    pub fn latest_prompt_ts(&self) -> rusqlite::Result<Option<String>> {
+        self.conn().query_row("SELECT MAX(ts) FROM prompts", [], |r| r.get(0))
+    }
+
+    /// `ts` mới nhất trong `alerts_sent` của các key bắt đầu bằng `prefix`.
+    pub fn latest_alert_ts(&self, prefix: &str) -> rusqlite::Result<Option<String>> {
+        self.conn().query_row("SELECT MAX(ts) FROM alerts_sent WHERE substr(key, 1, length(?1)) = ?1", [prefix], |r| r.get(0))
+    }
+
+    /// Số ngày (theo múi giờ lệch `offset_secs`) có ít nhất một lần hỏi trong [from, to).
+    pub fn active_days_between(&self, from: &str, to: &str, offset_secs: i32) -> rusqlite::Result<u64> {
+        let off = format!("{offset_secs} seconds");
+        self.conn().query_row(
+            "SELECT COUNT(DISTINCT date(ts, ?3)) FROM prompts WHERE ts >= ?1 AND ts < ?2",
+            params![from, to, off],
+            |r| u64_at(r, 0),
+        )
+    }
+
     pub fn recent_prompt_keys(&self, limit: u32) -> rusqlite::Result<Vec<String>> {
         let mut st = self.conn().prepare("SELECT key FROM prompts ORDER BY ts DESC LIMIT ?1")?;
         let rows = st.query_map([limit], |r| r.get(0))?;

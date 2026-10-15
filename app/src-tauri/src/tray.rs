@@ -1,4 +1,5 @@
 //! Icon và menu tray (spec mục 7.2).
+use chrono::{DateTime, SecondsFormat, Utc};
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -6,7 +7,11 @@ use tauri::{AppHandle, Manager, Wry};
 use tk_core::handlers::TodaySummary;
 use tk_core::i18n::Lang;
 use tk_core::insight::fmt_tokens;
-use tk_core::limits::{Level, LimitState, Window};
+use tk_core::config::Config;
+use tk_core::face::{face_for, Face, FaceInput};
+use tk_core::handlers::local_day_bounds;
+use tk_core::limits::{LimitState, Window};
+use tk_core::store::Store;
 
 pub struct TrayItems {
     five: MenuItem<Wry>,
@@ -17,26 +22,49 @@ pub struct TrayItems {
     quit: MenuItem<Wry>,
 }
 
-/// Chấm tròn 32×32 theo màu mức quota.
-pub fn dot_rgba(level: Level) -> Vec<u8> {
-    let (r, g, b) = match level {
-        Level::Green => (46, 160, 67),
-        Level::Yellow => (210, 153, 34),
-        Level::Red => (208, 69, 58),
-        Level::Grey => (142, 142, 147),
+const TRAY_PNGS: [(Face, &[u8]); 5] = [
+    (Face::Happy, include_bytes!("../icons/tray/bum-happy.png")),
+    (Face::Calm, include_bytes!("../icons/tray/bum-calm.png")),
+    (Face::Worry, include_bytes!("../icons/tray/bum-worry.png")),
+    (Face::Blaze, include_bytes!("../icons/tray/bum-blaze.png")),
+    (Face::Sleep, include_bytes!("../icons/tray/bum-sleep.png")),
+];
+
+/// Icon tray 32×32 của một biểu cảm Bum.
+pub fn face_image(face: Face) -> Image<'static> {
+    let bytes = TRAY_PNGS.iter().find(|(f, _)| *f == face).map(|(_, b)| *b).expect("đủ 5 biểu cảm");
+    Image::from_bytes(bytes).expect("PNG tray hợp lệ")
+}
+
+fn minutes_since(ts: Option<String>, now: DateTime<Utc>) -> Option<i64> {
+    let t = DateTime::parse_from_rfc3339(&ts?).ok()?;
+    Some((now - t.with_timezone(&Utc)).num_minutes().max(0))
+}
+
+/// Gom đầu vào chọn biểu cảm từ DB + trạng thái quota (spec 3.4). Lỗi truy vấn coi như "không có dữ liệu".
+pub fn face_input(store: &Store, cfg: &Config, limits: &LimitState, today_tokens: u64, now: DateTime<Utc>) -> FaceInput {
+    let thresholds = match cfg.quota_thresholds.as_slice() {
+        [a, b, ..] => (*a, *b),
+        _ => (70, 90),
     };
-    let n = 32usize;
-    let mut px = vec![0u8; n * n * 4];
-    for y in 0..n {
-        for x in 0..n {
-            let (dx, dy) = (x as f32 - 15.5, y as f32 - 15.5);
-            if dx * dx + dy * dy <= 196.0 {
-                let i = (y * n + x) * 4;
-                px[i..i + 4].copy_from_slice(&[r, g, b, 255]);
-            }
-        }
+    let offset = chrono::Local::now().offset().local_minus_utc();
+    let (today_from, _) = local_day_bounds(now);
+    let since = DateTime::parse_from_rfc3339(&today_from).map(|t| (t.with_timezone(&Utc) - chrono::Duration::days(30)).to_rfc3339_opts(SecondsFormat::Millis, true));
+    // Trung bình token/ngày trên các ngày có lượt hỏi, trong 30 ngày trước hôm nay.
+    let avg_daily_tokens = since.ok().and_then(|since| {
+        let days = store.active_days_between(&since, &today_from, offset).ok()?;
+        let total = store.model_usage_between(&since, &today_from).ok()?.iter().map(|(_, u)| u.total()).sum::<u64>();
+        (days > 0).then(|| total / days)
+    });
+    FaceInput {
+        stale: limits.stale,
+        minutes_since_last_turn: minutes_since(store.latest_prompt_ts().ok().flatten(), now),
+        quota_pct: limits.five_hour.map(|w| w.used_percentage),
+        thresholds,
+        minutes_since_anomaly: minutes_since(store.latest_alert_ts("anomaly:").ok().flatten(), now),
+        today_tokens,
+        avg_daily_tokens,
     }
-    px
 }
 
 fn ago(secs: i64, lang: Lang) -> String {
@@ -92,8 +120,8 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let sep1 = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(app, &[&five, &seven, &today, &sep1, &open, &pause, &quit])?;
     TrayIconBuilder::with_id("main")
-        .icon(Image::new_owned(dot_rgba(Level::Green), 32, 32))
-        .tooltip("thongke")
+        .icon(face_image(Face::Calm))
+        .tooltip("Bumeter")
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, ev| match ev.id.as_ref() {
@@ -107,7 +135,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-pub fn refresh(app: &AppHandle, limits: &LimitState, today: &TodaySummary) {
+pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &TodaySummary) {
     let items = app.state::<TrayItems>();
     let lang = app.state::<crate::state::AppState>().lang();
     let [five, seven, today_label] = labels(limits, today, chrono::Utc::now().timestamp(), lang);
@@ -119,7 +147,9 @@ pub fn refresh(app: &AppHandle, limits: &LimitState, today: &TodaySummary) {
     let _ = items.seven.set_text(&seven);
     let _ = items.today.set_text(&today_label);
     if let Some(tray) = app.tray_by_id("main") {
-        let _ = tray.set_icon(Some(Image::new_owned(dot_rgba(limits.level()), 32, 32)));
+        let now = Utc::now();
+        let face = face_for(&face_input(store, &app.state::<crate::state::AppState>().cfg, limits, today.total, now));
+        let _ = tray.set_icon(Some(face_image(face)));
         let _ = tray.set_tooltip(Some(tk_core::limits::render_line(limits, Some(today.total), lang)));
     }
 }
@@ -129,18 +159,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stale_dot_is_grey() {
-        let px = dot_rgba(Level::Grey);
-        let center = (16 * 32 + 16) * 4;
-        assert_eq!(&px[center..center + 3], &[142, 142, 147]);
-    }
-
-    #[test]
-    fn dot_is_colored_in_center_and_transparent_in_corner() {
-        let px = dot_rgba(Level::Red);
-        let center = (16 * 32 + 16) * 4;
-        assert_eq!(&px[center..center + 4], &[208, 69, 58, 255]);
-        assert_eq!(px[3], 0);
+    fn every_tray_png_decodes_to_32x32() {
+        for (face, _) in TRAY_PNGS {
+            let img = face_image(face);
+            assert_eq!((img.width(), img.height()), (32, 32), "{face:?}");
+        }
     }
 
     #[test]
