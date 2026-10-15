@@ -41,5 +41,5 @@ pub fn socket_name(paths: &Paths) -> std::io::Result<Name<'static>> {
 pub fn socket_name(_paths: &Paths) -> std::io::Result<Name<'static>> {
     use interprocess::local_socket::GenericNamespaced;
     let user = std::env::var("USERNAME").unwrap_or_else(|_| "user".into());
-    format!("thongke-{user}").to_ns_name::<GenericNamespaced>()
+    format!("bumeter-{user}").to_ns_name::<GenericNamespaced>()
 }

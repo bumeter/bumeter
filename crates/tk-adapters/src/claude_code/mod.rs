@@ -20,9 +20,9 @@ impl ClaudeCode {
         Self { root: root.into() }
     }
 
-    /// `TK_CLAUDE_DIR` nếu có, không thì `~/.claude/projects`.
+    /// `BUM_CLAUDE_DIR` (hoặc `TK_CLAUDE_DIR`) nếu có, không thì `~/.claude/projects`.
     pub fn default_root() -> PathBuf {
-        if let Some(dir) = std::env::var_os("TK_CLAUDE_DIR") {
+        if let Some(dir) = std::env::var_os("BUM_CLAUDE_DIR").or_else(|| std::env::var_os("TK_CLAUDE_DIR")) {
             return PathBuf::from(dir);
         }
         dirs::home_dir().unwrap_or_default().join(".claude").join("projects")

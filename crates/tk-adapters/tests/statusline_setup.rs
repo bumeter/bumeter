@@ -182,3 +182,43 @@ fn undo_without_backup_is_an_error() {
     let dir = tempfile::tempdir().unwrap();
     assert!(setup(dir.path()).undo().is_err());
 }
+
+#[test]
+fn legacy_tk_hook_is_rewritten_to_bum_with_backup_and_is_idempotent() {
+    let dir = tempfile::tempdir().unwrap();
+    let bum = fake_tk(dir.path(), "bin-a/bum");
+    let s = setup_with(dir.path(), bum);
+    let old = format!("\"{}/bin-a/tk\" statusline --tee | {{ bash ~/.claude/sl.sh; }}", dir.path().display());
+    write_settings(dir.path(), &json!({"model": "x", "statusLine": {"type": "command", "command": old}}).to_string());
+
+    assert!(s.migrate_legacy_hook().unwrap());
+    let now = command(dir.path());
+    assert_eq!(now, format!("\"{}/bin-a/bum\" statusline --tee | {{ bash ~/.claude/sl.sh; }}", dir.path().display()));
+    assert_eq!(read(&settings(dir.path()))["model"], "x");
+    assert!(dir.path().join("backups/statusline-backup.json").exists(), "phải có bản sao lưu");
+
+    let before = std::fs::read(settings(dir.path())).unwrap();
+    assert!(!s.migrate_legacy_hook().unwrap());
+    assert_eq!(std::fs::read(settings(dir.path())).unwrap(), before);
+}
+
+#[test]
+fn legacy_unquoted_tk_path_is_rewritten() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = setup_with(dir.path(), fake_tk(dir.path(), "bin-a/bum"));
+    write_settings(dir.path(), &json!({"statusLine": {"type": "command", "command": "/usr/bin/tk statusline --tee"}}).to_string());
+    assert!(s.migrate_legacy_hook().unwrap());
+    assert_eq!(command(dir.path()), "/usr/bin/bum statusline --tee");
+    assert!(!s.migrate_legacy_hook().unwrap());
+}
+
+#[test]
+fn legacy_migration_ignores_custom_and_missing_settings() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = setup_with(dir.path(), fake_tk(dir.path(), "bin-a/bum"));
+    assert!(!s.migrate_legacy_hook().unwrap());
+    write_settings(dir.path(), &json!({"statusLine": {"type": "command", "command": "bash ~/.claude/mytk.sh"}}).to_string());
+    assert!(!s.migrate_legacy_hook().unwrap());
+    assert_eq!(command(dir.path()), "bash ~/.claude/mytk.sh");
+    assert!(!dir.path().join("backups").exists());
+}

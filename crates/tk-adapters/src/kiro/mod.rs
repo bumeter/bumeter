@@ -19,9 +19,9 @@ impl Kiro {
         Self { root: root.into() }
     }
 
-    /// `TK_KIRO_DIR` nếu có, không thì `~/.kiro/sessions/cli`.
+    /// `BUM_KIRO_DIR` (hoặc `TK_KIRO_DIR`) nếu có, không thì `~/.kiro/sessions/cli`.
     pub fn default_root() -> PathBuf {
-        if let Some(d) = std::env::var_os("TK_KIRO_DIR") {
+        if let Some(d) = std::env::var_os("BUM_KIRO_DIR").or_else(|| std::env::var_os("TK_KIRO_DIR")) {
             return PathBuf::from(d);
         }
         dirs::home_dir().unwrap_or_default().join(".kiro").join("sessions").join("cli")

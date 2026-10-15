@@ -43,7 +43,39 @@ struct Backup {
 
 /// Nhận ra lệnh do tk ghi, bất kể đường dẫn tk là gì.
 fn is_hook(cmd: &str) -> bool {
-    cmd.contains(TEE) || cmd.ends_with("\" statusline") || cmd.contains("tk statusline")
+    cmd.contains(TEE) || cmd.ends_with("\" statusline") || cmd.contains("tk statusline") || cmd.contains("bum statusline")
+}
+
+/// Thay tên chương trình `tk` đứng ngay trước ` statusline` bằng `bum` (giữ nguyên thư mục).
+/// `None` nếu không có gì để đổi. Nhận cả `"/path/tk" statusline` lẫn `/path/tk statusline`.
+fn rewrite_legacy_bin(cmd: &str) -> Option<String> {
+    let mut out = String::with_capacity(cmd.len());
+    let mut rest = cmd;
+    let mut changed = false;
+    while let Some(i) = rest.find(" statusline") {
+        let head = &rest[..i];
+        let (head, quote) = match head.strip_suffix('"') {
+            Some(h) => (h, "\""),
+            None => (head, ""),
+        };
+        let stem = head.strip_suffix(".exe").unwrap_or(head);
+        let ext = &head[stem.len()..];
+        let is_tk = stem == "tk" || stem.ends_with("/tk") || stem.ends_with("\\tk") || stem.ends_with("\"tk");
+        if is_tk {
+            out.push_str(&stem[..stem.len() - 2]);
+            out.push_str("bum");
+            out.push_str(ext);
+            changed = true;
+        } else {
+            out.push_str(head);
+            out.push_str(ext);
+        }
+        out.push_str(quote);
+        out.push_str(" statusline");
+        rest = &rest[i + " statusline".len()..];
+    }
+    out.push_str(rest);
+    changed.then_some(out)
 }
 
 /// Lệnh gốc bên trong một hook `"<tk>" statusline --tee | { <gốc>; }`.
@@ -119,6 +151,15 @@ impl StatuslineSetup {
             Some(c) if is_hook(&c) => Status::Hooked { command: c },
             Some(c) => Status::Custom { command: c },
         })
+    }
+
+    /// Hook cũ trỏ `tk` (đổi tên thành `bum`): viết lại sang `bum`, có sao lưu (như `apply`).
+    /// Trả `true` nếu đã sửa; chạy lại không đổi gì nữa.
+    pub fn migrate_legacy_hook(&self) -> anyhow::Result<bool> {
+        let Status::Hooked { command } = self.status()? else { return Ok(false) };
+        let Some(new) = rewrite_legacy_bin(&command) else { return Ok(false) };
+        self.apply(&Plan { description: String::new(), new_command: Some(new) })?;
+        Ok(true)
     }
 
     pub fn plan(&self) -> anyhow::Result<Plan> {
