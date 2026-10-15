@@ -1,7 +1,8 @@
 import { api } from '../api';
 import type { LimitState, SidebarCounts, Source } from '../api';
-import { bum, bumStateFor } from '../components/bum';
-import type { BumState } from '../components/bum';
+import { bum } from '../components/bum';
+import { bumMood, EMPTY_BUM_INFO, loadBumInfo } from '../components/bum-data';
+import type { BumInfo } from '../components/bum-data';
 import { compact, h, icon, ICONS } from '../dom';
 import { t } from '../i18n';
 import { state, subscribe, update } from '../state';
@@ -32,8 +33,7 @@ export async function mountSidebar(el: HTMLElement) {
   let limits: LimitState | null = null;
   let sources: Source[] = allSources();
   let menuOpen = false;
-  let bumInfo: { today: number; avg: number | null; anomalyTs: string | null; thresholds: [number, number] } =
-    { today: 0, avg: null, anomalyTs: null, thresholds: [70, 90] };
+  let bumInfo: BumInfo = EMPTY_BUM_INFO;
 
   const render = () => {
     const nav = (view: View, label: string, ic: string[], count?: number) =>
@@ -51,23 +51,7 @@ export async function mountSidebar(el: HTMLElement) {
         id ? glyph(id) : h('span', { class: 'glyph all', 'aria-hidden': 'true' }, '∗'), label,
         h('span', { class: 'count num' }, s && !s.found ? '—' : count));
 
-    const showQuota = sources.some((s) => s.info.limits && (!state.scope || s.info.id === state.scope));
-    const pct = showQuota && limits?.five_hour ? Math.round(limits.five_hour.used_percentage) : null;
-    const newest = inScope.reduce<number | null>((m, s) => {
-      const ts = s.last_ts ? Date.parse(s.last_ts) : NaN;
-      return Number.isNaN(ts) ? m : Math.max(m ?? ts, ts);
-    }, null);
-    const now = Date.now();
-    const anomalyMs = bumInfo.anomalyTs ? Date.parse(bumInfo.anomalyTs) : NaN;
-    const mood: BumState = bumStateFor({
-      stale: showQuota ? !!limits?.stale : false,
-      minutesSinceLastTurn: newest === null ? null : Math.max(0, (now - newest) / 60000),
-      quotaPct: pct,
-      thresholds: bumInfo.thresholds,
-      minutesSinceAnomaly: Number.isNaN(anomalyMs) ? null : Math.max(0, (now - anomalyMs) / 60000),
-      todayTokens: bumInfo.today,
-      avgDailyTokens: bumInfo.avg,
-    });
+    const { mood, pct, showQuota } = bumMood(bumInfo, { scope: state.scope, sources, limits });
     const resets = showQuota ? limits?.five_hour?.resets_at : null;
     const resetTime = resets ? new Date(resets * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) : null;
     const bumCard = h('div', { class: 'bumcard', 'data-bum': mood },
@@ -99,24 +83,7 @@ export async function mountSidebar(el: HTMLElement) {
     ]));
   };
 
-  const loadBum = async () => {
-    const scope = state.scope;
-    const settle = <T,>(p: Promise<T>, fallback: T) => p.catch(() => fallback);
-    const [today, days, anomalies, settings] = await Promise.all([
-      settle(api.todaySummary().then((x) => x.total), 0),
-      settle(api.dayStats(), []),
-      settle(api.listConversations({ quick: 'anomalous', limit: 1, tool: scope }).then((l) => l.days[0]?.conversations[0]?.last_ts ?? null), null),
-      settle(api.settings().then((x) => x.config.quota_thresholds), [] as number[]),
-    ]);
-    const cutoff = Date.now() - 30 * 86400_000;
-    const used = days.filter((d) => d.prompts > 0 && Date.parse(d.day) >= cutoff);
-    const th = settings ?? [];
-    bumInfo = {
-      today, anomalyTs: anomalies,
-      avg: used.length ? used.reduce((n, d) => n + d.tokens, 0) / used.length : null,
-      thresholds: th.length >= 2 ? [th[0], th[1]] : [70, 90],
-    };
-  };
+  const loadBum = async () => { bumInfo = await loadBumInfo(state.scope); };
   const load = async () => {
     [counts, limits, sources] = await Promise.all([api.sidebarCounts(), api.limitState(), loadSources()]);
     await loadBum();

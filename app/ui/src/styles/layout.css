@@ -379,3 +379,27 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .app[data-layout="narrow"] .side-item, .app[data-layout="narrow"] .scope { width: 40px; height: 36px; padding: 0; justify-content: center; flex: none; }
 .app[data-layout="narrow"] .bumcard { margin: 0 0 0 auto; padding: 4px; background: transparent; flex: none; }
 .app[data-layout="narrow"] .scope-menu { position: fixed; left: 8px; top: 52px; z-index: 5; min-width: 200px; background: var(--surf); border: var(--hair) solid var(--separator); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14); }
+
+/* Tổng quan (Bumeter): thẻ, biểu đồ + gợi ý, project/model */
+.overview .ov-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.overview .ov-card { display: flex; align-items: center; gap: 14px; }
+.overview .ov-card .lbl { font: 600 11.5px var(--font); color: var(--ink2); }
+.overview .ov-card .big { font: 900 28px var(--font); letter-spacing: -1px; color: var(--ink); }
+.overview .ov-card .sub { font: 500 11.5px var(--font); color: var(--ink3); }
+.overview .ov-card .cmp { font: 700 11.5px var(--font); color: var(--ink2); }
+.overview .ov-card .cmp.grn { color: var(--grn); }
+.overview .ov-card .cmp.red { color: var(--red); }
+.overview .ov-mid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: 12px; margin-top: 12px; }
+.overview .ov-bottom { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.overview .panel .section-title { margin-top: 0; }
+.overview .panel svg.days { margin: 8px 0 0; }
+.overview .bum-tips .insight { border-bottom: 1px solid var(--line); margin: 0; border-radius: 0; background: none; border-left: 0; border-right: 0; border-top: 0; padding: 8px 0; }
+.overview .bum-tips .insight:last-child { border-bottom: 0; }
+.overview .ov-bottom .ov-row { grid-template-columns: minmax(80px, 1fr) minmax(120px, 1.2fr); }
+.overview .ov-bottom .ov-row .skills, .overview .ov-bottom .ov-row > .num.dim { display: none; }
+svg.days rect.bar { fill: color-mix(in srgb, var(--acc) 30%, var(--surf)); opacity: 1; }
+svg.days rect.bar:hover { fill: color-mix(in srgb, var(--acc) 55%, var(--surf)); }
+svg.days rect.bar.hot, svg.days rect.bar.hot:hover { fill: var(--acc); }
+@media (max-width: 900px) { .overview .ov-cards, .overview .ov-mid, .overview .ov-bottom { grid-template-columns: minmax(0, 1fr); } }
+.app[data-layout="narrow"] .overview .ov-cards, .app[data-layout="narrow"] .overview .ov-mid, .app[data-layout="narrow"] .overview .ov-bottom,
+.app[data-layout="medium"] .overview .ov-mid, .app[data-layout="medium"] .overview .ov-bottom { grid-template-columns: minmax(0, 1fr); }
