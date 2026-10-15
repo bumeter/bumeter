@@ -207,7 +207,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
         h('button', { 'data-tab': k, 'aria-pressed': String(tab === k), onclick: (() => { tab = k; renderBody(); }) as EventListener },
           t(k === 'market' ? 'sk.tabMarket' : k === 'dir' ? 'sk.fromDir' : 'sk.fromGit'))));
       if (tab === 'market') {
-        const input = h('input', { class: 'wide', name: 'market-q', type: 'search', placeholder: t('sk.marketPlaceholder'), 'aria-label': t('sk.tabMarket') }) as HTMLInputElement;
+        const input = h('input', { class: 'wide', name: 'market-q', type: 'search', autocomplete: 'off', spellcheck: 'false', placeholder: t('sk.marketPlaceholder'), 'aria-label': t('sk.tabMarket') }) as HTMLInputElement;
         const results = h('div', { class: 'market-results', 'aria-live': 'polite' });
         input.addEventListener('input', () => {
           clearTimeout(timer);
@@ -230,7 +230,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
         input.focus();
         return;
       }
-      const source = h('input', { class: 'wide', name: 'source', placeholder: tab === 'git' ? t('sk.gitPlaceholder') : t('sk.dirPlaceholder'), 'aria-label': t('sk.source') }) as HTMLInputElement;
+      const source = h('input', { class: 'wide', name: 'source', autocomplete: 'off', spellcheck: 'false', placeholder: tab === 'git' ? t('sk.gitPlaceholder') : t('sk.dirPlaceholder'), 'aria-label': t('sk.source') }) as HTMLInputElement;
       body.replaceChildren(source, h('p', { class: 'sub' }, t('sk.installHint')),
         h('div', { class: 'actions' },
           h('button', { class: 'btn primary', 'data-action': 'install-check', onclick: (() => {
