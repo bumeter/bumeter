@@ -1,21 +1,12 @@
 import { api } from '../api';
-import type { LimitState, SidebarCounts, Source, Window } from '../api';
+import type { LimitState, SidebarCounts, Source } from '../api';
+import { bum, bumStateFor } from '../components/bum';
+import type { BumState } from '../components/bum';
 import { compact, h, icon, ICONS } from '../dom';
 import { t } from '../i18n';
 import { state, subscribe, update } from '../state';
 import type { View } from '../state';
 import { allSources, glyph, loadSources, toolDef } from '../tools';
-
-function meterColor(pct: number) {
-  return pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--orange)' : 'var(--green)';
-}
-
-function meter(label: string, w: Window | null) {
-  if (!w) return h('div', {}, `${label} —`);
-  const pct = Math.round(w.used_percentage);
-  return h('div', {}, `${label} · ${pct}%`,
-    h('div', { class: 'meter' }, h('span', { style: `width:${Math.min(pct, 100)}%;background:${meterColor(pct)}` })));
-}
 
 const SCOPE_KEY = 'thongke.scope';
 
@@ -41,11 +32,13 @@ export async function mountSidebar(el: HTMLElement) {
   let limits: LimitState | null = null;
   let sources: Source[] = allSources();
   let menuOpen = false;
+  let bumInfo: { today: number; avg: number | null; anomalyTs: string | null; thresholds: [number, number] } =
+    { today: 0, avg: null, anomalyTs: null, thresholds: [70, 90] };
 
   const render = () => {
     const nav = (view: View, label: string, ic: string[], count?: number) =>
-      h('button', { class: 'side-item', 'data-view': view, 'aria-current': state.view === view ? 'true' : null, onclick: (() => update({ view })) as EventListener },
-        icon(ic), label, count != null ? h('span', { class: 'count num' }, count) : null);
+      h('button', { class: 'side-item', 'data-view': view, 'aria-label': label, title: label, 'aria-current': state.view === view ? 'true' : null, onclick: (() => update({ view })) as EventListener },
+        icon(ic), h('span', { class: 'label' }, label), count != null ? h('span', { class: 'count num' }, count) : null);
 
     const inScope = sources.filter((s) => !state.scope || s.info.id === state.scope);
     const conversations = inScope.reduce((n, s) => n + s.sessions, 0);
@@ -59,9 +52,35 @@ export async function mountSidebar(el: HTMLElement) {
         h('span', { class: 'count num' }, s && !s.found ? '—' : count));
 
     const showQuota = sources.some((s) => s.info.limits && (!state.scope || s.info.id === state.scope));
-    const quotaTool = sources.find((s) => s.info.limits)?.info.label ?? '';
+    const pct = showQuota && limits?.five_hour ? Math.round(limits.five_hour.used_percentage) : null;
+    const newest = inScope.reduce<number | null>((m, s) => {
+      const ts = s.last_ts ? Date.parse(s.last_ts) : NaN;
+      return Number.isNaN(ts) ? m : Math.max(m ?? ts, ts);
+    }, null);
+    const now = Date.now();
+    const anomalyMs = bumInfo.anomalyTs ? Date.parse(bumInfo.anomalyTs) : NaN;
+    const mood: BumState = bumStateFor({
+      stale: showQuota ? !!limits?.stale : false,
+      minutesSinceLastTurn: newest === null ? null : Math.max(0, (now - newest) / 60000),
+      quotaPct: pct,
+      thresholds: bumInfo.thresholds,
+      minutesSinceAnomaly: Number.isNaN(anomalyMs) ? null : Math.max(0, (now - anomalyMs) / 60000),
+      todayTokens: bumInfo.today,
+      avgDailyTokens: bumInfo.avg,
+    });
+    const resets = showQuota ? limits?.five_hour?.resets_at : null;
+    const resetTime = resets ? new Date(resets * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) : null;
+    const bumCard = h('div', { class: 'bumcard', 'data-bum': mood },
+      bum(mood, 36),
+      h('div', { class: 'bum-text' },
+        ...(pct !== null
+          ? [h('b', {}, t('bum.quota', { pct })),
+             resetTime ? h('span', {}, t('bum.resets', { time: resetTime })) : null,
+             h('div', { class: 'fuel' }, h('div', { class: 'bar' }, h('i', { class: pct >= bumInfo.thresholds[1] ? 'hot' : '', style: `width:${Math.min(pct, 100)}%` })))]
+          : [h('b', {}, t(`bum.status.${mood}` as 'bum.status.calm'))])));
 
     el.replaceChildren(...compact([
+      h('div', { class: 'brand' }, bum('calm', 26), h('span', { class: 'wordmark' }, 'bumeter')),
       h('button', { class: 'scope', 'data-action': 'scope', 'aria-haspopup': 'menu', 'aria-expanded': String(menuOpen), onclick: (() => { menuOpen = !menuOpen; render(); }) as EventListener },
         current ? glyph(current.id) : h('span', { class: 'glyph all', 'aria-hidden': 'true' }, '∗'),
         h('span', { class: 'scope-label' }, current ? current.label : t('scope.all')),
@@ -72,20 +91,35 @@ export async function mountSidebar(el: HTMLElement) {
             ...sources.map((s) => scopeItem(s.info.id, s.info.label, s.prompts, s)))
         : null,
       h('div', { class: 'side-section' }, t('nav.section')),
-      nav('overview', t('nav.overview'), ICONS.chart),
+      nav('overview', t('nav.overview'), ICONS.grid),
       nav('conversations', t('nav.conversations'), ICONS.chat, conversations),
-      nav('skills', t('nav.skills'), ICONS.grid, counts?.skills),
+      nav('skills', t('nav.skills'), ICONS.bolt, counts?.skills),
       nav('settings', t('nav.settings'), ICONS.gear),
-      showQuota
-        ? h('div', { class: 'today-card' },
-            h('div', { class: 'quota-scope' }, t('quota.title', { tool: quotaTool })),
-            h('div', { class: 'meters' }, meter(t('quota.5h'), limits?.five_hour ?? null), meter(t('quota.7d'), limits?.seven_day ?? null)))
-        : null,
+      bumCard,
     ]));
   };
 
+  const loadBum = async () => {
+    const scope = state.scope;
+    const settle = <T,>(p: Promise<T>, fallback: T) => p.catch(() => fallback);
+    const [today, days, anomalies, settings] = await Promise.all([
+      settle(api.todaySummary().then((x) => x.total), 0),
+      settle(api.dayStats(scope), []),
+      settle(api.listConversations({ quick: 'anomalous', limit: 1, tool: scope }).then((l) => l.days[0]?.conversations[0]?.last_ts ?? null), null),
+      settle(api.settings().then((x) => x.config.quota_thresholds), [] as number[]),
+    ]);
+    const cutoff = Date.now() - 30 * 86400_000;
+    const used = days.filter((d) => d.prompts > 0 && Date.parse(d.day) >= cutoff);
+    const th = settings ?? [];
+    bumInfo = {
+      today, anomalyTs: anomalies,
+      avg: used.length ? used.reduce((n, d) => n + d.tokens, 0) / used.length : null,
+      thresholds: th.length >= 2 ? [th[0], th[1]] : [70, 90],
+    };
+  };
   const load = async () => {
     [counts, limits, sources] = await Promise.all([api.sidebarCounts(), api.limitState(), loadSources()]);
+    await loadBum();
     render();
   };
 
@@ -96,7 +130,8 @@ export async function mountSidebar(el: HTMLElement) {
   };
   document.addEventListener('click', onDoc);
   const unsub = subscribe((_s, changed) => {
-    if (changed.includes('scope') || changed.includes('view') || changed.includes('lang')) render();
+    if (changed.includes('scope')) { render(); void loadBum().then(render); return; }
+    if (changed.includes('view') || changed.includes('lang')) render();
   });
   const offData = await api.onDataChanged(() => void load());
   const offLimits = await api.onLimitsChanged((l) => { limits = l; render(); });

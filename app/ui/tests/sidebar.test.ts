@@ -7,6 +7,10 @@ import { state, update } from '../src/state';
 const handlers = {
   sources: () => SOURCES,
   sidebar_counts: () => ({ prompts: 595, skills: 16, projects: 23, anomalous: 59, big_context: 41, interrupted: 21, starred: 3, by_tool: { claude_code: 380, kiro: 215 } }),
+  today_summary: () => ({ prompts: 3, usage: {}, total: 1000, cost_usd: 0, unpriced_models: [] }),
+  day_stats: () => [],
+  list_conversations: () => ({ days: [] }),
+  settings_get: () => ({ config: { quota_thresholds: [70, 90] } }),
   limit_state: () => ({ five_hour: { used_percentage: 78, resets_at: 2_000_000_000 }, seven_day: null, updated_at: 1, stale: false, blocked: null }),
 };
 
@@ -25,10 +29,21 @@ describe('sidebar', () => {
     const items = [...el.querySelectorAll('.side-item')].map((b) => b.getAttribute('data-view'));
     expect(items).toEqual(['overview', 'conversations', 'skills', 'settings']);
     expect(el.querySelector('[data-view="conversations"] .count')?.textContent).toBe('17');
-    expect(el.textContent).toContain('Giới hạn · Claude Code');
-    expect(el.textContent).toContain('78%');
-    expect(el.textContent).toContain('7 ngày —');
+    expect(el.querySelector('.bumcard')?.textContent).toContain('Quota 5 giờ 78%');
     expect(el.textContent).not.toContain('$');
+    expect(el.querySelector('.brand')?.textContent).toContain('bumeter');
+    for (const b of el.querySelectorAll('.side-item')) {
+      expect(b.getAttribute('aria-label')).toBeTruthy();
+      expect(b.getAttribute('title')).toBeTruthy();
+      expect(b.querySelector('svg')).not.toBeNull();
+    }
+  });
+
+  it('thẻ Bum: quota 78% thì Bum lo lắng (worry)', async () => {
+    fake(handlers);
+    await mountSidebar(el);
+    expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).toBe('worry');
+    expect(el.querySelector('.bumcard .fuel')).not.toBeNull();
   });
 
   it('bộ chọn phạm vi: mở menu, chọn Kiro thì cả app lọc theo Kiro, quota ẩn vì Kiro không có', async () => {
@@ -45,7 +60,10 @@ describe('sidebar', () => {
     expect(el.querySelector('.scope')?.textContent).toContain('Kiro');
     expect(el.querySelector('.scope-menu')).toBeNull();
     expect(el.querySelector('[data-view="conversations"] .count')?.textContent).toBe('5');
-    expect(el.textContent).not.toContain('Giới hạn');
+    expect(el.querySelector('.bumcard')).not.toBeNull();
+    expect(el.querySelector('.bumcard .fuel')).toBeNull();
+    expect(el.textContent).not.toContain('Quota 5 giờ');
+    expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).not.toBe('worry');
   });
 
   it('tiếng Anh', async () => {
@@ -54,6 +72,6 @@ describe('sidebar', () => {
     await mountSidebar(el);
     expect(el.textContent).toContain('Conversations');
     expect(el.textContent).toContain('All tools');
-    expect(el.textContent).toContain('Limits · Claude Code');
+    expect(el.textContent).toContain('5-hour quota 78%');
   });
 });

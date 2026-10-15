@@ -11,6 +11,7 @@ import './styles/components.css';
 import { api } from './api';
 import { setLang, t } from './i18n';
 import type { Lang } from './i18n';
+import { watchLayout } from './layout';
 import { state, subscribe, update } from './state';
 import type { View } from './state';
 
@@ -50,6 +51,7 @@ export async function boot() {
     conversation: params.get('conversation'), turn: params.get('turn') });
 
   const app = document.getElementById('app')!;
+  watchLayout(app, (l) => { app.dataset.layout = l; });
   const list = document.getElementById('list')!;
   const detail = document.getElementById('detail')!;
 

@@ -358,3 +358,46 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .insight .ititle { font: 600 13px var(--font); }
 .insight .ibody { font-size: 12px; color: var(--label-2); flex: 1; }
 .insight .action { align-self: flex-start; }
+
+/* Sidebar mới: thương hiệu + thẻ Bum */
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 17px; letter-spacing: -0.6px; margin: 0 6px 14px; flex: none; }
+.brand svg { flex: none; }
+.side-item .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bumcard { margin-top: auto; background: var(--tint); border-radius: 14px; padding: 12px; display: flex; gap: 10px; align-items: center; }
+.bumcard > svg { flex: none; }
+.bumcard .bum-text { flex: 1; min-width: 0; }
+.bumcard b { display: block; font-size: 12.5px; }
+.bumcard span { color: var(--ink2); font-size: 11px; }
+.bumcard .fuel { margin-top: 6px; }
+.bumcard .fuel .bar { width: 100%; }
+
+/* Bố cục theo độ rộng (#app[data-layout]); đặt cuối để thắng .settings-view/.conv-view */
+.app[data-layout="wide"] { grid-template-columns: 220px minmax(360px, 1fr) 340px; }
+.app[data-layout="wide"].settings-view { grid-template-columns: 220px 1fr; }
+.app[data-layout="wide"].conv-view { grid-template-columns: 220px minmax(340px, 420px) minmax(380px, 1fr); }
+
+/* medium: cột icon + danh sách; ngăn chi tiết ẩn (ngăn kéo ở Task 5) */
+.app[data-layout="medium"], .app[data-layout="medium"].settings-view, .app[data-layout="medium"].conv-view { grid-template-columns: 64px minmax(0, 1fr); }
+.app[data-layout="medium"] .detail-pane { display: none; }
+.app[data-layout="medium"] .sidebar, .app[data-layout="narrow"] .sidebar { padding: 10px 8px; }
+.app[data-layout="medium"] .sidebar { align-items: center; overflow: visible; position: relative; z-index: 2; }
+.app[data-layout="medium"] .brand { margin: 0 0 12px; }
+.app[data-layout="medium"] .wordmark, .app[data-layout="medium"] .side-section, .app[data-layout="medium"] .side-item .label,
+.app[data-layout="medium"] .side-item .count, .app[data-layout="medium"] .scope-label, .app[data-layout="medium"] .scope .caret,
+.app[data-layout="medium"] .bumcard .bum-text { display: none; }
+.app[data-layout="medium"] .side-item, .app[data-layout="medium"] .scope { width: 44px; height: 36px; padding: 0; justify-content: center; }
+.app[data-layout="medium"] .scope { margin-bottom: 6px; }
+.app[data-layout="medium"] .scope-menu { position: absolute; left: calc(100% - 4px); top: 52px; min-width: 200px; background: var(--surf); border: var(--hair) solid var(--separator); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14); }
+.app[data-layout="medium"] .bumcard { padding: 8px; background: transparent; }
+
+/* narrow: một cột, thanh tab ở trên */
+.app[data-layout="narrow"], .app[data-layout="narrow"].settings-view, .app[data-layout="narrow"].conv-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+.app[data-layout="narrow"] .detail-pane { display: none; }
+.app[data-layout="narrow"] .sidebar { flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; border-right: 0; border-bottom: var(--hair) solid var(--separator); position: relative; }
+.app[data-layout="narrow"] .brand { margin: 0 6px 0 0; }
+.app[data-layout="narrow"] .wordmark, .app[data-layout="narrow"] .side-section, .app[data-layout="narrow"] .side-item .label,
+.app[data-layout="narrow"] .side-item .count, .app[data-layout="narrow"] .scope-label, .app[data-layout="narrow"] .scope .caret,
+.app[data-layout="narrow"] .bumcard .bum-text { display: none; }
+.app[data-layout="narrow"] .side-item, .app[data-layout="narrow"] .scope { width: 40px; height: 36px; padding: 0; justify-content: center; flex: none; }
+.app[data-layout="narrow"] .bumcard { margin: 0 0 0 auto; padding: 4px; background: transparent; flex: none; }
+.app[data-layout="narrow"] .scope-menu { position: fixed; left: 8px; top: 52px; z-index: 5; min-width: 200px; background: var(--surf); border: var(--hair) solid var(--separator); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14); }
