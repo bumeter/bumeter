@@ -77,6 +77,15 @@ describe('chipMenu focus', () => {
   });
 });
 
+describe('chipMenu focusout to browser chrome', () => {
+  it('null relatedTarget closes the popover', () => {
+    const c = chipMenu({ label: 'T', value: 'a', options: opts, onChange: () => {} });
+    document.body.append(c); c.click();
+    document.querySelector('[role=listbox]')!.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    expect(document.querySelector('[role=listbox]')).toBeNull();
+  });
+});
+
 describe('chipMultiMenu', () => {
   it('toggles multiple and shows count', () => {
     const onChange = vi.fn();

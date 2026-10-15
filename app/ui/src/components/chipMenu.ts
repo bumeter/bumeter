@@ -42,7 +42,7 @@ function menu<T>(o: { label: string; options: Opt<T>[]; multi: boolean; selected
     pop = h('div', { class: 'menu-pop', role: 'listbox', tabindex: -1, 'aria-label': o.label, 'aria-multiselectable': o.multi ? 'true' : null,
       onfocusout: ((e: FocusEvent) => {
         const to = e.relatedTarget as Node | null;
-        if (pop && to && !pop.contains(to) && !chip.contains(to)) close(false);
+        if (pop && (!to || (!pop.contains(to) && !chip.contains(to)))) close(false);
       }) as EventListener,
       onkeydown: ((e: KeyboardEvent) => {
         const n = o.options.length;
