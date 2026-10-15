@@ -143,9 +143,6 @@ impl AlertEngine {
             let med = median(&mut totals);
             for key in idle {
                 self.pending.remove(&key);
-                if !self.cfg.notify.anomaly {
-                    continue;
-                }
                 let Some(stats) = store.prompt_stats(&key)? else { continue };
                 if stats.ts < self.started_at {
                     continue;
@@ -155,7 +152,11 @@ impl AlertEngine {
                 let over_median = |a: &crate::insight::Anomaly| a.ratio.is_some_and(|r| r > self.cfg.anomaly_multiplier);
                 if let Some(a) = anomaly(total, stats.context_at_start, med, &self.cfg).filter(over_median) {
                     let explanation = explain(&stats.usage, stats.context_at_start);
-                    Self::keep(store, &mut out, Alert::Anomaly { prompt_key: key, text: stats.text, total, ratio: a.ratio, explanation }, now_utc)?;
+                    // Luôn ghi mốc bất thường (mặt Bum dùng); chỉ việc gửi thông báo phụ thuộc cờ `notify.anomaly`.
+                    let alert = Alert::Anomaly { prompt_key: key, text: stats.text, total, ratio: a.ratio, explanation };
+                    if store.alert_once(&alert.key(), &rfc(now_utc))? && self.cfg.notify.anomaly {
+                        out.push(alert);
+                    }
                 }
             }
         }

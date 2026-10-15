@@ -61,7 +61,7 @@ pub fn face_input(store: &Store, cfg: &Config, limits: &LimitState, today_tokens
         minutes_since_last_turn: minutes_since(store.latest_prompt_ts().ok().flatten(), now),
         quota_pct: limits.five_hour.map(|w| w.used_percentage),
         thresholds,
-        minutes_since_anomaly: minutes_since(store.latest_alert_ts("anomaly:").ok().flatten(), now),
+        minutes_since_anomaly: minutes_since(store.latest_anomaly_ts(None).ok().flatten(), now),
         today_tokens,
         avg_daily_tokens,
     }

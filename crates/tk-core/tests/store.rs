@@ -119,3 +119,14 @@ fn active_days_count_local_days_with_prompts() {
     // lệch múi giờ không làm hai lần hỏi cùng ngày tách thành hai ngày
     assert_eq!(s.active_days_between(a, b, 7 * 3600).unwrap(), 1);
 }
+
+#[test]
+fn latest_anomaly_ts_filters_by_tool() {
+    let mut s = loaded();
+    assert_eq!(s.latest_anomaly_ts(None).unwrap(), None);
+    s.alert_once("anomaly:p1", "2026-09-11T05:00:00.000Z").unwrap();
+    s.alert_once("quota:70", "2026-09-11T07:00:00.000Z").unwrap();
+    assert_eq!(s.latest_anomaly_ts(None).unwrap().as_deref(), Some("2026-09-11T05:00:00.000Z"));
+    assert_eq!(s.latest_anomaly_ts(Some("claude_code")).unwrap().as_deref(), Some("2026-09-11T05:00:00.000Z"));
+    assert_eq!(s.latest_anomaly_ts(Some("kiro")).unwrap(), None);
+}

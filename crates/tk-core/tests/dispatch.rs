@@ -39,3 +39,21 @@ fn set_note_writes_db_and_backup_file() {
     let backup = std::fs::read_to_string(paths.notes()).unwrap();
     assert!(backup.contains("xem lại"));
 }
+
+#[test]
+fn dispatch_latest_anomaly_ts_matches_store() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = Paths::new(dir.path());
+    let mut s = Store::open(&paths.db()).unwrap();
+    s.ingest_batch(&offset(MAIN), &main_events(), 0).unwrap();
+    let (pricing, cfg) = (Pricing::default_table(), Config::default());
+    let now = chrono::Utc::now();
+    {
+        let ctx = HandlerCtx { store: &s, pricing: &pricing, cfg: &cfg, paths: &paths };
+        assert_eq!(dispatch(&ctx, "latest_anomaly_ts", &json!(null), now).unwrap(), json!(null));
+    }
+    s.alert_once("anomaly:p2", "2026-09-11T06:00:00.000Z").unwrap();
+    let ctx = HandlerCtx { store: &s, pricing: &pricing, cfg: &cfg, paths: &paths };
+    assert_eq!(dispatch(&ctx, "latest_anomaly_ts", &json!({}), now).unwrap(), json!("2026-09-11T06:00:00.000Z"));
+    assert_eq!(dispatch(&ctx, "latest_anomaly_ts", &json!({"tool": "kiro"}), now).unwrap(), json!(null));
+}

@@ -126,6 +126,8 @@ export const api = {
   saveConfig: (config: Config) => call<boolean>('settings:save_config', { config }),
   modelStats: () => call<ModelStat[]>('model_stats'),
   projectStats: (tool?: string) => call<ProjectStat[]>('project_stats', { tool }),
+  /** Mốc bất thường mới nhất (cùng nguồn với mặt Bum ở tray), null nếu chưa có. */
+  latestAnomalyTs: (tool?: string) => call<string | null>('latest_anomaly_ts', { tool }),
   dayStats: (tool?: string) => call<DayStat[]>('day_stats', { tool }),
   sessionAnalysis: (session_id: string) => call<SessionAnalysis>('session_analysis', { session_id }),
   callDetail: (session_id: string, request_id: string) => call<CallDetail>('call_detail', { session_id, request_id }),

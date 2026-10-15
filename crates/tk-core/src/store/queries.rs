@@ -103,6 +103,19 @@ impl Store {
         self.conn().query_row("SELECT MAX(ts) FROM alerts_sent WHERE substr(key, 1, length(?1)) = ?1", [prefix], |r| r.get(0))
     }
 
+    /// Mốc bất thường mới nhất (`ts` của key `anomaly:<prompt_key>` trong `alerts_sent`), lọc theo công cụ nếu có.
+    /// Nguồn chung cho mặt Bum ở tray và UI (spec 3.4).
+    pub fn latest_anomaly_ts(&self, tool: Option<&str>) -> rusqlite::Result<Option<String>> {
+        self.conn().query_row(
+            "SELECT MAX(a.ts) FROM alerts_sent a
+             LEFT JOIN prompts p ON p.key = substr(a.key, 9)
+             LEFT JOIN sessions s ON s.id = p.session_id
+             WHERE substr(a.key, 1, 8) = 'anomaly:' AND (?1 IS NULL OR s.tool = ?1)",
+            [tool],
+            |r| r.get(0),
+        )
+    }
+
     /// Số ngày (theo múi giờ lệch `offset_secs`) có ít nhất một lần hỏi trong [from, to).
     pub fn active_days_between(&self, from: &str, to: &str, offset_secs: i32) -> rusqlite::Result<u64> {
         let off = format!("{offset_secs} seconds");

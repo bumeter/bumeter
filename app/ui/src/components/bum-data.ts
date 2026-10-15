@@ -8,13 +8,13 @@ export interface BumInfo { today: number; avg: number | null; anomalyTs: string 
 
 export const EMPTY_BUM_INFO: BumInfo = { today: 0, avg: null, anomalyTs: null, thresholds: [70, 90] };
 
-/** Lấy token hôm nay, trung bình 30 ngày, lượt bất thường gần nhất và ngưỡng quota. Lỗi từng phần thì dùng giá trị mặc định. */
+/** Lấy token hôm nay, trung bình 30 ngày, mốc bất thường gần nhất (cùng nguồn với tray: `latest_anomaly_ts`) và ngưỡng quota. Lỗi từng phần thì dùng giá trị mặc định. */
 export async function loadBumInfo(scope?: string): Promise<BumInfo> {
   const settle = <T,>(p: Promise<T>, fallback: T) => p.catch(() => fallback);
   const [today, days, anomalies, settings] = await Promise.all([
     settle(api.todaySummary().then((x) => x.total), 0),
     settle(api.dayStats(), []),
-    settle(api.listConversations({ quick: 'anomalous', limit: 1, tool: scope }).then((l) => l.days[0]?.conversations[0]?.last_ts ?? null), null),
+    settle(api.latestAnomalyTs(scope), null),
     settle(api.settings().then((x) => x.config.quota_thresholds), [] as number[]),
   ]);
   const cutoff = Date.now() - 30 * 86400_000;

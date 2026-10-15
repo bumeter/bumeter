@@ -144,6 +144,7 @@ pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now:
             let sid = params["session_id"].as_str().ok_or("thiếu 'session_id'")?;
             to_value(conversation_turns(ctx.store, ctx.pricing, ctx.cfg, sid).map(|t| serde_json::to_value(t).unwrap_or_default()))
         }
+        "latest_anomaly_ts" => to_value(ctx.store.latest_anomaly_ts(params["tool"].as_str()).map(|t| serde_json::json!(t))),
         "skill_stats" => to_value(skill_stats(ctx.store).map(|c| serde_json::to_value(c).unwrap_or_default())),
         "set_note" => {
             let key = params["key"].as_str().ok_or("thiếu 'key'")?;

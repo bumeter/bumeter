@@ -112,3 +112,17 @@ fn disabled_notification_kind_is_skipped() {
     let now = 1_789_100_000;
     assert!(a.on_limits(&mut s, &state(Some(limits(95.0, now)), None, now)).unwrap().is_empty());
 }
+
+#[test]
+fn anomaly_mark_is_recorded_even_when_notification_is_off() {
+    // Bum "bất thường" không phụ thuộc cờ thông báo: vẫn ghi mốc, chỉ không trả Alert để gửi.
+    let mut cfg = Config { anomaly_multiplier: 0.5, ..Config::default() };
+    cfg.notify.anomaly = false;
+    let (mut s, mut a, report) = setup(cfg);
+    let t0 = Instant::now();
+    let now_utc = t("2026-09-11T05:00:00Z");
+    a.on_ingest(&mut s, &report, t0, now_utc).unwrap();
+    let fired = a.on_tick(&mut s, t0 + Duration::from_secs(46), now_utc).unwrap();
+    assert!(!fired.iter().any(|x| matches!(x, Alert::Anomaly { .. })));
+    assert_eq!(s.latest_anomaly_ts(None).unwrap().as_deref(), Some("2026-09-11T05:00:00.000Z"));
+}
