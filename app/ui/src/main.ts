@@ -26,7 +26,6 @@ if (skillView === 'cards' || skillView === 'table') { try { localStorage.setItem
 export async function boot() {
   const { mountSidebar, rememberedScope } = await import('./views/sidebar');
   const { mountConversations } = await import('./views/conversations');
-  const { mountConversation } = await import('./views/conversation');
   const { mountOverview } = await import('./views/overview');
   const { mountSettings } = await import('./views/settings');
   const { mountSkills } = await import('./views/skills');
@@ -51,7 +50,7 @@ export async function boot() {
     conversation: params.get('conversation'), turn: params.get('turn') });
 
   const app = document.getElementById('app')!;
-  watchLayout(app, (l) => { app.dataset.layout = l; });
+  watchLayout(app, (l) => { app.dataset.layout = l; update({ layout: l }); });
   const list = document.getElementById('list')!;
   const detail = document.getElementById('detail')!;
 
@@ -62,7 +61,7 @@ export async function boot() {
     else if (state.view === 'session' && state.session) await mountSession(list, state.session);
     else if (state.view === 'overview') await mountOverview(list);
     else if (state.view === 'skills') await mountSkills(list, detail);
-    else { await mountConversations(list); await mountConversation(detail); }
+    else await mountConversations(list, detail);
   };
   subscribe((_s, changed) => {
     if (changed.includes('lang')) { void mountSidebar(document.getElementById('sidebar')!); void show(); return; }

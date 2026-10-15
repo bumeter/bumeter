@@ -45,7 +45,13 @@ describe('chi tiết hội thoại', () => {
     await mountConversation(el);
     await flush();
     expect(el.querySelector('h2')?.textContent).toBe('Sửa lỗi 404 khi gửi mail');
-    expect(el.querySelector('.dh .sub')?.textContent).toContain('2 lượt');
+    expect(el.querySelector('.dh .sub')?.textContent).toContain('TICKET-101');
+    expect(el.querySelector('.dh .sub')?.textContent).not.toMatch(/lượt|token/);
+    const kpis = [...el.querySelectorAll('.kpi')].map((k) => k.textContent);
+    expect(kpis).toEqual(['Token15.5M', 'Lượt2', 'Context lớn nhất1K']);
+    expect(el.querySelector('.kpi.tone-acc')?.textContent).toContain('Token');
+    expect(el.querySelector('[data-action="session"]')?.className).toContain('primary');
+    expect(el.querySelector('[data-action="mark"]')).not.toBeNull();
     expect(el.querySelectorAll('.turn').length).toBe(2);
     expect(el.querySelector('[data-key="p1"] .a')?.textContent).toBe('↳ Đã chạy xong, 3 test qua.');
     expect(el.querySelector('[data-key="p1"] .value')?.className).toContain('hot');
@@ -67,6 +73,7 @@ describe('chi tiết hội thoại', () => {
     expect(exp.querySelector('script')).toBeNull();
     expect(exp.querySelector('details.tool pre')?.textContent).toBe('<script>x</script>');
     expect(exp.querySelector('.callout')?.textContent).toContain('99.8% token là đọc lại context cũ (841K)');
+    expect(exp.querySelector('.callout svg[aria-label], .callout svg')).not.toBeNull(); // Bum worry
     expect(f.calls.find((c) => c.method === 'prompt_detail')!.params.key).toBe('p1');
     (el.querySelector('[data-key="p1"] .turn-head') as HTMLButtonElement).click();
     expect(state.turn).toBeNull();
@@ -81,6 +88,14 @@ describe('chi tiết hội thoại', () => {
     await flush();
     expect(f.calls.find((c) => c.method === 'set_note')!.params).toMatchObject({ key: 'p1', starred: true });
     expect(el.querySelector('[data-key="p1"] .q')?.textContent).toMatch(/^★ /);
+  });
+
+  it('Context lớn nhất đỏ khi vượt 300K', async () => {
+    const big = () => turns().map((r) => ({ ...r, stats: { ...r.stats, context_at_start: 450_000 } }));
+    fake(handlers({ conversation_turns: () => ({ title: 'x', turns: big() }) }));
+    await mountConversation(el);
+    await flush();
+    expect(el.querySelectorAll('.kpi')[2].className).toContain('tone-red');
   });
 
   it('không đọc được log thì báo trong lượt, danh sách lượt vẫn hiện', async () => {
@@ -99,7 +114,7 @@ describe('chi tiết hội thoại', () => {
     await flush();
     expect(el.querySelector('[data-action="session"]')).toBeNull();
     expect(el.querySelector('[data-key="p1"] .value')?.textContent).toBe('~14.9M');
-    expect(el.querySelector('.dh .sub')?.textContent).toContain('0.8 credit');
+    expect(el.querySelector('.kpi')?.textContent).toContain('0.8 credit');
   });
 
   it('tiếng Anh', async () => {
@@ -108,7 +123,7 @@ describe('chi tiết hội thoại', () => {
     update({ turn: 'p1' });
     await mountConversation(el);
     await flush(); await flush();
-    expect(el.querySelector('.dh .sub')?.textContent).toContain('2 turns');
+    expect([...el.querySelectorAll('.kpi')].map((k) => k.textContent)).toEqual(['Tokens15.5M', 'Turns2', 'Peak context1K']);
     expect(el.querySelector('.bubble.user b')?.textContent).toBe('You');
     expect(el.querySelector('.callout')?.textContent).toContain('re-read old context');
   });
