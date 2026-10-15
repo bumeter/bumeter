@@ -55,9 +55,10 @@ export async function mountSettings(el: HTMLElement) {
     return h('label', { class: 'field' }, h('span', {}, label), input, h('small', {}, hint), err);
   };
   /** Hiện hoặc xoá lỗi của ô; trả về giá trị hợp lệ. */
-  const validate = (name: NumField): Parsed => {
+  const validate = (name: NumField, show = true): Parsed => {
     const input = inputs.get(name)!;
     const r = parseField(name, input.value);
+    if (!show && !r.ok) return r; // gõ dở: không báo lỗi, chỉ không lưu
     errors.get(name)!.textContent = r.ok ? '' : t(r.error);
     input.setAttribute('aria-invalid', r.ok ? 'false' : 'true');
     return r;
@@ -74,8 +75,8 @@ export async function mountSettings(el: HTMLElement) {
     h('option', { value: 'en', selected: info.config.language === 'en' }, 'English')) as HTMLSelectElement;
   let language: Lang = info.config.language ?? 'vi';
 
-  const current = (): Config | null => {
-    const parsed = (['anomaly_multiplier', 'context_threshold', 'quota_thresholds'] as NumField[]).map((n) => [n, validate(n)] as const);
+  const current = (show: boolean): Config | null => {
+    const parsed = (['anomaly_multiplier', 'context_threshold', 'quota_thresholds'] as NumField[]).map((n) => [n, validate(n, show)] as const);
     if (parsed.some(([, r]) => !r.ok)) return null;
     const v = Object.fromEntries(parsed.map(([n, r]) => [n, (r as { value: number | number[] }).value]));
     return {
@@ -90,9 +91,9 @@ export async function mountSettings(el: HTMLElement) {
   };
 
   /** Lưu giá trị hợp lệ; giá trị lỗi chỉ báo tại ô, không gọi save_config. */
-  const save = async (): Promise<boolean> => {
+  const save = async (show = false): Promise<boolean> => {
     if (timer) { clearTimeout(timer); timer = null; }
-    const cfg = current();
+    const cfg = current(show);
     if (!cfg) return false;
     try {
       await api.saveConfig(cfg);
@@ -106,12 +107,12 @@ export async function mountSettings(el: HTMLElement) {
   };
   const schedule = () => {
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => { void save(); }, SAVE_DEBOUNCE_MS);
+    timer = setTimeout(() => { void save(false); }, SAVE_DEBOUNCE_MS);
   };
 
   langSel.addEventListener('change', async () => {
     language = langSel.value as Lang;
-    if (!(await save()) || language === state.lang) return;
+    if (!(await save(true)) || language === state.lang) return;
     // Đổi ngôn ngữ: cả app vẽ lại (màn này được mount lại), lời nhắn giữ qua `carried`.
     setLang(language);
     carried = t('set.saved');
@@ -199,5 +200,5 @@ export async function mountSettings(el: HTMLElement) {
   );
   renderLimits();
   // Rời màn khi còn lần sửa chờ lưu: lưu nốt (nếu hợp lệ) thay vì làm mất.
-  cleanup = () => { if (timer) void save(); };
+  cleanup = () => { if (timer) void save(true); };
 }

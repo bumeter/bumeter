@@ -60,11 +60,16 @@ describe('cài đặt', () => {
     expect(el.textContent).toContain('0 dòng');
   });
 
-  it('quota "abc": không lưu, báo lỗi ngay cạnh ô', async () => {
+  it('quota "abc": không lưu, lỗi chỉ hiện khi rời ô', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
-    type('quota_thresholds', 'abc');
+    type('quota_thresholds', '70,');
     await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f)).toHaveLength(0);
+    expect(input('quota_thresholds').closest('.field')!.querySelector('.field-error')!.textContent).toBe('');
+    expect(input('quota_thresholds').getAttribute('aria-invalid')).not.toBe('true');
+    type('quota_thresholds', 'abc');
+    input('quota_thresholds').dispatchEvent(new Event('blur'));
     expect(saves(f)).toHaveLength(0);
     const err = input('quota_thresholds').closest('.field')!.querySelector('.field-error')!;
     expect(err.textContent).not.toBe('');
@@ -75,10 +80,11 @@ describe('cài đặt', () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
     type('anomaly_multiplier', '0');
-    input('anomaly_multiplier').dispatchEvent(new Event('blur'));
-    expect(input('anomaly_multiplier').closest('.field')!.querySelector('.field-error')!.textContent).not.toBe('');
     await wait(SAVE_DEBOUNCE_MS + 100);
     expect(saves(f)).toHaveLength(0);
+    expect(input('anomaly_multiplier').closest('.field')!.querySelector('.field-error')!.textContent).toBe('');
+    input('anomaly_multiplier').dispatchEvent(new Event('blur'));
+    expect(input('anomaly_multiplier').closest('.field')!.querySelector('.field-error')!.textContent).not.toBe('');
     type('anomaly_multiplier', '4');
     await wait(SAVE_DEBOUNCE_MS + 100);
     expect(saves(f)).toHaveLength(1);
