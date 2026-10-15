@@ -1,9 +1,8 @@
 import { api } from '../api';
 import type { PromptRow, SkillHit, SkillJournalEntry, SkillOpRequest, SkillReport, SkillRow } from '../api';
-import { bum } from '../components/bum';
 import { closeDialogs, confirmPlan, openDialog } from '../components/dialog';
 import { openDrawer } from '../components/drawer';
-import { countPill } from '../components/ui';
+import { countPill, emptyState } from '../components/ui';
 import { compact, h } from '../dom';
 import { fmtShortDate, fmtTime, fmtTokens, totalOf } from '../fmt';
 import { t } from '../i18n';
@@ -333,11 +332,9 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
             h('button', { class: 'btn', 'data-action': 'bulk-disable', onclick: (() => void run({ op: 'disable', targets: personalUnused }, t('sk.bulkTitle', { n: personalUnused.length }))) as EventListener }, t('sk.bulk')))
         : null,
       ...(!shown.length
-        ? [h('div', { class: 'empty' }, bum('sleep', 72),
-            h('p', {}, inScopeRows.length ? t('sk.noMatch') : t('sk.emptyTitle')),
-            inScopeRows.length
-              ? h('button', { class: 'btn primary', type: 'button', 'data-action': 'empty', onclick: (() => { clearFilters(); renderList(); }) as EventListener }, t('sk.clearFilters'))
-              : h('button', { class: 'btn primary', type: 'button', 'data-action': 'empty', onclick: (() => openInstall()) as EventListener }, `+ ${t('sk.install')}`))]
+        ? [inScopeRows.length
+            ? emptyState({ title: t('sk.noMatch'), action: t('sk.clearFilters'), onAction: () => { clearFilters(); renderList(); } })
+            : emptyState({ title: t('sk.emptyTitle'), action: `+ ${t('sk.install')}`, onAction: () => openInstall() })]
         : view === 'cards'
           ? [h('div', { class: 'scroll' }, h('div', { class: 'skill-cards', role: 'listbox', 'aria-label': 'Skill' }, ...shown.map(cardEl)))]
           : [h('div', { class: 'skill-head' }, h('div', {}, 'Skill'), h('div', {}, t('sk.colBase')), h('div', {}, t('sk.colInvoke')), h('div', {}, t('sk.colUses')), h('div', {}, t('sk.colAvg')), h('div', {}, t('sk.colLast'))),
@@ -357,7 +354,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
     const target = host;
     const r = [...rep.rows, ...rep.commands].find((x) => x.entry.name === selected);
     if (!r) {
-      target.replaceChildren(h('div', { class: 'toolbar' }), h('div', { class: 'empty' }, t('sk.pick')));
+      target.replaceChildren(h('div', { class: 'toolbar' }), emptyState({ title: t('sk.pick') }));
       return;
     }
     const e = r.entry;

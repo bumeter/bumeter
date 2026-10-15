@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { countPill, kpi, insightRow } from '../src/components/ui';
+import { countPill, kpi, insightRow, emptyState } from '../src/components/ui';
 
 describe('ui builders', () => {
   it('countPill', () => {
@@ -32,5 +32,22 @@ describe('ui builders', () => {
     expect(b.textContent).toBe('Go');
     b.click();
     expect(onAction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('emptyState', () => {
+  it('Bum sleep aria-hidden + title + body + nút', () => {
+    const fn = vi.fn();
+    const e = emptyState({ title: '<b>T</b>', body: 'B', action: 'Go', onAction: fn });
+    expect(e.classList.contains('empty')).toBe(true);
+    expect(e.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    expect(e.textContent).toContain('<b>T</b>');
+    expect(e.querySelector('b')).toBeNull();
+    expect(e.textContent).toContain('B');
+    (e.querySelector('button[data-action="empty"]') as HTMLButtonElement).click();
+    expect(fn).toHaveBeenCalledOnce();
+  });
+  it('không action thì không có nút', () => {
+    expect(emptyState({ title: 'T' }).querySelector('button')).toBeNull();
   });
 });

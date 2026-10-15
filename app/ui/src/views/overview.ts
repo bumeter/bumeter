@@ -4,7 +4,7 @@ import type { DayStat, LimitState, ModelStat, ProjectStat, SidebarCounts, SkillR
 import { bum } from '../components/bum';
 import { bumMood, EMPTY_BUM_INFO, loadBumInfo } from '../components/bum-data';
 import type { BumInfo } from '../components/bum-data';
-import { insightRow } from '../components/ui';
+import { emptyState, insightRow } from '../components/ui';
 import { compact, h, svg } from '../dom';
 import { fmtCredits, fmtTokens } from '../fmt';
 import { t } from '../i18n';
@@ -135,7 +135,7 @@ export async function mountOverview(el: HTMLElement) {
         h('div', { class: 'ov-mid' },
           h('div', { class: 'panel' },
             h('div', { class: 'section-title' }, h('span', {}, t('ov.byDay')), h('span', {}, t('ov.byDayHint'))),
-            inRange.length ? dayChart(inRange, (d) => go({ from: d.from, to: d.to })) : h('div', { class: 'empty' }, t('ov.noData'))),
+            inRange.length ? dayChart(inRange, (d) => go({ from: d.from, to: d.to })) : emptyState({ title: t('ov.noData'), action: t('ov.noDataAction'), onAction: () => update({ view: 'settings' }) })),
           h('div', { class: 'panel bum-tips' },
             h('div', { class: 'section-title' }, h('span', {}, t('ov.tips'))),
             ...(tips.length ? tips : [h('div', { class: 'empty' }, t('ov.tipsNone'))]))),

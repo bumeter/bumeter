@@ -1,10 +1,9 @@
 // Màn Hội thoại: danh sách hội thoại nhóm theo ngày, lọc theo Project / Model / thời gian / lọc nhanh.
 import { api } from '../api';
 import type { Conversation, ConversationList, ModelStat, Quick } from '../api';
-import { bum } from '../components/bum';
 import { chipMenu, chipMultiMenu } from '../components/chipMenu';
 import { openDrawer } from '../components/drawer';
-import { countPill } from '../components/ui';
+import { countPill, emptyState } from '../components/ui';
 import { compact, h, icon, ICONS } from '../dom';
 import { fmtCredits, fmtDayHeader, fmtTime, fmtTokens } from '../fmt';
 import { t } from '../i18n';
@@ -173,12 +172,9 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
   const renderEmpty = () => {
     const f = state.filter;
     const filtered = f.q || f.quick || f.project || f.models?.length || f.from;
-    body.replaceChildren(h('div', { class: 'empty' },
-      bum('sleep', 72),
-      h('p', {}, filtered ? t('conv.noMatch') : t('conv.emptyTitle')),
-      filtered
-        ? h('button', { class: 'btn primary', type: 'button', 'data-action': 'empty', onclick: (() => { range = null; input.value = ''; update({ filter: {} }); }) as EventListener }, t('conv.noMatchAction'))
-        : h('button', { class: 'btn primary', type: 'button', 'data-action': 'empty', onclick: (() => update({ view: 'settings' })) as EventListener }, t('conv.emptyAction'))));
+    body.replaceChildren(filtered
+      ? emptyState({ title: t('conv.noMatch'), action: t('conv.noMatchAction'), onAction: () => { range = null; input.value = ''; update({ filter: {} }); } })
+      : emptyState({ title: t('conv.emptyTitle'), action: t('conv.emptyAction'), onAction: () => update({ view: 'settings' }) }));
   };
 
   const renderList = (list: ConversationList) => {

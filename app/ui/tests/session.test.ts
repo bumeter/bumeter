@@ -91,4 +91,22 @@ describe('an toàn khi chuyển màn', () => {
     await flush(); await flush();
     expect(el.textContent).toContain('không có lượt gọi này');
   });
+
+  it('lỗi phân tích: Bum + nút quay lại Hội thoại', async () => {
+    fake({ session_analysis: () => { throw new Error('hỏng log'); } });
+    await mountSession(el, 's9');
+    await flush(); await flush();
+    expect(el.querySelector('.empty svg[aria-hidden="true"]')).not.toBeNull();
+    expect(el.textContent).toContain('hỏng log');
+    (el.querySelector('.empty [data-action="empty"]') as HTMLButtonElement).click();
+    expect(state.view).toBe('conversations');
+  });
+
+  it('biểu đồ, thành phần và gợi ý nằm trong .panel riêng; gợi ý là insight', async () => {
+    fake({ session_analysis: analysis, call_detail: detail });
+    await mountSession(el, 's9');
+    await flush(); await flush();
+    expect(el.querySelectorAll('.session .panel').length).toBeGreaterThanOrEqual(3);
+    expect(el.querySelector('.panel .insight .ico.acc')).not.toBeNull();
+  });
 });

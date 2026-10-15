@@ -3,7 +3,7 @@ import { api } from '../api';
 import type { Explain, PromptDetail, PromptRow, TranscriptItem, TranscriptTurn } from '../api';
 import { callsChart } from '../charts/bars';
 import { bum } from '../components/bum';
-import { kpi } from '../components/ui';
+import { emptyState, kpi } from '../components/ui';
 import { compact, h } from '../dom';
 import { fmtCredits, fmtDay, fmtDuration, fmtTime, fmtTokens, heat, totalOf } from '../fmt';
 import { t } from '../i18n';
@@ -124,7 +124,7 @@ export async function mountConversation(el: HTMLElement) {
 
   const render = () => {
     if (!sid || !turns.length) {
-      el.replaceChildren(h('div', { class: 'toolbar' }), h('div', { class: 'empty' }, sid ? t('turn.loading') : t('conv.pick')));
+      el.replaceChildren(h('div', { class: 'toolbar' }), sid ? h('div', { class: 'empty' }, t('turn.loading')) : emptyState({ title: t('conv.pick') }));
       return;
     }
     const first = turns[0].stats;

@@ -2,6 +2,7 @@ import { api } from '../api';
 import type { CallDetail, SessionAnalysis, Suggestion } from '../api';
 import { areaChart, CATEGORIES, categoryLabel } from '../charts/area';
 import type { Category } from '../charts/area';
+import { emptyState, insightRow } from '../components/ui';
 import { compact, h } from '../dom';
 import { fmtTime, fmtTokens } from '../fmt';
 import { t } from '../i18n';
@@ -44,11 +45,11 @@ export async function mountSession(el: HTMLElement, sessionId: string) {
     a = await api.sessionAnalysis(sessionId);
   } catch (e) {
     if (!stillHere()) return;
-    el.replaceChildren(h('div', { class: 'toolbar' }, h('button', { class: 'button', 'data-action': 'back', onclick: (() => update({ view: 'conversations' })) as EventListener }, t('common.back'))), h('div', { class: 'empty' }, t('sess.error', { e: String(e) })));
+    el.replaceChildren(h('div', { class: 'toolbar' }, h('button', { class: 'btn', type: 'button', 'data-action': 'back', onclick: (() => update({ view: 'conversations' })) as EventListener }, t('common.back'))), emptyState({ title: t('sess.error', { e: String(e) }), action: t('sess.errorAction'), onAction: () => update({ view: 'conversations' }) }));
     return;
   }
   if (!stillHere()) return;
-  const detailBox = h('div', { class: 'call-detail' });
+  const detailBox = h('div', { class: 'panel call-detail' });
   let selected = Math.max(0, a.calls.length - 1);
 
   const bars = (i: number) => {
@@ -92,14 +93,17 @@ export async function mountSession(el: HTMLElement, sessionId: string) {
 
   el.replaceChildren(...compact([
     h('div', { class: 'toolbar' },
-      h('button', { class: 'button', 'data-action': 'back', onclick: (() => update({ view: 'conversations' })) as EventListener }, t('common.back')),
+      h('button', { class: 'btn', type: 'button', 'data-action': 'back', onclick: (() => update({ view: 'conversations' })) as EventListener }, t('common.back')),
       h('h1', {}, t('sess.title')),
       h('span', { class: 'sub num' }, t('sess.summary', { turns: a.prompts.length, calls: a.calls.length, compactions: a.compactions.length }))),
     h('div', { class: 'scroll pad session' },
-      h('div', { class: 'section-title' }, h('span', {}, t('sess.chart')), h('span', {}, t('sess.chartHint'))),
-      areaChart(a.calls, (i) => void pick(i), { compactions: a.compactions, prompts: a.prompts.map((p) => p.call_index) }),
-      h('div', { class: 'legend' }, ...CATEGORIES.map((c) => h('span', {}, h('i', { class: `swatch ${c}` }), categoryLabel(c)))),
-      a.suggestions.length ? h('div', { class: 'callout' }, h('b', {}, t('sess.suggestions')), ...a.suggestions.map((s) => h('div', {}, `⚠ ${suggestionText(s)}`))) : null,
+      h('div', { class: 'panel' },
+        h('div', { class: 'section-title' }, h('span', {}, t('sess.chart')), h('span', {}, t('sess.chartHint'))),
+        areaChart(a.calls, (i) => void pick(i), { compactions: a.compactions, prompts: a.prompts.map((p) => p.call_index) }),
+        h('div', { class: 'legend' }, ...CATEGORIES.map((c) => h('span', {}, h('i', { class: `swatch ${c}` }), categoryLabel(c))))),
+      a.suggestions.length ? h('div', { class: 'panel' },
+        h('div', { class: 'section-title' }, h('span', {}, t('sess.suggestions'))),
+        ...a.suggestions.map((s) => insightRow({ severity: 'acc', icon: 'chart', title: t('sess.sugTitle'), body: suggestionText(s), action: t('sess.sugAction'), onAction: () => update({ view: 'conversations' }) }))) : null,
       detailBox),
   ]));
   if (a.calls.length) await pick(selected);
