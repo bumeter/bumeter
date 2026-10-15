@@ -268,3 +268,12 @@ fn legacy_hook_migrates_with_old_format_backup_and_undo_restores_original() {
     s.undo().unwrap();
     assert_eq!(command(dir.path()), "bash ~/.claude/sl.sh");
 }
+
+#[test]
+fn missing_binary_error_names_bum_not_tk() {
+    let t = tempfile::tempdir().unwrap();
+    let s = setup_with(t.path(), "/khong-co/bum".into());
+    let msg = s.plan().unwrap_err().to_string();
+    assert!(msg.contains("bum"), "{msg}");
+    assert!(!msg.split(|c: char| !c.is_alphanumeric()).any(|w| w == "tk"), "{msg}");
+}

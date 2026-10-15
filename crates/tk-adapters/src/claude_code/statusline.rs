@@ -194,7 +194,7 @@ impl StatuslineSetup {
     pub fn plan(&self) -> anyhow::Result<Plan> {
         let tk = Path::new(&self.tk_bin);
         if !tk.is_absolute() || !tk.is_file() {
-            bail!("không tìm thấy chương trình tk ở '{}'; hãy build/cài tk trước", self.tk_bin);
+            bail!("không tìm thấy chương trình bum ở '{}'; hãy build/cài bum trước", self.tk_bin);
         }
         let path = self.settings_path();
         let describe = |before: &str, after: &str| {
