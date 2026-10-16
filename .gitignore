@@ -1,2 +1,8 @@
 /target
 .superpowers/
+
+# snapcraft
+*.snap
+/parts/
+/stage/
+/prime/
