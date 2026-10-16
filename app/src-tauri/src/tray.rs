@@ -111,6 +111,11 @@ fn first_threshold(cfg: &Config) -> u8 {
     cfg.quota_thresholds.first().copied().unwrap_or(70)
 }
 
+/// Hai ngưỡng quota người dùng đặt (mặc định 70/90).
+fn thresholds(cfg: &Config) -> [u8; 2] {
+    [first_threshold(cfg), cfg.quota_thresholds.get(1).copied().unwrap_or(90)]
+}
+
 /// Icon tray 32×32 của một biểu cảm Bum.
 pub fn face_image(face: Face) -> Image<'static> {
     let bytes = TRAY_PNGS.iter().find(|(f, _)| *f == face).map(|(_, b)| *b).expect("đủ 5 biểu cảm");
@@ -188,16 +193,27 @@ fn block_bar(pct: Option<f64>) -> String {
     format!("{}{}", "▰".repeat(on), "▱".repeat(N - on))
 }
 
+/// Chấm màu theo mức dùng (chữ menu không tô màu được, emoji thì có): dưới ngưỡng 1 xanh, từ ngưỡng 1 cam,
+/// từ ngưỡng 2 đỏ; dữ liệu cũ hoặc chưa có thì trắng.
+fn level_dot(pct: Option<f64>, stale: bool, [t1, t2]: [u8; 2]) -> &'static str {
+    match pct {
+        Some(_) if stale => "⚪",
+        None => "⚪",
+        Some(p) if p >= f64::from(t2) => "🔴",
+        Some(p) if p >= f64::from(t1) => "🟠",
+        Some(_) => "🟢",
+    }
+}
+
 /// Nhãn hiển thị của một dòng. Linux không hiện icon mục menu: mọi dòng sát lề trái (không thụt),
-/// thanh % đặt đầu dòng để các thanh thẳng hàng (font menu là font tỉ lệ).
-fn row_label(text: &str, icon: &TrayIcon) -> String {
+/// thanh % + chấm màu đặt đầu dòng để các thanh thẳng hàng (font menu là font tỉ lệ).
+fn row_label(text: &str, icon: &TrayIcon, thresholds: [u8; 2]) -> String {
     if !cfg!(target_os = "linux") {
         return text.to_string();
     }
     match icon {
-        TrayIcon::Logo => text.to_string(),
-        TrayIcon::Ring { pct, .. } => format!("{}  {text}", block_bar(*pct)),
-        TrayIcon::None => text.to_string(),
+        TrayIcon::Logo | TrayIcon::None => text.to_string(),
+        TrayIcon::Ring { pct, stale } => format!("{} {}  {text}", block_bar(*pct), level_dot(*pct, *stale, thresholds)),
     }
 }
 
@@ -265,7 +281,7 @@ pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &Toda
     let threshold = first_threshold(&cfg);
     let mut shown = items.row_icons.lock().unwrap_or_else(|e| e.into_inner());
     for ((item, row), cur) in items.rows.iter().zip(&text.rows).zip(shown.iter_mut()) {
-        let _ = item.set_text(row_label(&row.text, &row.icon));
+        let _ = item.set_text(row_label(&row.text, &row.icon, thresholds(&cfg)));
         let icon = row_icon(&row.icon, threshold);
         #[cfg(not(target_os = "linux"))]
         if icon != *cur && item.set_icon(icon_image(icon, &row.tool)).is_ok() {
@@ -300,17 +316,25 @@ mod tests {
             return;
         }
         let ring = |p: f64| TrayIcon::Ring { pct: Some(p), stale: false };
-        assert_eq!(row_label("5 giờ · 42% · reset 13:10", &ring(42.0)), "▰▰▰▰▱▱▱▱▱▱  5 giờ · 42% · reset 13:10");
-        assert_eq!(row_label("x", &ring(89.0)), "▰▰▰▰▰▰▰▰▰▱  x");
-        // Đã dùng thì ít nhất 1 ô; chỉ đầy khi đạt 100%; vượt 100% vẫn đầy.
-        assert_eq!(row_label("x", &ring(0.4)), "▰▱▱▱▱▱▱▱▱▱  x");
-        assert_eq!(row_label("x", &ring(99.6)), "▰▰▰▰▰▰▰▰▰▱  x");
-        assert_eq!(row_label("x", &ring(130.0)), "▰▰▰▰▰▰▰▰▰▰  x");
-        assert_eq!(row_label("x", &ring(0.0)), "▱▱▱▱▱▱▱▱▱▱  x");
-        // Chưa có dữ liệu: thanh rỗng; dòng không có %: chỉ thụt; tiêu đề công cụ giữ nguyên.
-        assert_eq!(row_label("x", &TrayIcon::Ring { pct: None, stale: false }), "▱▱▱▱▱▱▱▱▱▱  x");
-        assert_eq!(row_label("Kiro · hôm nay", &TrayIcon::None), "Kiro · hôm nay");
-        assert_eq!(row_label("Kiro", &TrayIcon::Logo), "Kiro");
+        let t = [70, 90];
+        assert_eq!(row_label("5 giờ · 42% · reset 13:10", &ring(42.0), t), "▰▰▰▰▱▱▱▱▱▱ 🟢  5 giờ · 42% · reset 13:10");
+        // Màu theo ngưỡng: < 70 xanh, 70–89 cam, ≥ 90 đỏ.
+        assert_eq!(row_label("x", &ring(69.9), t), "▰▰▰▰▰▰▰▱▱▱ 🟢  x");
+        assert_eq!(row_label("x", &ring(70.0), t), "▰▰▰▰▰▰▰▱▱▱ 🟠  x");
+        assert_eq!(row_label("x", &ring(89.0), t), "▰▰▰▰▰▰▰▰▰▱ 🟠  x");
+        assert_eq!(row_label("x", &ring(90.0), t), "▰▰▰▰▰▰▰▰▰▱ 🔴  x");
+        assert_eq!(row_label("x", &ring(130.0), t), "▰▰▰▰▰▰▰▰▰▰ 🔴  x");
+        // Ngưỡng người dùng đặt khác.
+        assert_eq!(row_label("x", &ring(60.0), [50, 80]), "▰▰▰▰▰▰▱▱▱▱ 🟠  x");
+        // Đã dùng thì ít nhất 1 ô; chỉ đầy khi đạt 100%.
+        assert_eq!(row_label("x", &ring(0.4), t), "▰▱▱▱▱▱▱▱▱▱ 🟢  x");
+        assert_eq!(row_label("x", &ring(99.6), t), "▰▰▰▰▰▰▰▰▰▱ 🔴  x");
+        // Dữ liệu cũ hoặc chưa có: chấm trắng.
+        assert_eq!(row_label("x", &TrayIcon::Ring { pct: Some(95.0), stale: true }, t), "▰▰▰▰▰▰▰▰▰▱ ⚪  x");
+        assert_eq!(row_label("x", &TrayIcon::Ring { pct: None, stale: false }, t), "▱▱▱▱▱▱▱▱▱▱ ⚪  x");
+        // Dòng không có % và tiêu đề công cụ: giữ nguyên.
+        assert_eq!(row_label("Kiro · hôm nay", &TrayIcon::None, t), "Kiro · hôm nay");
+        assert_eq!(row_label("Kiro", &TrayIcon::Logo, t), "Kiro");
     }
 
     #[test]
