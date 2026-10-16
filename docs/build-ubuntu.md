@@ -12,8 +12,8 @@ cd app && ./ui/node_modules/.bin/tauri build --bundles deb appimage
 
 Kết quả:
 
-- `target/release/bundle/deb/Bumeter_0.1.0_amd64.deb` (khoảng 9,5MB). Cài bằng `sudo apt install ./Bumeter_0.1.0_amd64.deb`. Cài xong có `bumeter` và `bum` trong `/usr/bin`, kèm mục trong menu ứng dụng.
-- `target/release/bundle/appimage/Bumeter_0.1.0_amd64.AppImage` (khoảng 86MB, đã gồm sẵn thư viện). Chạy trực tiếp, không cần cài.
+- `target/release/bundle/deb/Bumeter_1.0.0_amd64.deb` (khoảng 9,5MB). Cài bằng `sudo apt install ./Bumeter_1.0.0_amd64.deb`. Cài xong có `bumeter` và `bum` trong `/usr/bin`, kèm mục trong menu ứng dụng.
+- `target/release/bundle/appimage/Bumeter_1.0.0_amd64.AppImage` (khoảng 86MB, đã gồm sẵn thư viện). Chạy trực tiếp, không cần cài.
 
 ## Nâng cấp từ bản cũ (tên `thongke`)
 
