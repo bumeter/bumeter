@@ -136,6 +136,8 @@ impl Paths {
 
     pub fn db(&self) -> PathBuf { self.data_dir.join(if self.legacy { "thongke.db" } else { "bumeter.db" }) }
     pub fn limits(&self) -> PathBuf { self.data_dir.join("limits.json") }
+    /// Hạn mức công cụ tự báo (vd Kiro `/usage`), lần lấy gần nhất.
+    pub fn tool_quotas(&self) -> PathBuf { self.data_dir.join("tool_quotas.json") }
     pub fn lock(&self) -> PathBuf { self.data_dir.join("host.lock") }
     /// Socket Unix bị giới hạn ~108 byte (`sun_path`); data dir dài thì chuyển sang
     /// `$XDG_RUNTIME_DIR` (riêng từng user) với tên băm theo data dir.

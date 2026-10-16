@@ -82,15 +82,17 @@ pub fn start_of_day<Tz: chrono::TimeZone>(
     }
 }
 
+/// 0h của ngày `d` theo giờ máy, dạng RFC3339 UTC.
+pub fn local_date_start(d: chrono::NaiveDate) -> String {
+    use chrono::{Local, NaiveTime, SecondsFormat, TimeZone};
+    let local = |h| Local.from_local_datetime(&d.and_time(NaiveTime::from_hms_opt(h, 0, 0).unwrap()));
+    start_of_day(local(0), || local(1)).with_timezone(&chrono::Utc).to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+
 /// Khoảng [0h hôm nay, 0h ngày mai) theo giờ máy, dạng RFC3339 UTC.
 pub fn local_day_bounds(now: chrono::DateTime<chrono::Utc>) -> (String, String) {
-    use chrono::{Local, NaiveTime, SecondsFormat, TimeZone};
-    let day = now.with_timezone(&Local).date_naive();
-    let at = |d: chrono::NaiveDate| {
-        let local = |h| Local.from_local_datetime(&d.and_time(NaiveTime::from_hms_opt(h, 0, 0).unwrap()));
-        start_of_day(local(0), || local(1)).with_timezone(&chrono::Utc).to_rfc3339_opts(SecondsFormat::Millis, true)
-    };
-    (at(day), at(day.succ_opt().unwrap_or(day)))
+    let day = now.with_timezone(&chrono::Local).date_naive();
+    (local_date_start(day), local_date_start(day.succ_opt().unwrap_or(day)))
 }
 
 pub fn limit_state(ctx: &HandlerCtx, now: chrono::DateTime<chrono::Utc>) -> rusqlite::Result<crate::limits::LimitState> {
