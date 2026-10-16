@@ -179,7 +179,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
         drop(Store::open(&paths.db()).unwrap());
+        // Point both tools at existing empty dirs so the test does not depend on real logs in $HOME.
+        let claude = dir.path().join("claude");
+        let kiro = dir.path().join("kiro");
+        std::fs::create_dir_all(&claude).unwrap();
+        std::fs::create_dir_all(&kiro).unwrap();
         let mut cfg = Config::default();
+        cfg.claude_projects_dir = Some(claude);
+        cfg.kiro_sessions_dir = Some(kiro);
         cfg.tool_limits.insert("kiro".into(), bum_core::config::ToolLimit { monthly_credits: Some(1000.0), reset_day: 1 });
         cfg.save(&paths.config()).unwrap();
         let st = bum_core::limits::state(None, None, 0);

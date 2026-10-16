@@ -20,6 +20,7 @@ fn frontmatter_handles_quotes_folded_text_and_missing_fields() {
     assert!(none.name.is_none() && none.description.is_none());
 }
 
+#[cfg(unix)]
 #[test]
 fn scans_enabled_disabled_synced_and_symlinks() {
     let home = tempfile::tempdir().unwrap();

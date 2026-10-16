@@ -51,8 +51,11 @@ fn wait_for<F: Fn(&Seen) -> bool>(rx: &mpsc::Receiver<Seen>, pred: F) -> Option<
 #[test]
 fn appended_line_and_limits_change_reach_the_handler() {
     let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().join("projects");
-    let data = dir.path().join("data");
+    // Canonicalize: on macOS the temp dir lives under the /var -> /private/var symlink and
+    // FSEvents reports the resolved path, which would not match the watched root.
+    let base = dir.path().canonicalize().unwrap();
+    let root = base.join("projects");
+    let data = base.join("data");
     std::fs::create_dir_all(&data).unwrap();
     copy_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/claude_code"), &root);
     let limits = data.join("limits.json");
@@ -82,7 +85,8 @@ fn appended_line_and_limits_change_reach_the_handler() {
     host.join().unwrap();
 }
 
-#[cfg(unix)]
+// Read-permission based: only inotify reports the watch as failed up front, so this is Linux-only.
+#[cfg(target_os = "linux")]
 #[test]
 fn a_directory_that_cannot_be_watched_does_not_stop_the_others() {
     use std::os::unix::fs::PermissionsExt;
