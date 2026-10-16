@@ -1,6 +1,8 @@
 //! Adapter cho Kiro CLI: `~/.kiro/sessions/cli/<id>.json` (metadata từng lượt, bị ghi đè toàn bộ)
 //! + `<id>.jsonl` (câu hỏi, câu trả lời, tool). Kiro không ghi token: context =
 //! `context_usage_percentage × context_window_tokens`; chi phí tính bằng credit.
+pub mod usage;
+
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
