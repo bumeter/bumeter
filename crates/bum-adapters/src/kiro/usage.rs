@@ -1,6 +1,6 @@
 //! Kiro credit limits via `kiro-cli chat --no-interactive "/usage"` (runs locally, does not call the model, does not create a session).
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::time::Duration;
 
 use chrono::NaiveDate;
@@ -82,7 +82,7 @@ pub fn find_cli() -> Option<PathBuf> {
 
 /// Run `bin args…` with a timeout; returns `(exited successfully, stdout + stderr)`. Cannot run or timed out → `None`.
 fn run_capture(bin: &Path, args: &[&str], timeout: Duration) -> Option<(bool, String)> {
-    let mut child = Command::new(bin)
+    let mut child = crate::process::command(bin)
         .args(args)
         .env("NO_COLOR", "1")
         .stdin(Stdio::null())

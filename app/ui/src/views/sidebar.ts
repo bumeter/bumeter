@@ -1,5 +1,5 @@
 import { api } from '../api';
-import type { LimitState, SidebarCounts, Source } from '../api';
+import type { LimitState, Source } from '../api';
 import { bum } from '../components/bum';
 import { bumMood, EMPTY_BUM_INFO, loadBumInfo } from '../components/bum-data';
 import type { BumInfo } from '../components/bum-data';
@@ -19,10 +19,11 @@ let cleanup: (() => void) | null = null;
 
 export async function mountSidebar(el: HTMLElement) {
   cleanup?.();
-  let counts: SidebarCounts | null = null;
   let limits: LimitState | null = null;
   let sources: Source[] = allSources();
   let bumInfo: BumInfo = EMPTY_BUM_INFO;
+  /** Installed personal skills per tool (plugins excluded), for the Skill badge. */
+  let skillCount: Record<string, number> = {};
 
   const render = () => {
     const nav = (view: View, label: string, ic: string[], count?: number) =>
@@ -31,6 +32,7 @@ export async function mountSidebar(el: HTMLElement) {
 
     const inScope = sources.filter((s) => !state.scope || s.info.id === state.scope);
     const conversations = inScope.reduce((n, s) => n + s.sessions, 0);
+    const skills = inScope.reduce((n, s) => n + (skillCount[s.info.id] ?? 0), 0);
 
     const { mood, pct, showQuota } = bumMood(bumInfo, { scope: state.scope, sources, limits });
     const resets = showQuota ? limits?.five_hour?.resets_at : null;
@@ -49,22 +51,24 @@ export async function mountSidebar(el: HTMLElement) {
       h('div', { class: 'side-section' }, t('nav.section')),
       nav('overview', t('nav.overview'), ICONS.grid),
       nav('conversations', t('nav.conversations'), ICONS.chat, conversations),
-      nav('skills', t('nav.skills'), ICONS.bolt, counts?.skills),
+      nav('skills', t('nav.skills'), ICONS.bolt, skills),
       nav('settings', t('nav.settings'), ICONS.gear),
       bumCard,
     ]));
   };
 
   const loadBum = async () => { bumInfo = await loadBumInfo(state.scope); };
+  const loadSkills = async () => { skillCount = await api.skillCount().catch(() => ({})); };
   const load = async () => {
-    [counts, limits, sources] = await Promise.all([api.sidebarCounts(), api.limitState(), loadSources()]);
-    await loadBum();
+    [limits, sources] = await Promise.all([api.limitState(), loadSources()]);
+    await Promise.all([loadBum(), loadSkills()]);
     render();
   };
 
   const unsub = subscribe((_s, changed) => {
     if (changed.includes('scope')) { render(); void loadBum().then(render); return; }
     if (changed.includes('view') || changed.includes('lang')) render();
+    if (changed.includes('skillsRev')) void loadSkills().then(render);
   });
   const offData = await api.onDataChanged(() => void load());
   const offLimits = await api.onLimitsChanged((l) => { limits = l; render(); });

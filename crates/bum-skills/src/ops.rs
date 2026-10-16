@@ -248,7 +248,7 @@ impl Manager {
             }
             Action::Copy { from, to } => copy_dir(from, to),
             Action::Clone { url, to } => {
-                let st = std::process::Command::new("git").args(["clone", "-q", "--depth", "1", "--", url]).arg(to).status().context("could not run git")?;
+                let st = crate::process::command("git").args(["clone", "-q", "--depth", "1", "--", url]).arg(to).status().context("could not run git")?;
                 if !st.success() {
                     bail!("git clone failed");
                 }
@@ -262,7 +262,7 @@ impl Manager {
                 let tmp = self.data_dir.join("tmp").join(new_id());
                 std::fs::create_dir_all(tmp.parent().context("invalid temp directory")?)?;
                 let res = (|| {
-                    let st = std::process::Command::new("git").args(["clone", "-q", "--depth", "1", "--", url]).arg(&tmp).status().context("could not run git")?;
+                    let st = crate::process::command("git").args(["clone", "-q", "--depth", "1", "--", url]).arg(&tmp).status().context("could not run git")?;
                     if !st.success() {
                         bail!("git clone {url} failed");
                     }

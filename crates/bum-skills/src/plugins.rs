@@ -1,7 +1,7 @@
 //! Claude Code plugins, only through the official `claude plugin` CLI (spec section 8).
 use std::io::Read;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context};
@@ -34,7 +34,7 @@ impl ClaudeCli {
 
     /// Run `claude <args>` with a time limit; return stdout.
     pub fn run(&self, args: &[&str]) -> anyhow::Result<String> {
-        let mut child = Command::new(&self.bin)
+        let mut child = crate::process::command(&self.bin)
             .args(args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

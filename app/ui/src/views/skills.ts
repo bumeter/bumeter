@@ -28,6 +28,10 @@ export function approx(n: number | null | undefined): string {
 
 const shortDate = (iso: string | null) => (iso ? fmtShortDate(iso) : '—');
 
+/** Small rotating indicator shown while skills.sh data is loading. */
+const spinner = () => h('span', { class: 'spinner', 'aria-hidden': 'true' });
+const loadingRow = (text: string) => h('div', { class: 'sub loading-row', role: 'status' }, spinner(), text);
+
 function sourceTags(r: SkillRow): HTMLElement[] {
   const s = r.entry.source;
   const label = s.kind === 'plugin' ? s.plugin.split('@')[0] : s.kind === 'personal' ? t('sk.personal') : s.kind === 'synced' ? 'claude.ai' : t('sk.command');
@@ -152,6 +156,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
     renderList(); await renderDetail();
     const full = await api.skills(true);
     if (!disposed) { rep = full; renderList(); await renderDetail(); }
+    update({ skillsRev: Date.now() }); // the sidebar badge counts installed skills
   };
 
   const run = async (req: SkillOpRequest, title: string) => {
@@ -225,17 +230,20 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
       let all: SkillHit[] = [];
       let hasMore = false;
       let total = 0;
+      let loadingMore = false;
 
       const drawTop = () => results.replaceChildren(
         cardsEl(all),
         h('div', { class: 'market-more' }, hasMore
-          ? h('button', { class: 'btn', 'data-action': 'load-more', onclick: (() => void loadPage(false)) as EventListener }, t('sk.loadMore'))
+          ? h('button', { class: 'btn', 'data-action': 'load-more', disabled: loadingMore, onclick: (() => void loadPage(false)) as EventListener },
+              loadingMore ? spinner() : null, loadingMore ? t('common.loading') : t('sk.loadMore'))
           : h('span', { class: 'sub' }, t('sk.totalCount', { n: total }))));
 
       // Page 1 is loaded as soon as the dialog opens; typing at least 2 characters switches to search.
       const loadPage = async (reset: boolean) => {
         const my = ++seq;
-        if (reset) { page = 0; all = []; results.replaceChildren(h('div', { class: 'sub' }, t('sk.loadingTop'))); }
+        if (reset) { page = 0; all = []; loadingMore = false; results.replaceChildren(loadingRow(t('sk.loadingTop'))); }
+        else { loadingMore = true; drawTop(); }
         try {
           const res = await api.skillTop(mode, reset ? 1 : page + 1);
           if (my !== seq) return;
@@ -243,8 +251,10 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
           all = reset ? res.hits : [...all, ...res.hits];
           hasMore = res.has_more;
           total = res.total;
+          loadingMore = false;
           drawTop();
         } catch (e) {
+          loadingMore = false;
           if (my === seq) results.replaceChildren(h('div', { class: 'warning' }, t('sk.searchError', { e: String(e) })));
         }
       };
@@ -255,7 +265,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
           const q = input.value.trim();
           if (q.length < 2) { await loadPage(true); return; }
           const my = ++seq;
-          results.replaceChildren(h('div', { class: 'sub' }, t('sk.searching')));
+          results.replaceChildren(loadingRow(t('sk.searching')));
           try {
             const hits = await api.skillSearch(q);
             if (my === seq) showHits(results, hits);

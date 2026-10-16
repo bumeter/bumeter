@@ -5,7 +5,6 @@
 //! No telemetry, no scraping the HTML: only the JSON APIs are used — `api/search` for a query and
 //! `api/skills/<mode>/<page>` for the leaderboard (Hot / Trending 24h / All time).
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
@@ -91,7 +90,7 @@ pub fn valid_mode(mode: &str) -> bool {
 
 /// GET `url` and parse the body as JSON, using the `curl` available on the machine.
 fn get_json(url: &str) -> anyhow::Result<Value> {
-    let out = Command::new("curl")
+    let out = crate::process::command("curl")
         .args(["-fsS", "--max-time", TIMEOUT_SECS, "-H", "Accept: application/json", "--"])
         .arg(url)
         .output()

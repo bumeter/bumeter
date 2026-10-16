@@ -6,7 +6,7 @@ import { update } from '../src/state';
 
 const handlers = {
   sources: () => SOURCES,
-  sidebar_counts: () => ({ prompts: 595, skills: 16, projects: 23, anomalous: 59, big_context: 41, interrupted: 21, starred: 3, by_tool: { claude_code: 380, kiro: 215 } }),
+  skills_count: () => ({ claude_code: 10, kiro: 3, total: 13 }),
   today_summary: () => ({ prompts: 3, usage: {}, total: 1000, cost_usd: 0, unpriced_models: [] }),
   day_stats: () => [],
   list_conversations: () => ({ days: [] }),
@@ -52,6 +52,8 @@ describe('sidebar', () => {
     const items = [...el.querySelectorAll('.side-item')].map((b) => b.getAttribute('data-view'));
     expect(items).toEqual(['overview', 'conversations', 'skills', 'settings']);
     expect(el.querySelector('[data-view="conversations"] .count')?.textContent).toBe('17');
+    // The Skill badge counts installed personal skills (claude_code + kiro), not used ones.
+    expect(el.querySelector('[data-view="skills"] .count')?.textContent).toBe('13');
     expect(el.querySelector('.bumcard')?.textContent).toContain('Quota 5 giờ 78%');
     expect(el.textContent).not.toContain('$');
     expect(el.querySelector('.brand')?.textContent).toContain('bumeter');
@@ -60,6 +62,17 @@ describe('sidebar', () => {
       expect(b.getAttribute('title')).toBeTruthy();
       expect(b.querySelector('svg')).not.toBeNull();
     }
+  });
+
+  it('Skill badge counts installed skills and refreshes after a skills change', async () => {
+    let n = 16;
+    fake({ ...handlers, skills_count: () => ({ claude_code: n, kiro: 0, total: n }) });
+    await mountSidebar(el);
+    expect(el.querySelector('[data-view="skills"] .count')?.textContent).toBe('16');
+    n = 17; // a skill was installed/removed on the Skills screen
+    update({ skillsRev: 1 });
+    await flush(); await flush();
+    expect(el.querySelector('[data-view="skills"] .count')?.textContent).toBe('17');
   });
 
   it('Bum card: 78% quota makes Bum worry', async () => {
@@ -76,6 +89,7 @@ describe('sidebar', () => {
     update({ scope: 'kiro', filter: { tool: 'kiro' } });
     await flush();
     expect(el.querySelector('[data-view="conversations"] .count')?.textContent).toBe('5');
+    expect(el.querySelector('[data-view="skills"] .count')?.textContent).toBe('3');
     expect(el.querySelector('.bumcard')).not.toBeNull();
     expect(el.querySelector('.bumcard .fuel')).toBeNull();
     expect(el.textContent).not.toContain('Quota 5 giờ');

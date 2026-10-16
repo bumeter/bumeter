@@ -138,6 +138,8 @@ export const api = {
   sessionAnalysis: (session_id: string) => call<SessionAnalysis>('session_analysis', { session_id }),
   callDetail: (session_id: string, request_id: string) => call<CallDetail>('call_detail', { session_id, request_id }),
   skills: (plugins = true) => call<SkillReport>('skills:list', { plugins }),
+  /** Installed personal skills per tool (plugins excluded), for the sidebar badge. */
+  skillCount: () => call<Record<string, number>>('skills:count'),
   skillPlan: (req: SkillOpRequest) => call<SkillPlan>('skills:plan', req),
   skillApply: (id: string) => call<SkillJournalEntry>('skills:apply', { id }),
   skillUndo: (id: string, tool = 'claude_code') => call<boolean>('skills:undo', { id, tool }),

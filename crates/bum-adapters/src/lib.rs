@@ -1,5 +1,6 @@
 pub mod claude_code;
 pub mod kiro;
+pub mod process;
 
 /// All supported tools, in display order, with their log directory. Add a new tool here.
 pub fn registry(claude_root: &std::path::Path, kiro_root: &std::path::Path) -> Vec<(bum_core::source::SourceInfo, std::path::PathBuf)> {
