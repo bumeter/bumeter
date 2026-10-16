@@ -180,9 +180,25 @@ fn new_row(app: &AppHandle, id: String, text: &str, icon: RowIcon, tool: &str) -
     IconMenuItem::with_id(app, id, text, true, icon_image(icon, tool), None::<&str>)
 }
 
-/// Nhãn hiển thị của một dòng: trên Linux không có icon nên dòng số liệu thụt vào cho rõ thuộc công cụ nào.
+/// Thanh % 10 ô hình bình hành ▰▱: đã dùng thì ít nhất 1 ô, chỉ đầy khi đạt 100%.
+fn block_bar(pct: Option<f64>) -> String {
+    const N: usize = 10;
+    let p = pct.unwrap_or(0.0).max(0.0);
+    let on = if p >= 100.0 { N } else if p > 0.0 { ((p / 100.0 * N as f64).round() as usize).clamp(1, N - 1) } else { 0 };
+    format!("{}{}", "▰".repeat(on), "▱".repeat(N - on))
+}
+
+/// Nhãn hiển thị của một dòng. Linux không hiện icon mục menu: mọi dòng sát lề trái (không thụt),
+/// thanh % đặt đầu dòng để các thanh thẳng hàng (font menu là font tỉ lệ).
 fn row_label(text: &str, icon: &TrayIcon) -> String {
-    if cfg!(target_os = "linux") && !matches!(icon, TrayIcon::Logo) { format!("      {text}") } else { text.to_string() }
+    if !cfg!(target_os = "linux") {
+        return text.to_string();
+    }
+    match icon {
+        TrayIcon::Logo => text.to_string(),
+        TrayIcon::Ring { pct, .. } => format!("{}  {text}", block_bar(*pct)),
+        TrayIcon::None => text.to_string(),
+    }
 }
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
@@ -277,6 +293,25 @@ pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &Toda
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn linux_row_label_has_bar_first_so_bars_line_up() {
+        if !cfg!(target_os = "linux") {
+            return;
+        }
+        let ring = |p: f64| TrayIcon::Ring { pct: Some(p), stale: false };
+        assert_eq!(row_label("5 giờ · 42% · reset 13:10", &ring(42.0)), "▰▰▰▰▱▱▱▱▱▱  5 giờ · 42% · reset 13:10");
+        assert_eq!(row_label("x", &ring(89.0)), "▰▰▰▰▰▰▰▰▰▱  x");
+        // Đã dùng thì ít nhất 1 ô; chỉ đầy khi đạt 100%; vượt 100% vẫn đầy.
+        assert_eq!(row_label("x", &ring(0.4)), "▰▱▱▱▱▱▱▱▱▱  x");
+        assert_eq!(row_label("x", &ring(99.6)), "▰▰▰▰▰▰▰▰▰▱  x");
+        assert_eq!(row_label("x", &ring(130.0)), "▰▰▰▰▰▰▰▰▰▰  x");
+        assert_eq!(row_label("x", &ring(0.0)), "▱▱▱▱▱▱▱▱▱▱  x");
+        // Chưa có dữ liệu: thanh rỗng; dòng không có %: chỉ thụt; tiêu đề công cụ giữ nguyên.
+        assert_eq!(row_label("x", &TrayIcon::Ring { pct: None, stale: false }), "▱▱▱▱▱▱▱▱▱▱  x");
+        assert_eq!(row_label("Kiro · hôm nay", &TrayIcon::None), "Kiro · hôm nay");
+        assert_eq!(row_label("Kiro", &TrayIcon::Logo), "Kiro");
+    }
 
     #[test]
     fn every_tray_png_decodes_to_32x32() {
