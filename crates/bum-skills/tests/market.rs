@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use serde_json::json;
-use bum_skills::market::{encode_query, find_skill_dir, parse_search, valid_source, Hit};
+use bum_skills::market::{encode_query, find_skill_dir, parse_page, parse_search, valid_mode, valid_source, Hit};
 
 fn skill(dir: &Path, name: &str) {
     fs::create_dir_all(dir).unwrap();
@@ -21,6 +21,33 @@ fn parses_the_real_search_response() {
     assert_eq!(hits.len(), 2);
     assert_eq!(parse_search(&json!([{"source":"a/b","skillId":"x","name":"x","installs":1}])).len(), 1, "also recognizes the array form");
     assert!(parse_search(&json!({"error":"rate limited"})).is_empty());
+}
+
+#[test]
+fn leaderboard_modes_and_response_shape() {
+    assert!(valid_mode("hot") && valid_mode("trending") && valid_mode("all-time"));
+    for bad in ["", "daily", "24h", "../hot", "all_time"] {
+        assert!(!valid_mode(bad), "{bad}");
+    }
+    // Trimmed from `GET https://skills.sh/api/skills/trending/1` (2026-10-17).
+    let v = json!({"skills":[
+        {"source":"emilkowalski/skills","skillId":"write-swift","name":"write-swift","installs":2066},
+        {"source":"cloudflare/skills","skillId":"web-perf","name":"web-perf","installs":1002,"isOfficial":true}
+    ],"total":9970,"hasMore":true,"page":1});
+    let hits = parse_search(&v);
+    assert_eq!(hits.iter().map(|h| h.skill_id.as_str()).collect::<Vec<_>>(), vec!["write-swift", "web-perf"]);
+    assert_eq!(hits[0].installs, 2066);
+}
+
+#[test]
+fn parses_a_leaderboard_page() {
+    let v = json!({"skills":[{"source":"emilkowalski/skills","skillId":"write-swift","name":"write-swift","installs":2066}],"total":9970,"hasMore":true,"page":1});
+    let p = parse_page(&v);
+    assert_eq!(p.hits.len(), 1);
+    assert!(p.has_more);
+    assert_eq!(p.total, 9970);
+    let empty = parse_page(&json!({"error":"rate limited"}));
+    assert!(empty.hits.is_empty() && !empty.has_more && empty.total == 0, "a bad response yields an empty page");
 }
 
 #[test]

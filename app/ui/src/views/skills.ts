@@ -56,7 +56,8 @@ function matches(r: SkillRow, f: Filters): boolean {
 
 const VIEW_KEY = 'bumeter.skillView';
 function savedView(): 'table' | 'cards' {
-  try { return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'table'; } catch { return 'table'; }
+  // Boxes by default; the table is still available from the view switch.
+  try { return localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'cards'; } catch { return 'cards'; }
 }
 function saveView(v: 'table' | 'cards') {
   try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ }
@@ -167,9 +168,10 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
     });
   };
 
-  /** "Install skill" box: search skills.sh (default), from a folder, or from a git URL. */
+  /** "Install skill" dialog: skills.sh leaderboard + search (default), a folder, or a git URL. */
   const openInstall = () => {
     let tab: 'market' | 'dir' | 'git' = 'market';
+    let mode: 'hot' | 'trending' | 'all-time' = 'trending';
     const tool = state.scope ?? 'claude_code';
     const installed = new Set([...rep.rows, ...rep.commands].filter((r) => (r.entry.tool ?? 'claude_code') === tool).map((r) => r.entry.name));
     const tabs = h('div', { class: 'segmented', role: 'group', 'aria-label': t('sk.install') });
@@ -190,6 +192,8 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
               `+ ${t('sk.installBtn')}`));
     };
 
+    const cardsEl = (hits: SkillHit[]) => h('div', { class: 'market-cards' }, ...hits.map(marketRow));
+
     /** Card results + a chip to filter by source repo (only filters within the loaded results). */
     const renderHits = (box: HTMLElement, hits: SkillHit[]) => {
       let source = '';
@@ -199,38 +203,78 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
           ? h('div', { class: 'chips' }, ...['', ...sources].map((s) => h('button', { class: 'chip', 'data-source': s, 'aria-pressed': String(source === s),
               onclick: (() => { source = s; draw(); }) as EventListener }, s || t('sk.allSources'))))
           : '',
-        h('div', { class: 'market-cards' }, ...hits.filter((x) => !source || x.source === source).map(marketRow)));
+        cardsEl(hits.filter((x) => !source || x.source === source)));
       draw();
+    };
+
+    /** Results: cards plus a chip to filter by source repo (within the loaded results). */
+    const showHits = (box: HTMLElement, hits: SkillHit[]) => {
+      if (hits.length) renderHits(box, hits);
+      else box.replaceChildren(h('div', { class: 'sub' }, t('sk.noResults')));
+    };
+
+    /** skills.sh leaderboard (shown on open) with the search box on top; "load more" fetches the next page. */
+    const market = () => {
+      const input = h('input', { class: 'wide market-search', name: 'market-q', type: 'search', autocomplete: 'off', spellcheck: 'false', placeholder: t('sk.marketPlaceholder'), 'aria-label': t('sk.tabMarket') }) as HTMLInputElement;
+      const results = h('div', { class: 'market-results', 'aria-live': 'polite' });
+      const modeChips = h('div', { class: 'chips market-modes', role: 'group', 'aria-label': t('sk.tabMarket') },
+        ...([['hot', 'sk.tabHot'], ['trending', 'sk.tabTrending'], ['all-time', 'sk.tabAllTime']] as const).map(([m, key]) =>
+          h('button', { class: `chip${mode === m ? ' on' : ''}`, type: 'button', 'data-mode': m, 'aria-pressed': String(mode === m),
+            onclick: (() => { if (mode === m) return; mode = m; market(); }) as EventListener }, t(key))));
+      let page = 0;
+      let all: SkillHit[] = [];
+      let hasMore = false;
+      let total = 0;
+
+      const drawTop = () => results.replaceChildren(
+        cardsEl(all),
+        h('div', { class: 'market-more' }, hasMore
+          ? h('button', { class: 'btn', 'data-action': 'load-more', onclick: (() => void loadPage(false)) as EventListener }, t('sk.loadMore'))
+          : h('span', { class: 'sub' }, t('sk.totalCount', { n: total }))));
+
+      // Page 1 is loaded as soon as the dialog opens; typing at least 2 characters switches to search.
+      const loadPage = async (reset: boolean) => {
+        const my = ++seq;
+        if (reset) { page = 0; all = []; results.replaceChildren(h('div', { class: 'sub' }, t('sk.loadingTop'))); }
+        try {
+          const res = await api.skillTop(mode, reset ? 1 : page + 1);
+          if (my !== seq) return;
+          page = reset ? 1 : page + 1;
+          all = reset ? res.hits : [...all, ...res.hits];
+          hasMore = res.has_more;
+          total = res.total;
+          drawTop();
+        } catch (e) {
+          if (my === seq) results.replaceChildren(h('div', { class: 'warning' }, t('sk.searchError', { e: String(e) })));
+        }
+      };
+
+      input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+          const q = input.value.trim();
+          if (q.length < 2) { await loadPage(true); return; }
+          const my = ++seq;
+          results.replaceChildren(h('div', { class: 'sub' }, t('sk.searching')));
+          try {
+            const hits = await api.skillSearch(q);
+            if (my === seq) showHits(results, hits);
+          } catch (e) {
+            if (my === seq) results.replaceChildren(h('div', { class: 'warning' }, t('sk.searchError', { e: String(e) })));
+          }
+        }, SEARCH_DEBOUNCE_MS);
+      });
+
+      body.replaceChildren(modeChips, input, results, h('p', { class: 'sub hint' }, t('sk.topHint')));
+      input.focus();
+      void loadPage(true);
     };
 
     const renderBody = () => {
       tabs.replaceChildren(...(['market', 'dir', 'git'] as const).map((k) =>
         h('button', { 'data-tab': k, 'aria-pressed': String(tab === k), onclick: (() => { tab = k; renderBody(); }) as EventListener },
           t(k === 'market' ? 'sk.tabMarket' : k === 'dir' ? 'sk.fromDir' : 'sk.fromGit'))));
-      if (tab === 'market') {
-        const input = h('input', { class: 'wide', name: 'market-q', type: 'search', autocomplete: 'off', spellcheck: 'false', placeholder: t('sk.marketPlaceholder'), 'aria-label': t('sk.tabMarket') }) as HTMLInputElement;
-        const results = h('div', { class: 'market-results', 'aria-live': 'polite' });
-        input.addEventListener('input', () => {
-          clearTimeout(timer);
-          timer = setTimeout(async () => {
-            const q = input.value.trim();
-            const my = ++seq;
-            if (q.length < 2) { results.replaceChildren(); return; }
-            results.replaceChildren(h('div', { class: 'sub' }, t('sk.searching')));
-            try {
-              const hits = await api.skillSearch(q);
-              if (my !== seq) return;
-              if (hits.length) renderHits(results, hits);
-              else results.replaceChildren(h('div', { class: 'sub' }, t('sk.noResults')));
-            } catch (e) {
-              if (my === seq) results.replaceChildren(h('div', { class: 'warning' }, t('sk.searchError', { e: String(e) })));
-            }
-          }, SEARCH_DEBOUNCE_MS);
-        });
-        body.replaceChildren(input, results, h('p', { class: 'sub' }, t('sk.marketHint', { tool: toolDef(tool).label })));
-        input.focus();
-        return;
-      }
+      if (tab === 'market') { market(); return; }
       const source = h('input', { class: 'wide', name: 'source', autocomplete: 'off', spellcheck: 'false', placeholder: tab === 'git' ? t('sk.gitPlaceholder') : t('sk.dirPlaceholder'), 'aria-label': t('sk.source') }) as HTMLInputElement;
       body.replaceChildren(source, h('p', { class: 'sub' }, t('sk.installHint')),
         h('div', { class: 'actions' },
@@ -241,7 +285,9 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
       source.focus();
     };
 
-    openDialog('install', h('h3', {}, t('sk.install')), tabs, body,
+    openDialog('install',
+      h('div', { class: 'install-head' }, h('h3', {}, t('sk.install')), h('span', { class: 'sub' }, t('sk.installSub', { tool: toolDef(tool).label }))),
+      tabs, body,
       h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: (() => { clearTimeout(timer); closeDialogs(); }) as EventListener }, t('common.cancel'))));
     renderBody();
   };
@@ -338,18 +384,22 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
             ? emptyState({ title: t('sk.noMatch'), action: t('sk.clearFilters'), onAction: () => { clearFilters(); renderList(); } })
             : emptyState({ title: t('sk.emptyTitle'), action: `+ ${t('sk.install')}`, onAction: () => openInstall() })]
         : view === 'cards'
-          ? [h('div', { class: 'scroll' }, h('div', { class: 'skill-cards', role: 'listbox', 'aria-label': 'Skill' }, ...shown.map(cardEl)))]
+          ? [h('div', { class: 'scroll' }, ...visibleGroups.flatMap((g) => [
+              h('div', { class: 'group-header caps' }, h('span', {}, g.title), h('span', { class: 'num' }, String(g.rows.length))),
+              h('div', { class: 'skill-cards', role: 'listbox', 'aria-label': g.title }, ...g.rows.map(cardEl)),
+            ]))]
           : [h('div', { class: 'skill-head' }, h('div', {}, 'Skill'), h('div', {}, t('sk.colBase')), h('div', {}, t('sk.colInvoke')), h('div', {}, t('sk.colUses')), h('div', {}, t('sk.colAvg')), h('div', {}, t('sk.colLast'))),
              h('div', { class: 'scroll', role: 'listbox', 'aria-label': 'Skill' },
                ...visibleGroups.flatMap((g) => [h('div', { class: 'group-header caps' }, h('span', {}, g.title), h('span', { class: 'num' }, String(g.rows.length))), ...g.rows.map(rowEl)]))]),
     ]));
   };
 
-  const usageRow = (p: PromptRow, skill: string) =>
-    h('button', { class: 'usage-row', 'data-key': p.stats.key, onclick: (() => update({ view: 'conversations', conversation: p.stats.session_id, turn: p.stats.key })) as EventListener },
-      h('span', { class: 'when num' }, `${fmtShortDate(p.stats.ts)} ${fmtTime(p.stats.ts)}`),
-      h('span', { class: 'what' }, h('b', {}, p.stats.project), ` “${p.stats.text}”`),
-      h('span', { class: 'num value' }, fmtTokens(totalOf(p.stats.usage))));
+  /** One turn where the skill was used, laid out as a box. */
+  const usageBox = (p: PromptRow) =>
+    h('button', { class: 'usage-box', 'data-key': p.stats.key, onclick: (() => update({ view: 'conversations', conversation: p.stats.session_id, turn: p.stats.key })) as EventListener },
+      h('div', { class: 'ub-head' }, h('span', { class: 'ub-project' }, p.stats.project), h('span', { class: 'ub-when num' }, `${fmtShortDate(p.stats.ts)} ${fmtTime(p.stats.ts)}`)),
+      h('div', { class: 'ub-text' }, p.stats.text),
+      h('div', { class: 'ub-foot' }, h('span', { class: 'ub-tokens num' }, fmtTokens(totalOf(p.stats.usage)))));
 
   const renderDetail = async () => {
     if (host === detail && state.layout !== 'wide') return; // right column is hidden: build the detail only when a drawer / replacing screen is open
@@ -384,7 +434,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
     if (disposed || selected !== e.name || host !== target) return;
     const rows = res.groups.flatMap((g) => g.rows);
     usageEl.removeAttribute('aria-busy');
-    usageEl.replaceChildren(...(rows.length ? rows.map((p) => usageRow(p, e.name)) : [h('div', { class: 'sub' }, t('sk.noTurns'))]),
+    usageEl.replaceChildren(...(rows.length ? rows.map(usageBox) : [h('div', { class: 'sub' }, t('sk.noTurns'))]),
       ...(res.total_prompts > rows.length ? [h('div', { class: 'sub' }, t('sk.moreTurns', { n: res.total_prompts - rows.length }))] : []));
   };
 

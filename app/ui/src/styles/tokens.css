@@ -60,18 +60,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #15120f;
-    --surf: #1f1a16;
-    --sunk: #29231e;
-    --line: #312a24;
-    --ink: #f5efe9;
-    --ink2: #b9ada4;
-    --ink3: #857a72;
-    --acc: #ff8a33;
-    --acc2: #ff9d52;
-    --tint: #3a2515;
-    --red: #ff5a3a;
-    --grn: #3dcc7e;
+    --bg: #1b1917;
+    --surf: #242220;
+    --sunk: #2d2b28;
+    --line: #393632;
+    --ink: #edeae5;
+    --ink2: #b2aba3;
+    --ink3: #857e76;
+    --acc: #ff9a4d;
+    --acc2: #ffb377;
+    --tint: #34271c;
+    --red: #ff6b50;
+    --grn: #48c98a;
 
     /* Dark: Bum's face takes the panel background color (#1f1a16) so it looks "carved" out of the body. */
     --bum-body: #ff7a1a;
@@ -104,18 +104,18 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #15120f;
-  --surf: #1f1a16;
-  --sunk: #29231e;
-  --line: #312a24;
-  --ink: #f5efe9;
-  --ink2: #b9ada4;
-  --ink3: #857a72;
-  --acc: #ff8a33;
-  --acc2: #ff9d52;
-  --tint: #3a2515;
-  --red: #ff5a3a;
-  --grn: #3dcc7e;
+  --bg: #1b1917;
+  --surf: #242220;
+  --sunk: #2d2b28;
+  --line: #393632;
+  --ink: #edeae5;
+  --ink2: #b2aba3;
+  --ink3: #857e76;
+  --acc: #ff9a4d;
+  --acc2: #ffb377;
+  --tint: #34271c;
+  --red: #ff6b50;
+  --grn: #48c98a;
 
   --bum-body: #ff7a1a;
   --bum-face: var(--surf);
@@ -164,4 +164,29 @@
   --bum-cheek: #ffb27a;
   --bum-blaze: #ff4b2b;
   --bum-sweat: #5ab4ff;
+}
+
+/* Alternative accents, previewed with `?accent=…`. Only the accent trio changes;
+   every other token still follows the light/dark theme above. */
+:root[data-accent="orange"] { --acc: #ff7a1a; --acc2: #e8640a; --tint: #fff0e3; }
+:root[data-accent="amber"] { --acc: #c2410c; --acc2: #9a3412; --tint: #ffedd5; }
+:root[data-accent="terracotta"] { --acc: #b85c38; --acc2: #96492c; --tint: #f7e6dd; }
+:root[data-accent="coral"] { --acc: #e8563f; --acc2: #c9452f; --tint: #fde8e4; }
+:root[data-accent="indigo"] { --acc: #4f46e5; --acc2: #4338ca; --tint: #e8e7fd; }
+:root[data-accent="teal"] { --acc: #0d766e; --acc2: #0b5f59; --tint: #d9f2ee; }
+
+:root[data-theme="dark"][data-accent="orange"] { --acc: #ff9a4d; --acc2: #ffb377; --tint: #34271c; }
+:root[data-theme="dark"][data-accent="amber"] { --acc: #ff9a63; --acc2: #ffb98c; --tint: #392318; }
+:root[data-theme="dark"][data-accent="terracotta"] { --acc: #e08a63; --acc2: #eba888; --tint: #37241b; }
+:root[data-theme="dark"][data-accent="coral"] { --acc: #ff8a70; --acc2: #ffa78f; --tint: #3a221d; }
+:root[data-theme="dark"][data-accent="indigo"] { --acc: #8b8bf5; --acc2: #a7a7f8; --tint: #26243e; }
+:root[data-theme="dark"][data-accent="teal"] { --acc: #46c2b2; --acc2: #6ad4c6; --tint: #143430; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-accent="orange"] { --acc: #ff9a4d; --acc2: #ffb377; --tint: #34271c; }
+  :root:not([data-theme="light"])[data-accent="amber"] { --acc: #ff9a63; --acc2: #ffb98c; --tint: #392318; }
+  :root:not([data-theme="light"])[data-accent="terracotta"] { --acc: #e08a63; --acc2: #eba888; --tint: #37241b; }
+  :root:not([data-theme="light"])[data-accent="coral"] { --acc: #ff8a70; --acc2: #ffa78f; --tint: #3a221d; }
+  :root:not([data-theme="light"])[data-accent="indigo"] { --acc: #8b8bf5; --acc2: #a7a7f8; --tint: #26243e; }
+  :root:not([data-theme="light"])[data-accent="teal"] { --acc: #46c2b2; --acc2: #6ad4c6; --tint: #143430; }
 }

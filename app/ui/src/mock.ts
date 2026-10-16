@@ -146,6 +146,24 @@ export const transport = {
           { id: 'someone/skills/pj-review', source: 'someone/skills', skill_id: 'pj-review', name: 'pj-review', installs: 830 },
         ].filter((x) => x.name.includes(q) || q.length < 2);
       }
+      case 'skills:top': {
+        const mode = String(params?.mode ?? 'trending');
+        const page = Math.max(1, Number(params?.page ?? 1));
+        const names = [
+          'vercel-react-best-practices', 'writing-skills', 'skill-creator', 'web-perf', 'code-review', 'requesting-code-review',
+          'brainstorming', 'test-driven-development', 'security-audit', 'durable-objects', 'design-mobile-apps', 'hyperframes-creative',
+          'write-swift', 'image-outpainting', 'relight', 'video-outpainting', 'imagegen-frontend-web', 'prompt-engineering',
+          'api-design', 'git-workflow', 'debugging', 'sql-optimization', 'accessibility-audit', 'refactoring',
+        ];
+        const repos = ['vercel-labs/agent-skills', 'obra/superpowers', 'anthropics/skills', 'cloudflare/skills', 'mattpocock/skills'];
+        const per = 12;
+        const start = (page - 1) * per;
+        const hits = names.slice(start, start + per).map((name, i) => {
+          const source = repos[(start + i) % repos.length];
+          return { id: `${source}/${name}`, source, skill_id: name, name, installs: Math.round(900_000 / (start + i + 1)) + (mode === 'hot' ? 2 : 0) };
+        });
+        return { hits, has_more: start + per < names.length, total: names.length };
+      }
       case 'skills:plan': return { id: 'mock', description: '• move ~/.claude/skills/pj-debug → ~/.claude/skills-disabled/pj-debug\nTakes effect in the next Claude Code session.' };
       case 'skills:apply': return { id: 'op', ts: new Date().toISOString(), op: 'disable', description: '', undone: false };
       case 'skills:undo': return true;

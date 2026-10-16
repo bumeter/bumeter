@@ -45,6 +45,8 @@ export interface SkillRow { entry: SkillEntry; uses: number; projects: number; t
 export interface SkillReport { rows: SkillRow[]; commands: SkillRow[]; total_always_on: number; unused: string[]; unused_always_on: number; warnings: string[] }
 export interface SkillOpRequest { op: string; targets?: string[]; source?: string; tool?: string; skill?: string }
 export interface SkillHit { id: string; source: string; skill_id: string; name: string; installs: number }
+/** One page of a skills.sh leaderboard. */
+export interface SkillPage { hits: SkillHit[]; has_more: boolean; total: number }
 export interface SkillPlan { id: string; description: string }
 export interface SkillJournalEntry { id: string; ts: string; op: string; description: string; undone: boolean }
 
@@ -140,6 +142,8 @@ export const api = {
   skillApply: (id: string) => call<SkillJournalEntry>('skills:apply', { id }),
   skillUndo: (id: string, tool = 'claude_code') => call<boolean>('skills:undo', { id, tool }),
   skillSearch: (q: string, limit = 20) => call<SkillHit[]>('skills:search', { q, limit }),
+  /** skills.sh leaderboard: `hot`, `trending` (24h) or `all-time`. Page 1 holds up to 200 skills. */
+  skillTop: (mode: 'hot' | 'trending' | 'all-time', page = 1) => call<SkillPage>('skills:top', { mode, page }),
   skillLog: () => call<SkillJournalEntry[]>('skills:log'),
   onDataChanged: async (cb: (c: Change) => void) => (await getTransport()).listen('data-changed', (p) => cb(p as Change)),
   /** Clicking a tool row in the tray menu: the payload is a tool id. */

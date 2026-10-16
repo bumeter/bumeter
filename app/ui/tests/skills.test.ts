@@ -36,6 +36,7 @@ const click = (root: ParentNode, sel: string) => (root.querySelector(sel) as HTM
 describe('Skills screen', () => {
   it('groups, shows total base cost, warnings and odd names as text', async () => {
     fake({ skills_list: report });
+    localStorage.setItem('bumeter.skillView', 'table'); // this test checks the table columns
     await mountSkills(list, detail);
     expect(list.textContent).toContain('~2.4K tok/phiên');
     expect(list.textContent).toContain('Could not read the plugin list');
@@ -45,6 +46,7 @@ describe('Skills screen', () => {
     expect(list.querySelector('img')).toBeNull();
     expect(list.textContent).toContain('<img src=x');
     expect(list.querySelector('[data-skill="pj-review"] .uses')?.textContent).toBe('5');
+    localStorage.removeItem('bumeter.skillView');
   });
 
   it('bulk-disable suggestion: plan → confirm → apply → undo', async () => {
@@ -223,20 +225,25 @@ describe('fast load and consistent figures', () => {
     expect([...list.querySelectorAll('[data-skill]')].map((x) => x.getAttribute('data-skill'))).toEqual(['superpowers:brainstorming']);
   });
 
-  it('switching to card view (remembers the choice); cards show base cost, use count, tool logo', async () => {
+  it('box view by default (grouped); the table can be chosen and is remembered', async () => {
     fake({ skills_list: report });
     try { localStorage.removeItem('bumeter.skillView'); } catch { /* ignore */ }
     await mountSkills(list, detail);
-    expect(list.querySelector('.skill-cards')).toBeNull();
-    click(list, '[data-view-mode="cards"]');
-    await flush();
+    // Boxes are the default, grouped by status, and show base cost, use count and the tool logo.
+    expect(list.querySelector('.skill-cards')).not.toBeNull();
+    expect(list.querySelector('[data-view-mode="cards"]')?.getAttribute('aria-pressed')).toBe('true');
     const card = list.querySelector('.skill-card[data-skill="pj-review"]')!;
     expect(card.textContent).toContain('~90');
     expect(card.textContent).toContain('5');
     expect(card.querySelector('.card-foot .glyph')).not.toBeNull();
-    expect(localStorage.getItem('bumeter.skillView')).toBe('cards');
+    // Switch to the table and remember the choice.
+    click(list, '[data-view-mode="table"]');
+    await flush();
+    expect(list.querySelector('.skill-cards')).toBeNull();
+    expect(list.querySelector('[data-skill="pj-review"] .uses')?.textContent).toBe('5');
+    expect(localStorage.getItem('bumeter.skillView')).toBe('table');
     await mountSkills(list, detail);
-    expect(list.querySelector('.skill-cards')).not.toBeNull();
+    expect(list.querySelector('.skill-cards')).toBeNull();
     localStorage.removeItem('bumeter.skillView');
   });
 

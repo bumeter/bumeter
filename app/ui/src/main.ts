@@ -17,9 +17,11 @@ import { state, subscribe, update } from './state';
 import type { View } from './state';
 
 const params = new URLSearchParams(location.search);
-// ?theme=light|dark, ?lang=vi|en, ?view=…, ?scope=…, ?open=1 for previewing / screenshots.
+// ?theme=light|dark, ?accent=…, ?lang=vi|en, ?view=…, ?scope=…, ?open=1 for previewing / screenshots.
 const forced = params.get('theme');
 if (forced === 'light' || forced === 'dark') applyTheme(forced);
+const accent = params.get('accent');
+if (accent) document.documentElement.dataset.accent = accent;
 const VIEWS: View[] = ['overview', 'conversations', 'skills', 'settings', 'session'];
 const skillView = params.get('skillView');
 if (skillView === 'cards' || skillView === 'table') { try { localStorage.setItem('bumeter.skillView', skillView); } catch { /* ignore */ } }
