@@ -164,9 +164,9 @@ pub fn action_labels(lang: Lang) -> [&'static str; 3] {
     [lang.pick("Mở Bumeter", "Open Bumeter"), lang.pick("Tạm dừng thông báo 1 giờ", "Pause notifications for 1 hour"), lang.pick("Thoát", "Quit")]
 }
 
-/// Danh sách công cụ từ registry (thứ tự hiển thị).
+/// Công cụ hiện trên tray: theo thứ tự registry, chỉ những công cụ có thư mục log trên máy.
 pub fn sources(cfg: &Config) -> Vec<SourceInfo> {
-    bum_adapters::registry(&bum_service::host::claude_root(cfg), &bum_service::host::kiro_root(cfg)).into_iter().map(|(i, _)| i).collect()
+    bum_adapters::installed(&bum_service::host::claude_root(cfg), &bum_service::host::kiro_root(cfg))
 }
 
 /// Linux (AppIndicator/dbusmenu): icon của mục menu không được xuất ra thanh GNOME và `IconMenuItem::set_text`

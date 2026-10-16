@@ -1,5 +1,5 @@
 use chrono::NaiveDate;
-use bum_adapters::kiro::usage::{parse, run_with, KiroUsage};
+use bum_adapters::kiro::usage::{fetch_with, logged_in_with, parse, run_with, KiroUsage};
 
 const SAMPLE: &str = "\u{1b}[1mEstimated Usage\u{1b}[0m | resets on 2026-11-01 | \u{1b}[38;5;141mKIRO PRO\u{1b}[0m\n\
 Credits (270.69 of 1000 covered in plan)\n\
@@ -67,4 +67,53 @@ fn store_quotas_merges_and_skips_empty() {
     assert!(bum_adapters::store_quotas(&p, vec![("kiro".into(), q(2))]).unwrap());
     let all = read_quotas(&p);
     assert_eq!((all["other"].fetched_at, all["kiro"].fetched_at), (1, 2));
+}
+
+/// Chỉ hỏi `/usage` khi `kiro-cli whoami` cho biết đã đăng nhập; không thì không chạy gì thêm.
+#[cfg(unix)]
+#[test]
+fn usage_is_fetched_only_when_logged_in() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Duration;
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().join("out.txt");
+    std::fs::write(&data, SAMPLE).unwrap();
+    let asked = dir.path().join("asked-usage");
+    // kiro-cli giả: `whoami` theo kịch bản; `chat … /usage` ghi dấu rồi in SAMPLE.
+    let fake = |name: &str, whoami: &str| {
+        let p = dir.path().join(name);
+        std::fs::write(&p, format!(
+            "#!/bin/sh\ncase \"$1\" in\n  whoami) {whoami} ;;\n  chat) touch '{}'; cat '{}' ;;\nesac\n",
+            asked.display(), data.display())).unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        p
+    };
+    let t = Duration::from_secs(5);
+
+    let ok = fake("in", "echo 'Logged in with IAM Identity Center (https://example.awsapps.com/start)'; echo 'Email: a@b.c'");
+    assert!(logged_in_with(&ok, t));
+    assert_eq!(fetch_with(&ok, t), Some(expected()));
+    assert!(asked.exists());
+    std::fs::remove_file(&asked).unwrap();
+
+    for (name, whoami) in [("out", "echo 'Not logged in'; exit 1"), ("out0", "echo 'You are not logged in, run kiro-cli login'"), ("err", "exit 2"), ("slow", "sleep 5")] {
+        let bin = fake(name, whoami);
+        assert!(!logged_in_with(&bin, Duration::from_millis(500)), "{name}");
+        assert_eq!(fetch_with(&bin, Duration::from_millis(500)), None, "{name}");
+        assert!(!asked.exists(), "{name}: chưa đăng nhập thì không được chạy /usage");
+    }
+    assert!(!logged_in_with(&dir.path().join("nope"), t), "không có kiro-cli");
+}
+
+/// Tray chỉ hiện công cụ có thư mục log trên máy (máy không cài Kiro thì không có dòng Kiro).
+#[test]
+fn installed_keeps_only_tools_whose_log_dir_exists() {
+    let dir = tempfile::tempdir().unwrap();
+    let claude = dir.path().join("claude/projects");
+    std::fs::create_dir_all(&claude).unwrap();
+    let kiro = dir.path().join("kiro/sessions/cli");
+    let ids = |v: Vec<bum_core::source::SourceInfo>| v.into_iter().map(|i| i.id).collect::<Vec<_>>();
+    assert_eq!(ids(bum_adapters::installed(&claude, &kiro)), ["claude_code"]);
+    std::fs::create_dir_all(&kiro).unwrap();
+    assert_eq!(ids(bum_adapters::installed(&claude, &kiro)), ["claude_code", "kiro"]);
 }

@@ -80,10 +80,10 @@ pub fn find_cli() -> Option<PathBuf> {
     std::env::split_paths(&std::env::var_os("PATH")?).map(|d| d.join(name)).find(|p| p.is_file())
 }
 
-/// Chạy `bin chat --no-interactive /usage`; lỗi, hết giờ hay không đọc được → `None`.
-pub fn run_with(bin: &Path, timeout: Duration) -> Option<KiroUsage> {
+/// Chạy `bin args…` với hạn giờ; trả `(thoát thành công, stdout + stderr)`. Không chạy được hoặc hết giờ → `None`.
+fn run_capture(bin: &Path, args: &[&str], timeout: Duration) -> Option<(bool, String)> {
     let mut child = Command::new(bin)
-        .args(["chat", "--no-interactive", "/usage"])
+        .args(args)
         .env("NO_COLOR", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -103,8 +103,8 @@ pub fn run_with(bin: &Path, timeout: Duration) -> Option<KiroUsage> {
     });
     match rx.recv_timeout(timeout) {
         Ok(text) => {
-            let _ = child.wait();
-            parse(&text)
+            let ok = child.wait().map(|st| st.success()).unwrap_or(false);
+            Some((ok, text))
         }
         Err(_) => {
             let _ = child.kill();
@@ -114,9 +114,34 @@ pub fn run_with(bin: &Path, timeout: Duration) -> Option<KiroUsage> {
     }
 }
 
-/// Lấy hạn mức nếu máy có `kiro-cli`.
+/// Chạy `bin chat --no-interactive /usage`; lỗi, hết giờ hay không đọc được → `None`.
+pub fn run_with(bin: &Path, timeout: Duration) -> Option<KiroUsage> {
+    parse(&run_capture(bin, &["chat", "--no-interactive", "/usage"], timeout)?.1)
+}
+
+/// `bin whoami` báo đã đăng nhập (thoát 0, có dòng "Logged in", không có "not logged in").
+/// Chưa đăng nhập thì không hỏi `/usage`: lệnh có thể báo lỗi hoặc đòi đăng nhập.
+pub fn logged_in_with(bin: &Path, timeout: Duration) -> bool {
+    match run_capture(bin, &["whoami"], timeout) {
+        Some((true, text)) => {
+            let t = text.to_lowercase();
+            t.contains("logged in") && !t.contains("not logged in")
+        }
+        _ => false,
+    }
+}
+
+/// Hỏi `/usage` chỉ khi đã đăng nhập.
+pub fn fetch_with(bin: &Path, timeout: Duration) -> Option<KiroUsage> {
+    if !logged_in_with(bin, timeout) {
+        return None;
+    }
+    run_with(bin, timeout)
+}
+
+/// Lấy hạn mức chỉ khi máy có `kiro-cli` và đã đăng nhập; không thì không làm gì.
 pub fn fetch() -> Option<KiroUsage> {
-    run_with(&find_cli()?, TIMEOUT)
+    fetch_with(&find_cli()?, TIMEOUT)
 }
 
 impl KiroUsage {
