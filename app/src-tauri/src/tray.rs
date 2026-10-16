@@ -148,9 +148,9 @@ pub fn menu_text(store: &Store, cfg: &Config, quotas: &std::collections::BTreeMa
     meter::render_tray(sources, limits, &snap, now.timestamp(), lang)
 }
 
-/// Nhãn các mục cố định: mở dashboard, tạm dừng, thoát.
+/// Nhãn các mục cố định: mở Bumeter, tạm dừng, thoát.
 pub fn action_labels(lang: Lang) -> [&'static str; 3] {
-    [lang.pick("Mở dashboard", "Open dashboard"), lang.pick("Tạm dừng thông báo 1 giờ", "Pause notifications for 1 hour"), lang.pick("Thoát", "Quit")]
+    [lang.pick("Mở Bumeter", "Open Bumeter"), lang.pick("Tạm dừng thông báo 1 giờ", "Pause notifications for 1 hour"), lang.pick("Thoát", "Quit")]
 }
 
 /// Danh sách công cụ từ registry (thứ tự hiển thị).
