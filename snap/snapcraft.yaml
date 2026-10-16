@@ -1,7 +1,7 @@
 name: bumeter
 title: Bumeter
 base: core24
-version: '1.0.0'
+version: '1.0.1'
 summary: Token, quota and skill usage for AI coding tools
 description: |
   Bumeter reads the local logs of AI coding assistants (Claude Code, Kiro) and shows
@@ -36,7 +36,7 @@ parts:
   bumeter:
     # Dựng từ gói .deb do `tauri build --bundles deb` tạo (xem docs/build-ubuntu.md).
     plugin: dump
-    source: target/release/bundle/deb/Bumeter_1.0.0_amd64.deb
+    source: target/release/bundle/deb/Bumeter_1.0.1_amd64.deb
     source-type: deb
     prime:
       - usr/bin/bumeter
