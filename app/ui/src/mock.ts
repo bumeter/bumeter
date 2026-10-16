@@ -2,6 +2,8 @@
 import type { CallRow, Conversation, ConversationList, Source, PromptDetail, PromptList, PromptRow, SessionGroup } from './api';
 
 const u = (read: number, write: number, out: number) => ({ input: 10, cache_write_5m: 0, cache_write_1h: write, cache_read: read, output: out });
+/** Small delay on the skills.sh calls so the loading spinner is visible in the browser preview. */
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const row = (key: string, ts: string, text: string, read: number, out: number, calls: number, skills: PromptRow['skills'] = [], extra: Partial<PromptRow> = {}): PromptRow => ({
   stats: { key, tool: 'claude_code', credits: 0, models: ['claude-opus-5'], session_id: ts.slice(0, 10), project: 'TICKET-101', ts, text, interrupted: false, usage: u(read, 4000, out), api_calls: calls, context_at_start: Math.round(read / Math.max(calls, 1)), last_call_ts: ts },
   skills, cost_usd: (read * 0.5 + out * 25) / 1e6, starred: false, anomalous: read > 5e6, ratio: (read + out) / 678_051, ...extra,
@@ -105,6 +107,7 @@ export const transport = {
       case 'latest_anomaly_ts': return new Date(Date.now() - 25 * 60_000).toISOString();
       case 'set_note': return true;
       case 'skills:list': return mockSkills();
+      case 'skills:count': return { claude_code: 6, kiro: 1, total: 7 };
       case 'session_analysis': return mockSession();
       case 'model_stats': return [
         { model: 'claude-opus-5', tool: 'claude_code', calls: 2412, prompts: 571, tokens: 705_000_000, output: 3_600_000, cost_usd: 583.1, credits: 0, last_used: '2026-09-24T01:00:00Z' },
@@ -139,12 +142,32 @@ export const transport = {
         ],
       };
       case 'skills:search': {
+        await delay(600);
         const q = String(params?.q ?? '').toLowerCase();
         return [
           { id: 'acme/skills/code-review', source: 'acme/skills', skill_id: 'code-review', name: 'code-review', installs: 625_917 },
           { id: 'acme/agent-skills/review-pr', source: 'acme/agent-skills', skill_id: 'review-pr', name: 'review-pr', installs: 12_400 },
           { id: 'someone/skills/pj-review', source: 'someone/skills', skill_id: 'pj-review', name: 'pj-review', installs: 830 },
         ].filter((x) => x.name.includes(q) || q.length < 2);
+      }
+      case 'skills:top': {
+        await delay(600);
+        const mode = String(params?.mode ?? 'trending');
+        const page = Math.max(1, Number(params?.page ?? 1));
+        const names = [
+          'vercel-react-best-practices', 'writing-skills', 'skill-creator', 'web-perf', 'code-review', 'requesting-code-review',
+          'brainstorming', 'test-driven-development', 'security-audit', 'durable-objects', 'design-mobile-apps', 'hyperframes-creative',
+          'write-swift', 'image-outpainting', 'relight', 'video-outpainting', 'imagegen-frontend-web', 'prompt-engineering',
+          'api-design', 'git-workflow', 'debugging', 'sql-optimization', 'accessibility-audit', 'refactoring',
+        ];
+        const repos = ['vercel-labs/agent-skills', 'obra/superpowers', 'anthropics/skills', 'cloudflare/skills', 'mattpocock/skills'];
+        const per = 12;
+        const start = (page - 1) * per;
+        const hits = names.slice(start, start + per).map((name, i) => {
+          const source = repos[(start + i) % repos.length];
+          return { id: `${source}/${name}`, source, skill_id: name, name, installs: Math.round(900_000 / (start + i + 1)) + (mode === 'hot' ? 2 : 0) };
+        });
+        return { hits, has_more: start + per < names.length, total: names.length };
       }
       case 'skills:plan': return { id: 'mock', description: '• move ~/.claude/skills/pj-debug → ~/.claude/skills-disabled/pj-debug\nTakes effect in the next Claude Code session.' };
       case 'skills:apply': return { id: 'op', ts: new Date().toISOString(), op: 'disable', description: '', undone: false };

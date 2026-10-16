@@ -82,6 +82,20 @@ pub fn skills(state: State<'_, AppState>, pending: State<'_, PendingPlans>, acti
             let limit = params["limit"].as_u64().unwrap_or(20) as u32;
             bum_skills::market::search(q, limit).map(|h| serde_json::to_value(h).unwrap_or_default()).map_err(err)
         }
+        "top" => {
+            // Leaderboard shown as soon as the install dialog opens: Hot / Trending (24h) / All time.
+            // Page 1 already returns up to 200 skills; the UI offers "load more" for the rest.
+            let mode = params["mode"].as_str().unwrap_or("trending");
+            let page = params["page"].as_u64().unwrap_or(1) as u32;
+            bum_skills::market::leaderboard(mode, page).map(|p| serde_json::to_value(p).unwrap_or_default()).map_err(err)
+        }
+        "count" => {
+            // Installed personal skills for the sidebar badge. Plugins need the `claude` CLI (slow),
+            // and usage counters need the DB, so neither is included here.
+            let claude = scan_personal(&StatuslineSetup::default_claude_dir()).len();
+            let kiro = bum_skills::catalog::scan_personal_for(&kiro_dir(), "kiro").len();
+            Ok(json!({ "claude_code": claude, "kiro": kiro, "total": claude + kiro }))
+        }
         "log" => m.log().map(|l| serde_json::to_value(l).unwrap_or_default()).map_err(err),
         other => Err(format!("no such action '{other}'")),
     }

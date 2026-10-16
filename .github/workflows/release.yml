@@ -1,10 +1,11 @@
 # Build installers for Linux, macOS, Windows.
-# - Run manually (workflow_dispatch): the installers appear under the run's Artifacts.
-# - Push a v* tag (e.g. v1.0.2): creates a draft GitHub Release with the installers attached.
+# - Run manually (workflow_dispatch) or push to main: the installers appear under the run's Artifacts.
+# - Push a v* tag (e.g. v1.0.2): creates a published GitHub Release with the installers attached.
 name: Release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
@@ -106,5 +107,5 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          draft: false
           files: dist/*

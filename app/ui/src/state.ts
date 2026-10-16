@@ -19,12 +19,14 @@ export interface UiState {
   lang: Lang;
   /** Width-based layout (set by main.ts). */
   layout: Layout;
+  /** Bumped when installed skills change (install/remove), so the sidebar badge refreshes. */
+  skillsRev: number;
 }
 
 type Listener = (s: UiState, changed: (keyof UiState)[]) => void;
 
 const listeners = new Set<Listener>();
-export const state: UiState = { view: 'conversations', scope: undefined, filter: {}, conversation: null, turn: null, lang: 'vi', layout: 'wide' };
+export const state: UiState = { view: 'conversations', scope: undefined, filter: {}, conversation: null, turn: null, lang: 'vi', layout: 'wide', skillsRev: 0 };
 
 export function update(patch: Partial<UiState>) {
   const changed = (Object.keys(patch) as (keyof UiState)[]).filter((k) => state[k] !== patch[k]);

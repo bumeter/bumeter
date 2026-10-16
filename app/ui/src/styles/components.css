@@ -255,3 +255,9 @@ div.bar i {
 .tool-tab:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; border-radius: 6px; }
 .toolbar h1, .toolbar .btn { white-space: nowrap; }
 .toolbar .search { min-width: 0; flex: 1 1 auto; }
+
+/* Loading spinner (skills.sh list / search) */
+.spinner { display: inline-block; flex: none; width: 12px; height: 12px; border: 2px solid color-mix(in srgb, var(--ink3) 45%, transparent); border-top-color: var(--acc); border-radius: 50%; animation: spin .7s linear infinite; }
+.loading-row { display: flex; align-items: center; gap: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 1.6s; } }

@@ -2,9 +2,9 @@
 //!
 //! Approach follows skills-manager (MIT, © 2026 Tianliang Zhang, github.com/xingkongliang/skills-manager):
 //! skills.sh is only a catalog; installing = clone `github.com/<source>` then take the directory for `skillId`.
-//! No telemetry, no scraping the leaderboard HTML (fragile) — only the search API is used.
+//! No telemetry, no scraping the HTML: only the JSON APIs are used — `api/search` for a query and
+//! `api/skills/<mode>/<page>` for the leaderboard (Hot / Trending 24h / All time).
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,10 @@ use serde_json::Value;
 use crate::frontmatter;
 
 pub const SEARCH_URL: &str = "https://skills.sh/api/search";
+/// Leaderboard base; a full page is `<LEADERBOARD_URL>/<mode>/<page>`.
+pub const LEADERBOARD_URL: &str = "https://skills.sh/api/skills";
+/// Leaderboard modes skills.sh understands, in the order the UI shows them.
+pub const LEADERBOARD_MODES: [&str; 3] = ["hot", "trending", "all-time"];
 const MAX_LIMIT: u32 = 50;
 const TIMEOUT_SECS: &str = "15";
 /// Maximum depth when searching for a skill directory inside the repo.
@@ -79,6 +83,24 @@ pub fn parse_search(v: &Value) -> Vec<Hit> {
         .collect()
 }
 
+/// Whether `mode` is a leaderboard mode skills.sh understands.
+pub fn valid_mode(mode: &str) -> bool {
+    LEADERBOARD_MODES.contains(&mode)
+}
+
+/// GET `url` and parse the body as JSON, using the `curl` available on the machine.
+fn get_json(url: &str) -> anyhow::Result<Value> {
+    let out = crate::process::command("curl")
+        .args(["-fsS", "--max-time", TIMEOUT_SECS, "-H", "Accept: application/json", "--"])
+        .arg(url)
+        .output()
+        .context("could not run curl")?;
+    if !out.status.success() {
+        bail!("skills.sh did not respond: {}", String::from_utf8_lossy(&out.stderr).trim());
+    }
+    serde_json::from_slice(&out.stdout).context("could not read the result from skills.sh")
+}
+
 /// Search skills.sh using the `curl` available on the machine.
 pub fn search(query: &str, limit: u32) -> anyhow::Result<Vec<Hit>> {
     let q = query.trim();
@@ -86,16 +108,30 @@ pub fn search(query: &str, limit: u32) -> anyhow::Result<Vec<Hit>> {
         return Ok(Vec::new());
     }
     let url = format!("{SEARCH_URL}?q={}&limit={}", encode_query(q), limit.clamp(1, MAX_LIMIT));
-    let out = Command::new("curl")
-        .args(["-fsS", "--max-time", TIMEOUT_SECS, "-H", "Accept: application/json", "--"])
-        .arg(&url)
-        .output()
-        .context("could not run curl")?;
-    if !out.status.success() {
-        bail!("skills.sh did not respond: {}", String::from_utf8_lossy(&out.stderr).trim());
+    Ok(parse_search(&get_json(&url)?))
+}
+
+/// One page of a skills.sh leaderboard (up to 200 skills), plus how many more there are.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Page {
+    pub hits: Vec<Hit>,
+    pub has_more: bool,
+    /// Total number of skills in this leaderboard.
+    pub total: u64,
+}
+
+/// Read a leaderboard response: the skills plus `hasMore` / `total`.
+pub fn parse_page(v: &Value) -> Page {
+    Page { hits: parse_search(v), has_more: v["hasMore"].as_bool().unwrap_or(false), total: v["total"].as_u64().unwrap_or(0) }
+}
+
+/// One page of a skills.sh leaderboard (`hot`, `trending`, `all-time`); page 1 is the top of the list.
+pub fn leaderboard(mode: &str, page: u32) -> anyhow::Result<Page> {
+    if !valid_mode(mode) {
+        bail!("unknown leaderboard mode '{mode}'");
     }
-    let v: Value = serde_json::from_slice(&out.stdout).context("could not read the result from skills.sh")?;
-    Ok(parse_search(&v))
+    let url = format!("{LEADERBOARD_URL}/{mode}/{}", page.max(1));
+    Ok(parse_page(&get_json(&url)?))
 }
 
 /// A real directory (not a symlink) containing a real SKILL.md file.
