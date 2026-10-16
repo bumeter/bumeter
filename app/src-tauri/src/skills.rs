@@ -4,13 +4,13 @@ use std::sync::Mutex;
 
 use serde_json::{json, Value};
 use tauri::State;
-use tk_adapters::claude_code::statusline::StatuslineSetup;
-use tk_core::handlers::skill_stats;
-use tk_core::store::Store;
-use tk_skills::catalog::scan_personal;
-use tk_skills::ops::{Manager, OpRequest, Plan};
-use tk_skills::plugins::{scan_plugins, ClaudeCli};
-use tk_skills::report::{build, Usage};
+use bum_adapters::claude_code::statusline::StatuslineSetup;
+use bum_core::handlers::skill_stats;
+use bum_core::store::Store;
+use bum_skills::catalog::scan_personal;
+use bum_skills::ops::{Manager, OpRequest, Plan};
+use bum_skills::plugins::{scan_plugins, ClaudeCli};
+use bum_skills::report::{build, Usage};
 
 use crate::state::AppState;
 
@@ -50,7 +50,7 @@ pub fn skills(state: State<'_, AppState>, pending: State<'_, PendingPlans>, acti
             let _ = m.purge_trash(chrono::Utc::now());
             let _ = manager(&state, "kiro").purge_trash(chrono::Utc::now());
             let mut entries = scan_personal(&StatuslineSetup::default_claude_dir());
-            entries.extend(tk_skills::catalog::scan_personal_for(&kiro_dir(), "kiro"));
+            entries.extend(bum_skills::catalog::scan_personal_for(&kiro_dir(), "kiro"));
             // `plugins: false`: trả skill cá nhân ngay; UI gọi lần hai để lấy plugin (CLI có thể chậm).
             let mut warnings = Vec::new();
             if params["plugins"].as_bool().unwrap_or(true) {
@@ -80,7 +80,7 @@ pub fn skills(state: State<'_, AppState>, pending: State<'_, PendingPlans>, acti
             // skills.sh chỉ là danh mục; cài thì clone thẳng từ GitHub (op `install_market`).
             let q = params["q"].as_str().unwrap_or_default();
             let limit = params["limit"].as_u64().unwrap_or(20) as u32;
-            tk_skills::market::search(q, limit).map(|h| serde_json::to_value(h).unwrap_or_default()).map_err(err)
+            bum_skills::market::search(q, limit).map(|h| serde_json::to_value(h).unwrap_or_default()).map_err(err)
         }
         "log" => m.log().map(|l| serde_json::to_value(l).unwrap_or_default()).map_err(err),
         other => Err(format!("không có thao tác '{other}'")),

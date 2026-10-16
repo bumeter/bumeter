@@ -373,10 +373,88 @@ dependencies = [
 ]
 
 [[package]]
+name = "bum-adapters"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bum-core",
+ "chrono",
+ "dirs",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "bum-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bum-adapters",
+ "bum-core",
+ "bum-service",
+ "bum-skills",
+ "chrono",
+ "clap",
+ "dirs",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "bum-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dirs",
+ "notify",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml 0.9.12+spec-1.1.0",
+]
+
+[[package]]
+name = "bum-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bum-adapters",
+ "bum-core",
+ "chrono",
+ "interprocess",
+ "notify",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "bum-skills"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dirs",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "bumeter"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bum-adapters",
+ "bum-core",
+ "bum-service",
+ "bum-skills",
  "chrono",
  "dirs",
  "serde_json",
@@ -384,10 +462,6 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-notification",
  "tauri-plugin-single-instance",
- "tk-adapters",
- "tk-core",
- "tk-service",
- "tk-skills",
 ]
 
 [[package]]
@@ -4141,80 +4215,6 @@ name = "tinyvec"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
-
-[[package]]
-name = "tk-adapters"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "dirs",
- "rusqlite",
- "serde",
- "serde_json",
- "tempfile",
- "tk-core",
-]
-
-[[package]]
-name = "tk-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "dirs",
- "serde_json",
- "tempfile",
- "tk-adapters",
- "tk-core",
- "tk-service",
- "tk-skills",
-]
-
-[[package]]
-name = "tk-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "dirs",
- "notify",
- "rusqlite",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
- "toml 0.9.12+spec-1.1.0",
-]
-
-[[package]]
-name = "tk-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "interprocess",
- "notify",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
- "tk-adapters",
- "tk-core",
-]
-
-[[package]]
-name = "tk-skills"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "dirs",
- "serde",
- "serde_json",
- "tempfile",
-]
 
 [[package]]
 name = "tokio"

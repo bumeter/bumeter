@@ -8,17 +8,17 @@ use tauri::menu::IconMenuItem;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Wry};
-use tk_core::handlers::TodaySummary;
-use tk_core::i18n::Lang;
-use tk_core::meter::{self, RingTone, ToolQuota, TrayIcon, TrayText};
-use tk_core::source::SourceInfo;
-use tk_core::config::Config;
-use tk_core::face::{face_for, Face, FaceInput};
-use tk_core::handlers::local_day_bounds;
-use tk_core::limits::LimitState;
+use bum_core::handlers::TodaySummary;
+use bum_core::i18n::Lang;
+use bum_core::meter::{self, RingTone, ToolQuota, TrayIcon, TrayText};
+use bum_core::source::SourceInfo;
+use bum_core::config::Config;
+use bum_core::face::{face_for, Face, FaceInput};
+use bum_core::handlers::local_day_bounds;
+use bum_core::limits::LimitState;
 #[cfg(test)]
-use tk_core::limits::Window;
-use tk_core::store::Store;
+use bum_core::limits::Window;
+use bum_core::store::Store;
 
 pub struct TrayItems {
     sources: Vec<SourceInfo>,
@@ -153,7 +153,7 @@ pub fn face_input(store: &Store, cfg: &Config, limits: &LimitState, today_tokens
     }
 }
 
-/// Dòng theo công cụ + dòng "Hôm nay" + title (tk_core::meter). Lỗi truy vấn → chỉ quota, không credit/hoạt động.
+/// Dòng theo công cụ + dòng "Hôm nay" + title (bum_core::meter). Lỗi truy vấn → chỉ quota, không credit/hoạt động.
 pub fn menu_text(store: &Store, cfg: &Config, quotas: &std::collections::BTreeMap<String, ToolQuota>, sources: &[SourceInfo], limits: &LimitState, now: DateTime<Utc>, lang: Lang) -> TrayText {
     let snap = meter::snapshot(store, cfg, quotas, sources, now).unwrap_or_default();
     meter::render_tray(sources, limits, &snap, now.timestamp(), lang)
@@ -166,7 +166,7 @@ pub fn action_labels(lang: Lang) -> [&'static str; 3] {
 
 /// Danh sách công cụ từ registry (thứ tự hiển thị).
 pub fn sources(cfg: &Config) -> Vec<SourceInfo> {
-    tk_adapters::registry(&tk_service::host::claude_root(cfg), &tk_service::host::kiro_root(cfg)).into_iter().map(|(i, _)| i).collect()
+    bum_adapters::registry(&bum_service::host::claude_root(cfg), &bum_service::host::kiro_root(cfg)).into_iter().map(|(i, _)| i).collect()
 }
 
 /// Linux (AppIndicator/dbusmenu): icon của mục menu không được xuất ra thanh GNOME và `IconMenuItem::set_text`
@@ -301,7 +301,7 @@ pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &Toda
     if let Some(tray) = app.tray_by_id("main") {
         let face = face_for(&face_input(store, &st.cfg, limits, today.total, now));
         let _ = tray.set_icon(Some(face_image(face)));
-        let _ = tray.set_tooltip(Some(tk_core::limits::render_line(limits, Some(today.total), lang)));
+        let _ = tray.set_tooltip(Some(bum_core::limits::render_line(limits, Some(today.total), lang)));
         let _ = tray.set_title(text.title.as_deref());
     }
 }
@@ -381,13 +381,13 @@ mod tests {
         let srcs = sources(&Config::default());
         assert_eq!(srcs.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), vec!["claude_code", "kiro"]);
         let store = Store::open_in_memory().unwrap();
-        let st = tk_core::limits::state(
-            Some(tk_core::limits::LimitsFile { updated_at: 0, five_hour: Some(Window { used_percentage: 47.0, resets_at: 4_102_444_800 }), seven_day: None }),
+        let st = bum_core::limits::state(
+            Some(bum_core::limits::LimitsFile { updated_at: 0, five_hour: Some(Window { used_percentage: 47.0, resets_at: 4_102_444_800 }), seven_day: None }),
             None,
             0,
         );
         let mut cfg = Config::default();
-        cfg.tool_limits.insert("kiro".into(), tk_core::config::ToolLimit { monthly_credits: Some(1000.0), reset_day: 1 });
+        cfg.tool_limits.insert("kiro".into(), bum_core::config::ToolLimit { monthly_credits: Some(1000.0), reset_day: 1 });
         let now = Utc::now();
         let t = menu_text(&store, &cfg, &Default::default(), &srcs, &st, now, Lang::Vi);
         assert_eq!(t.rows.len(), srcs.iter().map(meter::tray_row_count).sum::<usize>());

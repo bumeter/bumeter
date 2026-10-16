@@ -4,12 +4,12 @@ use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
-use tk_core::alerts::{Alert, AlertEngine};
-use tk_core::coalesce::Coalescer;
-use tk_core::engine::{Engine, IngestReport};
-use tk_core::handlers::{limit_state, local_day_bounds, today_summary, HandlerCtx};
-use tk_core::host::HostHandler;
-use tk_service::host::{start_host_taking_over, HostHandle};
+use bum_core::alerts::{Alert, AlertEngine};
+use bum_core::coalesce::Coalescer;
+use bum_core::engine::{Engine, IngestReport};
+use bum_core::handlers::{limit_state, local_day_bounds, today_summary, HandlerCtx};
+use bum_core::host::HostHandler;
+use bum_service::host::{start_host_taking_over, HostHandle};
 
 use crate::state::AppState;
 
@@ -120,7 +120,7 @@ pub fn start(app: &AppHandle) {
 /// Cập nhật tray từ DB chỉ đọc (lúc khởi động và ở chế độ client).
 fn refresh_from_db(app: &AppHandle) {
     let st = app.state::<AppState>();
-    let Ok(store) = tk_core::store::Store::open_readonly(&st.paths.db()) else { return };
+    let Ok(store) = bum_core::store::Store::open_readonly(&st.paths.db()) else { return };
     let ctx = HandlerCtx { store: &store, pricing: &st.pricing, cfg: &st.cfg, paths: &st.paths };
     let now = chrono::Utc::now();
     let (from, to) = local_day_bounds(now);
@@ -135,8 +135,8 @@ fn poll_quotas(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || loop {
         let path = app.state::<AppState>().paths.tool_quotas();
-        let fresh = tk_adapters::fetch_quotas(chrono::Utc::now().timestamp());
-        if matches!(tk_adapters::store_quotas(&path, fresh), Ok(true)) {
+        let fresh = bum_adapters::fetch_quotas(chrono::Utc::now().timestamp());
+        if matches!(bum_adapters::store_quotas(&path, fresh), Ok(true)) {
             refresh_from_db(&app);
         }
         std::thread::sleep(EVERY);

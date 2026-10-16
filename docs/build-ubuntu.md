@@ -3,7 +3,7 @@
 Yêu cầu có sẵn: Rust (stable), Node 20+, và `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`.
 
 ```bash
-cargo build --release -p tk-cli   # tạo target/release/bum
+cargo build --release -p bum-cli   # tạo target/release/bum
 mkdir -p app/src-tauri/binaries
 cp target/release/bum app/src-tauri/binaries/bum-x86_64-unknown-linux-gnu   # bum đi kèm app (sidecar)
 (cd app/ui && npm install && npm run build)

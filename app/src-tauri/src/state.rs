@@ -1,9 +1,9 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use tauri::{AppHandle, Manager};
-use tk_core::config::Config;
-use tk_core::paths::Paths;
-use tk_core::pricing::Pricing;
+use bum_core::config::Config;
+use bum_core::paths::Paths;
+use bum_core::pricing::Pricing;
 
 pub struct AppState {
     pub paths: Paths,
@@ -11,7 +11,7 @@ pub struct AppState {
     pub pricing: Pricing,
     pub paused_until: AtomicI64,
     /// Ngôn ngữ hiện tại; đổi được khi đang chạy (Cài đặt), khác với `cfg` chỉ nạp lúc mở app.
-    lang: std::sync::RwLock<tk_core::i18n::Lang>,
+    lang: std::sync::RwLock<bum_core::i18n::Lang>,
 }
 
 impl AppState {
@@ -24,11 +24,11 @@ impl AppState {
         Self { paths, cfg, pricing, paused_until: AtomicI64::new(0), lang }
     }
 
-    pub fn lang(&self) -> tk_core::i18n::Lang {
+    pub fn lang(&self) -> bum_core::i18n::Lang {
         self.lang.read().map(|l| *l).unwrap_or_default()
     }
 
-    pub fn set_lang(&self, lang: tk_core::i18n::Lang) {
+    pub fn set_lang(&self, lang: bum_core::i18n::Lang) {
         if let Ok(mut l) = self.lang.write() {
             *l = lang;
         }

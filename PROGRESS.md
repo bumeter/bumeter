@@ -21,13 +21,13 @@
 ## 2. Cấu trúc repo (đường dẫn quan trọng)
 
 ```
-Cargo.toml                  # workspace: tk-core, tk-adapters, tk-service, tk-cli, tk-skills, app/src-tauri
-crates/tk-core/             # lõi: engine đọc log, SQLite, handlers (toàn bộ query RPC), models, limits
-crates/tk-adapters/         # nguồn log: claude_code/ (JSONL ~/.claude/projects), kiro/ (whole-file ~/.kiro/sessions/cli)
-crates/tk-service/          # tk-service JSON-RPC qua socket (client TUI/VS Code dùng sau này)
-crates/tk-cli/              # lệnh bum: scan, audit, session, skills, statusline, prompts…
-crates/tk-skills/           # liệt kê/tắt bật gỡ skill có hoàn tác (Claude + Kiro); market.rs = tìm trên skills.sh (qua `curl`)
-app/src-tauri/              # app Tauri: commands (gọi `call {method, params}` → tk-core handlers), tray, window
+Cargo.toml                  # workspace: bum-core, bum-adapters, bum-service, bum-cli, bum-skills, app/src-tauri
+crates/bum-core/             # lõi: engine đọc log, SQLite, handlers (toàn bộ query RPC), models, limits
+crates/bum-adapters/         # nguồn log: claude_code/ (JSONL ~/.claude/projects), kiro/ (whole-file ~/.kiro/sessions/cli)
+crates/bum-service/          # bum-service JSON-RPC qua socket (client TUI/VS Code dùng sau này)
+crates/bum-cli/              # lệnh bum: scan, audit, session, skills, statusline, prompts…
+crates/bum-skills/           # liệt kê/tắt bật gỡ skill có hoàn tác (Claude + Kiro); market.rs = tìm trên skills.sh (qua `curl`)
+app/src-tauri/              # app Tauri: commands (gọi `call {method, params}` → bum-core handlers), tray, window
 app/ui/src/                 # toàn bộ UI
   api.ts                    # LỚP GỌI DUY NHẤT → Tauri IPC; ngoài Tauri tự rơi về mock.ts
   mock.ts                   # dữ liệu giả (browser dev) — THÊM METHOD MỚI PHẢI CẬP NHẬT Ở ĐÂY
@@ -41,7 +41,7 @@ docs/research/              # nghiên cứu, so sánh với dự án khác
 docs/screens/*.png          # ảnh chụp bằng dữ liệu giả
 ```
 
-**Luồng dữ liệu:** watcher đọc log → engine (`tk-core/src/engine.rs`) ghi SQLite → UI gọi RPC `list_conversations`, `conversation_turns`, `prompt_detail`, `sources`… → `onDataChanged` push khi có log mới. Nội dung hỏi/đáp (`conversation_transcript`) đọc thẳng từ file log lúc cần, không lưu DB.
+**Luồng dữ liệu:** watcher đọc log → engine (`bum-core/src/engine.rs`) ghi SQLite → UI gọi RPC `list_conversations`, `conversation_turns`, `prompt_detail`, `sources`… → `onDataChanged` push khi có log mới. Nội dung hỏi/đáp (`conversation_transcript`) đọc thẳng từ file log lúc cần, không lưu DB.
 
 **Nguồn dữ liệu thật trên máy này:**
 
@@ -81,7 +81,7 @@ docs/screens/*.png          # ảnh chụp bằng dữ liệu giả
 ## 5. Việc vừa xong (nhánh feat/conversations)
 
 - Tiêu đề hội thoại (Claude `ai-title`, Kiro `title`, schema v4); không có thì lấy câu hỏi đầu.
-- Backend registry: `LogSource::info()` → `SourceInfo` (nhãn, chữ cái, màu, khả năng); `tk_adapters::registry()`; RPC app `sources` = registry + `tool_stats`.
+- Backend registry: `LogSource::info()` → `SourceInfo` (nhãn, chữ cái, màu, khả năng); `bum_adapters::registry()`; RPC app `sources` = registry + `tool_stats`.
 - RPC `list_conversations` (nhóm theo ngày giờ máy; lọc q/project/models[]/tool/from/to/quick), `conversation_turns` (trả `{title, turns}`), `conversation_transcript` (app command, đọc log).
 - `project_stats`/`day_stats` nhận `tool` (phạm vi công cụ).
 - i18n: `Config.language` (vi/en); thông báo, tray, statusline, `bum status` dịch theo đó; backend trả **mã** cho "vì sao tốn" (`Explain`) và gợi ý phân tích phiên (`Suggestion`), UI tự dịch.
@@ -99,7 +99,7 @@ docs/screens/*.png          # ảnh chụp bằng dữ liệu giả
 ## 6. Việc dang dở (ưu tiên trên xuống dưới)
 
 0. **Đối chiếu skills-manager** (`docs/research/2026-09-28-skills-manager-comparison.md`): nên làm trước (1) nhường thao tác skill cho skills-manager khi skill do nó quản lý — máy này có `~/.skills-manager`; (2) CI build bộ cài, Linux trên ubuntu-22.04 để gỡ giới hạn glibc 2.39, thêm Windows/macOS.
-1. Chuỗi backend của `tk-skills` (mô tả plan thao tác, cảnh báo) vẫn chỉ có tiếng Việt.
+1. Chuỗi backend của `bum-skills` (mô tả plan thao tác, cảnh báo) vẫn chỉ có tiếng Việt.
 2. Tìm kiếm trong câu trả lời (cần lưu/đánh chỉ mục transcript).
 3. Onboarding + màn "Công cụ" trong Cài đặt + bật/tắt theo dõi từng tool (spec mục 6).
 4. Engine incremental cho nguồn dạng SQLite (cần cho OpenCode), rồi tích hợp OpenCode — đã research (mục 2), **hoãn**.
@@ -115,7 +115,7 @@ cd app/ui && npm run build             # UI → app/ui/dist (phải chạy TRƯ�
 cd app/ui && npm run dev               # xem UI trên trình duyệt bằng mock.ts (?theme=dark&view=skills)
 ./target/release/bumeter              # chạy app đã build
 # bundle Linux: xem docs/build-ubuntu.md
-#   cargo build --release -p tk-cli
+#   cargo build --release -p bum-cli
 #   cp target/release/bum app/src-tauri/binaries/bum-x86_64-unknown-linux-gnu
 #   (cd app/ui && npm run build) && (cd app && ./ui/node_modules/.bin/tauri build --bundles deb appimage)
 ```
@@ -123,9 +123,9 @@ cd app/ui && npm run dev               # xem UI trên trình duyệt bằng mock
 ## 8. Quy ước khi làm code ở đây
 
 - **Logo công cụ**: `SourceInfo.icon` = tên file trong `app/ui/public/tool-icons/` (chỉ nhận tên file đơn giản); ghi nguồn + chủ sở hữu nhãn hiệu vào `NOTICE.md` ở đó. Trước khi phát hành công khai nên thay bằng file từ trang brand chính thức.
-- **Không hard-code tên tool ở view** — mọi nhận diện (tên, màu, khả năng) qua `app/ui/src/tools.ts`, dữ liệu từ `SourceInfo` của adapter. Thêm tool mới = adapter mới + 1 dòng trong `tk_adapters::registry()`; UI không phải sửa (màu đi qua biến CSS `--tc`).
+- **Không hard-code tên tool ở view** — mọi nhận diện (tên, màu, khả năng) qua `app/ui/src/tools.ts`, dữ liệu từ `SourceInfo` của adapter. Thêm tool mới = adapter mới + 1 dòng trong `bum_adapters::registry()`; UI không phải sửa (màu đi qua biến CSS `--tc`).
 - **Chuỗi hiển thị qua `t()`** — thêm khoá vào cả `locales/vi.ts` và `locales/en.ts`. Backend trả mã + tham số, không trả câu viết sẵn cho UI.
-- Thêm RPC method mới: sửa `api.ts` (interface + method) **và** `mock.ts` (case trả giả) **và** handler `crates/tk-core/src/handlers.rs`; nếu có dữ liệu thật thêm test trong `crates/tk-core/tests/`.
+- Thêm RPC method mới: sửa `api.ts` (interface + method) **và** `mock.ts` (case trả giả) **và** handler `crates/bum-core/src/handlers.rs`; nếu có dữ liệu thật thêm test trong `crates/bum-core/tests/`.
 - UI thuần TS + `h()`; view = `mountX(el)` + `cleanup`; test Vitest theo mẫu view hiện có (`app/ui/tests/`).
 - Docs, comment: **tiếng Việt**; nội dung UI: vi + en. Tên dự án/client trong docs/mock đã bị thay bằng placeholder (commit `6bb915b`) — **không đưa tên thật trở lại**.
 

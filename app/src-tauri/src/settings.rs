@@ -1,8 +1,8 @@
 //! Lệnh cho màn Cài đặt: đọc/ghi config, bật/gỡ theo dõi giới hạn qua statusline (spec mục 7.1).
 use serde_json::{json, Value};
 use tauri::State;
-use tk_adapters::claude_code::statusline::StatuslineSetup;
-use tk_core::config::Config;
+use bum_adapters::claude_code::statusline::StatuslineSetup;
+use bum_core::config::Config;
 
 use crate::state::AppState;
 
@@ -30,13 +30,13 @@ pub fn settings(state: State<'_, AppState>, action: String, params: Option<Value
     let s = setup(&state);
     match action.as_str() {
         "get" => {
-            let parse_errors = tk_core::store::Store::open_readonly(&state.paths.db()).ok().and_then(|st| st.parse_errors().ok()).unwrap_or(0);
+            let parse_errors = bum_core::store::Store::open_readonly(&state.paths.db()).ok().and_then(|st| st.parse_errors().ok()).unwrap_or(0);
             Ok(json!({
                 "config": Config::load(&state.paths.config()),
                 "statusline": s.status().map_err(err)?,
                 "data_dir": state.paths.data_dir,
                 "parse_errors": parse_errors,
-                "tool_quotas": tk_core::meter::read_quotas(&state.paths.tool_quotas()),
+                "tool_quotas": bum_core::meter::read_quotas(&state.paths.tool_quotas()),
             }))
         }
         "statusline_plan" => {

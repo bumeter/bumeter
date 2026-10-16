@@ -4,7 +4,7 @@ Plan: `docs/superpowers/plans/2026-09-25-conversations.md`. Mockup đã duyệt:
 
 ## Tự động
 
-- `cargo test --workspace`: 171 test pass. Mới thêm: `tests/conversations.rs` (nhóm theo ngày, lọc project/model/tool/tìm kiếm, lượt theo thứ tự, thống kê theo phạm vi công cụ), `tk-adapters/tests/transcript.rs`, test ngôn ngữ trong `insight.rs`, tray vi/en, `sources_merge_registry_with_stats`.
+- `cargo test --workspace`: 171 test pass. Mới thêm: `tests/conversations.rs` (nhóm theo ngày, lọc project/model/tool/tìm kiếm, lượt theo thứ tự, thống kê theo phạm vi công cụ), `bum-adapters/tests/transcript.rs`, test ngôn ngữ trong `insight.rs`, tray vi/en, `sources_merge_registry_with_stats`.
 - Vitest: 53 test pass (`conversations`, `conversation`, `overview`, `i18n`, `sidebar`, `fmt` viết mới; test cũ của màn Lần hỏi, Project, Ngày, Model đã bỏ cùng các màn đó). `tsc --noEmit` sạch.
 - `i18n.test.ts` kiểm tra vi và en có cùng bộ khoá, cùng tham số, và bản tiếng Anh không sót chữ tiếng Việt.
 
@@ -32,4 +32,4 @@ Plan: `docs/superpowers/plans/2026-09-25-conversations.md`. Mockup đã duyệt:
 
 - Bộ lọc làm theo mockup đã duyệt (select Project và select thời gian nằm ngay trên danh sách, tag Model chọn nhiều, chip lọc nhanh), không làm nút "Bộ lọc (n)" của phương án B.
 - Ô tìm kiếm tìm trong **tiêu đề và câu hỏi**. Câu trả lời chưa được lưu DB nên chưa tìm được.
-- Mô tả plan thao tác skill và cảnh báo của `tk-skills` (chuỗi từ backend) vẫn chỉ có tiếng Việt.
+- Mô tả plan thao tác skill và cảnh báo của `bum-skills` (chuỗi từ backend) vẫn chỉ có tiếng Việt.

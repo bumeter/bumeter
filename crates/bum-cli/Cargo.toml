@@ -1,0 +1,22 @@
+[package]
+name = "bum-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "bum"
+path = "src/main.rs"
+
+[dependencies]
+bum-core = { path = "../bum-core" }
+bum-adapters = { path = "../bum-adapters" }
+bum-service = { path = "../bum-service" }
+bum-skills = { path = "../bum-skills" }
+serde_json.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
