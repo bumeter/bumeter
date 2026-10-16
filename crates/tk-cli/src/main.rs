@@ -103,7 +103,20 @@ fn status(paths: &Paths) -> anyhow::Result<bool> {
     // Như statusline: % quota từ limits.json (host đang chạy nên file luôn mới nhất).
     let st = tk_core::limits::state(tk_core::limits::read(&paths.limits()), None, chrono::Utc::now().timestamp());
     println!("{}: {}", lang.pick("Giới hạn", "Limits"), tk_core::limits::render_line(&st, None, lang));
+    for line in tool_lines(paths, &st, chrono::Utc::now()) {
+        println!("{line}");
+    }
     Ok(true)
+}
+
+/// Các dòng theo công cụ như menu tray (thanh %, credit/hạn mức), đọc DB chỉ đọc. Lỗi DB → không in.
+fn tool_lines(paths: &Paths, limits: &tk_core::limits::LimitState, now: chrono::DateTime<chrono::Utc>) -> Vec<String> {
+    let Ok(store) = Store::open_readonly(&paths.db()) else { return vec![] };
+    let cfg = config(paths);
+    let sources: Vec<_> = tk_adapters::registry(&claude_root(&cfg), &tk_service::host::kiro_root(&cfg)).into_iter().map(|(i, _)| i).collect();
+    let quotas = tk_core::meter::read_quotas(&paths.tool_quotas());
+    let snap = tk_core::meter::snapshot(&store, &cfg, &quotas, &sources, now).unwrap_or_default();
+    tk_core::meter::render(&sources, limits, &snap, now.timestamp(), cfg.language).tools
 }
 
 fn skills(paths: &Paths, json: bool) -> anyhow::Result<bool> {
@@ -155,4 +168,24 @@ fn session(paths: &Paths, id: &str) -> anyhow::Result<bool> {
         println!("⚠ {}", s.text(lang));
     }
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tool_lines_show_kiro_credit_against_user_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(dir.path());
+        drop(Store::open(&paths.db()).unwrap());
+        let mut cfg = Config::default();
+        cfg.tool_limits.insert("kiro".into(), tk_core::config::ToolLimit { monthly_credits: Some(1000.0), reset_day: 1 });
+        cfg.save(&paths.config()).unwrap();
+        let st = tk_core::limits::state(None, None, 0);
+        let lines = tool_lines(&paths, &st, chrono::Utc::now());
+        assert_eq!(lines.len(), 3, "{lines:?}");
+        assert!(lines[2].starts_with("Kiro") && lines[2].contains("0/1000 credit"), "{lines:?}");
+        assert!(tool_lines(&Paths::new(dir.path().join("none")), &st, chrono::Utc::now()).is_empty());
+    }
 }
