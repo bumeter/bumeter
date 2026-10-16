@@ -72,7 +72,7 @@ describe('sidebar', () => {
   it('không còn bộ chọn công cụ ở thanh bên; phạm vi Kiro thì quota ẩn vì Kiro không có', async () => {
     fake(handlers);
     await mountSidebar(el);
-    expect(el.querySelector('.tool-switch, [role="radiogroup"]')).toBeNull();
+    expect(el.querySelector('.tool-tabs, [role="radiogroup"]')).toBeNull();
     update({ scope: 'kiro', filter: { tool: 'kiro' } });
     await flush();
     expect(el.querySelector('[data-view="conversations"] .count')?.textContent).toBe('5');

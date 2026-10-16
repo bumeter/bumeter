@@ -366,10 +366,8 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .app[data-layout="narrow"] .sidebar { flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; border-right: 0; border-bottom: var(--hair) solid var(--separator); position: relative; }
 .app[data-layout="narrow"] .brand { margin: 0 6px 0 0; }
 .app[data-layout="narrow"] .wordmark, .app[data-layout="narrow"] .side-section, .app[data-layout="narrow"] .side-item .label,
-.app[data-layout="narrow"] .side-item .count, .app[data-layout="narrow"] .tool-switch .seg-label,
+.app[data-layout="narrow"] .side-item .count,
 .app[data-layout="narrow"] .bumcard .bum-text { display: none; }
-.app[data-layout="narrow"] .tool-switch .seg-all-ic { display: block; }
-.app[data-layout="narrow"] .tool-switch .seg-opt { width: 30px; padding: 0; }
 .app[data-layout="narrow"] .side-item { width: 40px; height: 36px; padding: 0; justify-content: center; flex: none; }
 .app[data-layout="narrow"] .bumcard { margin: 0 0 0 auto; padding: 4px; background: transparent; flex: none; }
 

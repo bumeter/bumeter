@@ -13,7 +13,7 @@ import { allSources, loadSources } from '../tools';
 const BUM_REFRESH_MS = 60_000;
 
 /** Phạm vi đã chọn lần trước (chỉ là tiện ích, lỗi storage thì bỏ qua). */
-export { rememberedScope, setScope } from '../components/toolSwitch';
+export { rememberedScope, setScope } from '../components/toolTabs';
 
 let cleanup: (() => void) | null = null;
 

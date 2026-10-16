@@ -241,18 +241,14 @@ div.bar i {
 .settings .message { color: var(--ink2); font-size: 12px; margin: 0; }
 .settings .message.error { color: var(--red); }
 
-/* Chọn công cụ ở góc phải thanh tiêu đề: nút gạt có logo, nút đang chọn nền cam. */
-.tool-switch { display: inline-flex; flex: none; gap: 2px; padding: 3px; border-radius: var(--r-ctl); background: var(--sunk); }
-.tool-switch.compact .seg-opt { width: 30px; padding: 0; }
-.seg-opt .seg-all-ic { display: none; }
-.tool-switch.compact .seg-all-ic { display: block; }
-.seg-opt { flex: none; display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--ink2); font: 700 12px var(--font); cursor: default; }
-.seg-opt .seg-all-ic svg { width: 16px; height: 16px; display: block; }
-.seg-opt .seg-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.seg-opt .glyph { width: 16px; height: 16px; flex: none; }
-.seg-opt:hover { color: var(--ink); }
-.seg-opt[aria-checked="true"] { background: var(--acc); color: #fff; }
-.seg-opt.missing { opacity: .55; }
-.seg-opt:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+/* Hàng tab công cụ dưới thanh tiêu đề: gạch chân cam ở tab đang chọn, nhiều công cụ thì cuộn ngang. */
+.tool-tabs { display: flex; flex: none; gap: 2px; padding: 0 12px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+.tool-tabs::-webkit-scrollbar { display: none; }
+.tool-tab { flex: none; display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink2); font: 600 12.5px var(--font); white-space: nowrap; cursor: default; }
+.tool-tab .glyph { width: 16px; height: 16px; flex: none; }
+.tool-tab:hover { color: var(--ink); }
+.tool-tab[aria-checked="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--acc); }
+.tool-tab.missing { opacity: .55; }
+.tool-tab:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; border-radius: 6px; }
 .toolbar h1, .toolbar .btn { white-space: nowrap; }
 .toolbar .search { min-width: 0; flex: 1 1 auto; }

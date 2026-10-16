@@ -49,7 +49,7 @@ export async function boot() {
   await loadSources();
 
   const view = params.get('view') as View | null;
-  const scope = params.get('scope') ?? rememberedScope();
+  const scope = (params.get('scope') ?? rememberedScope()) || undefined;
   update({ lang, scope, filter: { tool: scope }, view: view && VIEWS.includes(view) ? view : state.view,
     session: view === 'session' ? 'mock' : state.session,
     conversation: params.get('conversation'), turn: params.get('turn') });

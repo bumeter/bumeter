@@ -1,4 +1,4 @@
-import { h, icon, ICONS } from '../dom';
+import { h } from '../dom';
 import { t } from '../i18n';
 import { state, update } from '../state';
 import { allSources, glyph } from '../tools';
@@ -20,17 +20,16 @@ export function setScope(scope: string | undefined) {
 }
 
 /**
- * Chọn công cụ ở góc phải thanh tiêu đề mỗi màn: [Tất cả | Claude Code | Kiro], nút đang chọn nền cam.
- * `compact`: chỉ còn icon (cột hẹp), tên nằm ở `aria-label`/tooltip.
+ * Hàng tab công cụ ngay dưới thanh tiêu đề mỗi màn: Tất cả | ✳ Claude Code | ◉ Kiro | …
+ * Thêm công cụ chỉ thêm tab; nhiều quá thì hàng cuộn ngang. Công cụ không thấy thư mục log thì mờ.
  */
-export function toolSwitch(o: { compact?: boolean } = {}): HTMLElement {
-  const group = h('div', { class: o.compact ? 'tool-switch compact' : 'tool-switch', role: 'radiogroup', 'aria-label': t('scope.all') });
+export function toolTabs(): HTMLElement {
+  const group = h('div', { class: 'tool-tabs', role: 'radiogroup', 'aria-label': t('scope.all') });
   const opt = (id: string | undefined, label: string, missingPath?: string) => {
-    const tip = missingPath ? `${label} · ${t('scope.notFound', { path: missingPath })}` : label;
-    const b = h('button', { type: 'button', class: missingPath ? 'seg-opt missing' : 'seg-opt', role: 'radio', 'data-scope': id ?? 'all',
-      'aria-checked': String(state.scope === id), 'aria-label': o.compact || missingPath ? tip : null, title: o.compact || missingPath ? tip : null },
-      id ? glyph(id) : h('span', { class: 'seg-all-ic', 'aria-hidden': 'true' }, icon(ICONS.layers)),
-      o.compact ? null : h('span', { class: 'seg-label' }, label));
+    const tip = missingPath ? `${label} · ${t('scope.notFound', { path: missingPath })}` : null;
+    const b = h('button', { type: 'button', class: missingPath ? 'tool-tab missing' : 'tool-tab', role: 'radio', 'data-scope': id ?? 'all',
+      'aria-checked': String(state.scope === id), title: tip },
+      id ? glyph(id) : null, h('span', { class: 'tab-label' }, label));
     b.addEventListener('click', () => {
       if (state.scope === id) return;
       group.querySelectorAll('[role="radio"]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));

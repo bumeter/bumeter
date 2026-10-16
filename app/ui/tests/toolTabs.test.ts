@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fake, SOURCES } from './fake';
-import { toolSwitch } from '../src/components/toolSwitch';
+import { toolTabs } from '../src/components/toolTabs';
 import { setLang } from '../src/i18n';
 import { state, update } from '../src/state';
 import { loadSources } from '../src/tools';
@@ -12,9 +12,10 @@ beforeEach(async () => {
   update({ filter: {}, view: 'overview', scope: undefined, conversation: null, turn: null });
 });
 
-describe('toolSwitch (chọn công cụ ở thanh tiêu đề)', () => {
+describe('toolTabs (hàng tab công cụ dưới thanh tiêu đề)', () => {
   it('hiện đủ Tất cả + từng công cụ có logo, chọn Kiro thì cả app lọc theo Kiro', () => {
-    const el = toolSwitch();
+    const el = toolTabs();
+    expect(el.classList.contains('tool-tabs')).toBe(true);
     document.body.replaceChildren(el);
     expect(el.getAttribute('role')).toBe('radiogroup');
     expect(el.getAttribute('aria-label')).toBe('Tất cả công cụ');
@@ -29,11 +30,11 @@ describe('toolSwitch (chọn công cụ ở thanh tiêu đề)', () => {
     expect(el.querySelector('[data-scope="all"]')?.getAttribute('aria-checked')).toBe('false');
   });
 
-  it('bản gọn chỉ còn icon nhưng vẫn có nhãn đọc được', () => {
-    const el = toolSwitch({ compact: true });
-    expect(el.classList.contains('compact')).toBe(true);
-    const claude = el.querySelector('[data-scope="claude_code"]')!;
-    expect(claude.getAttribute('aria-label')).toBe('Claude Code');
-    expect(claude.getAttribute('title')).toBe('Claude Code');
+  it('công cụ không thấy thư mục log thì mờ, có tooltip đường dẫn', async () => {
+    fake({ sources: () => SOURCES.map((x, i) => (i === 1 ? { ...x, found: false, root: '/no/kiro' } : x)) });
+    await loadSources();
+    const kiro = toolTabs().querySelector('[data-scope="kiro"]')!;
+    expect(kiro.classList.contains('missing')).toBe(true);
+    expect(kiro.getAttribute('title')).toContain('/no/kiro');
   });
 });

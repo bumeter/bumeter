@@ -8,7 +8,7 @@ import { fmtShortDate, fmtTime, fmtTokens, totalOf } from '../fmt';
 import { t } from '../i18n';
 import { state, subscribe, update } from '../state';
 import { glyph, toolDef, toolTag } from '../tools';
-import { toolSwitch } from '../components/toolSwitch';
+import { toolTabs } from '../components/toolTabs';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -300,11 +300,12 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
               return h('button', { class: 'warn-badge', type: 'button', 'data-action': 'costly-unused', title: text, onclick: (() => { filters.costly = true; filters.status = null; renderList(); }) as EventListener }, text);
             })()
           : null,
-        h('span', { class: 'spacer' }), toolSwitch({ compact: true }),
+        h('span', { class: 'spacer' }),
         h('div', { class: 'segmented', role: 'group', 'aria-label': t('sk.viewMode') },
           ...(['table', 'cards'] as const).map((v) => h('button', { type: 'button', 'data-view-mode': v, 'aria-pressed': String(view === v),
             onclick: (() => { view = v; saveView(v); renderList(); }) as EventListener }, t(v === 'table' ? 'sk.viewTable' : 'sk.viewCards')))),
         h('button', { class: 'btn primary', 'data-action': 'install', onclick: (() => openInstall()) as EventListener }, `+ ${t('sk.install')}`)),
+      toolTabs(),
       h('div', { class: 'chips' },
         h('button', { class: `chip${none ? ' on' : ''}`, type: 'button', 'data-filter': 'all', 'aria-pressed': String(none),
           onclick: (() => { clearFilters(); renderList(); }) as EventListener }, t('sk.all')),
