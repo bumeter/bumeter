@@ -45,7 +45,10 @@ jobs:
           ext=""; [ "$RUNNER_OS" = "Windows" ] && ext=".exe"
           touch "app/src-tauri/binaries/bum-$triple$ext"
 
+      # Clippy on one OS: platform-specific cfg branches are still checked by `cargo test` on each OS,
+      # while linting on every OS only adds per-platform dead-code churn.
       - name: cargo clippy
+        if: runner.os == 'Linux'
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: cargo test

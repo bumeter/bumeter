@@ -1,3 +1,7 @@
+//! OS file-event delivery (inotify) is exercised here on Linux only; the host pipeline is
+//! covered by the other suites on macOS/Windows. Keeping the whole file Linux-only avoids
+//! unused-import/dead-code warnings where the tests are compiled out.
+#![cfg(target_os = "linux")]
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
