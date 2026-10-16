@@ -3,7 +3,9 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use tauri::image::Image;
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
-use tauri::menu::{IconMenuItem, Menu, MenuItem, PredefinedMenuItem};
+#[cfg(not(target_os = "linux"))]
+use tauri::menu::IconMenuItem;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Wry};
 use tk_core::handlers::TodaySummary;
@@ -21,7 +23,7 @@ use tk_core::store::Store;
 pub struct TrayItems {
     sources: Vec<SourceInfo>,
     /// Các dòng theo công cụ (tiêu đề + số liệu), `meter::tray_row_count` dòng mỗi công cụ.
-    rows: Vec<IconMenuItem<Wry>>,
+    rows: Vec<RowItem>,
     /// Icon đang đặt của từng dòng: chỉ `set_icon` khi đổi.
     row_icons: Mutex<Vec<RowIcon>>,
     today: MenuItem<Wry>,
@@ -39,12 +41,14 @@ const TRAY_PNGS: [(Face, &[u8]); 5] = [
 ];
 
 /// Logo 32×32 theo tool id (tạo từ `app/ui/public/tool-icons/*.svg`).
+#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
 const TOOL_PNGS: [(&str, &[u8]); 2] = [
     ("claude_code", include_bytes!("../icons/tools/claude_code.png")),
     ("kiro", include_bytes!("../icons/tools/kiro.png")),
 ];
 
 /// Logo công cụ cho dòng tiêu đề; công cụ lạ → không icon.
+#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
 pub fn tool_logo(tool: &str) -> Option<Image<'static>> {
     TOOL_PNGS.iter().find(|(id, _)| *id == tool).and_then(|(_, b)| Image::from_bytes(b).ok())
 }
@@ -69,6 +73,7 @@ fn row_icon(icon: &TrayIcon, threshold: u8) -> RowIcon {
 }
 
 /// Ảnh vòng % theo (pct, màu), cache để không vẽ lại.
+#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
 fn ring_image(pct: u8, tone: RingTone) -> Image<'static> {
     static CACHE: OnceLock<Mutex<HashMap<(u8, RingTone), Image<'static>>>> = OnceLock::new();
     let mut cache = CACHE.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
@@ -81,6 +86,7 @@ fn ring_image(pct: u8, tone: RingTone) -> Image<'static> {
         .clone()
 }
 
+#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
 fn icon_image(icon: RowIcon, tool: &str) -> Option<Image<'static>> {
     match icon {
         RowIcon::Empty => None,
@@ -158,6 +164,27 @@ pub fn sources(cfg: &Config) -> Vec<SourceInfo> {
     tk_adapters::registry(&tk_service::host::claude_root(cfg), &tk_service::host::kiro_root(cfg)).into_iter().map(|(i, _)| i).collect()
 }
 
+/// Linux (AppIndicator/dbusmenu): icon của mục menu không được xuất ra thanh GNOME và `IconMenuItem::set_text`
+/// không đổi được nhãn (muda dựng hộp ảnh + nhãn riêng) → dùng mục chữ thường, dòng số liệu thụt vào dưới tên công cụ.
+#[cfg(target_os = "linux")]
+type RowItem = MenuItem<Wry>;
+#[cfg(not(target_os = "linux"))]
+type RowItem = IconMenuItem<Wry>;
+
+#[cfg(target_os = "linux")]
+fn new_row(app: &AppHandle, id: String, text: &str, _icon: RowIcon, _tool: &str) -> tauri::Result<RowItem> {
+    MenuItem::with_id(app, id, text, true, None::<&str>)
+}
+#[cfg(not(target_os = "linux"))]
+fn new_row(app: &AppHandle, id: String, text: &str, icon: RowIcon, tool: &str) -> tauri::Result<RowItem> {
+    IconMenuItem::with_id(app, id, text, true, icon_image(icon, tool), None::<&str>)
+}
+
+/// Nhãn hiển thị của một dòng: trên Linux không có icon nên dòng số liệu thụt vào cho rõ thuộc công cụ nào.
+fn row_label(text: &str, icon: &TrayIcon) -> String {
+    if cfg!(target_os = "linux") && !matches!(icon, TrayIcon::Logo) { format!("      {text}") } else { text.to_string() }
+}
+
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let st = app.state::<crate::state::AppState>();
     let sources = sources(&st.cfg);
@@ -169,7 +196,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     for s in &sources {
         for k in 0..meter::tray_row_count(s) {
             let (text, icon) = if k == 0 { (s.label.as_str(), RowIcon::Logo) } else { ("…", RowIcon::Empty) };
-            rows.push(IconMenuItem::with_id(app, row_id(&s.id, rows.len()), text, true, icon_image(icon, &s.id), None::<&str>)?);
+            rows.push(new_row(app, row_id(&s.id, rows.len()), text, icon, &s.id)?);
             row_icons.push(icon);
         }
         seps.push(rows.len());
@@ -222,9 +249,14 @@ pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &Toda
     let threshold = first_threshold(&cfg);
     let mut shown = items.row_icons.lock().unwrap_or_else(|e| e.into_inner());
     for ((item, row), cur) in items.rows.iter().zip(&text.rows).zip(shown.iter_mut()) {
-        let _ = item.set_text(&row.text);
+        let _ = item.set_text(row_label(&row.text, &row.icon));
         let icon = row_icon(&row.icon, threshold);
+        #[cfg(not(target_os = "linux"))]
         if icon != *cur && item.set_icon(icon_image(icon, &row.tool)).is_ok() {
+            *cur = icon;
+        }
+        #[cfg(target_os = "linux")]
+        {
             *cur = icon;
         }
     }
