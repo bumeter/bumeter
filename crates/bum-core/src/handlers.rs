@@ -264,7 +264,7 @@ pub fn list_prompts(store: &Store, pricing: &Pricing, cfg: &crate::config::Confi
         .collect();
 
     if f.sort == Sort::Tokens {
-        rows.sort_by(|a, b| b.stats.usage.total().cmp(&a.stats.usage.total()));
+        rows.sort_by_key(|a| std::cmp::Reverse(a.stats.usage.total()));
     }
     let total_prompts = rows.len() as u64;
     let total_tokens = rows.iter().map(|r| r.stats.usage.total()).sum();

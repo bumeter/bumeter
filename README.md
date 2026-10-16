@@ -135,4 +135,8 @@ Tool logos in `app/ui/public/tool-icons/` belong to their owners; see the
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Bumeter is free software under the **GNU General Public License v3.0 or later** — see [LICENSE](LICENSE).
+You may use, study, change and share it. If you distribute a modified version, it must stay open source under the same license.
+
+**Name and logo.** The license covers the code, not the Bumeter name or the Bum mascot.
+Forks are welcome, but a fork you distribute must use a different name and logo, so users can tell it apart from the official Bumeter.

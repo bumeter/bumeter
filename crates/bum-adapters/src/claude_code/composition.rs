@@ -177,7 +177,7 @@ impl Walk {
         }
         if self.snapshot_for.as_deref() == Some(rid) {
             let mut top = self.blocks.clone();
-            top.sort_by(|a, b| b.tokens.cmp(&a.tokens));
+            top.sort_by_key(|a| std::cmp::Reverse(a.tokens));
             top.truncate(TOP_BLOCKS);
             self.snapshot = Some(top);
         }
@@ -308,7 +308,7 @@ pub fn analyze_file(path: &Path) -> std::io::Result<SessionAnalysis> {
     let w = walk(path, None)?;
     let mut suggestions = Vec::new();
     let mut reads: Vec<_> = w.reads.iter().filter(|(_, (n, _))| *n >= REPEATED_READS).collect();
-    reads.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
+    reads.sort_by_key(|a| std::cmp::Reverse(a.1 .1));
     for (file, (n, t)) in reads {
         suggestions.push(Suggestion::RepeatedRead { file: file.clone(), times: *n, tokens: *t });
     }

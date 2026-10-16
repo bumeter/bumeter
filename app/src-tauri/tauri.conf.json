@@ -20,6 +20,7 @@
       "appimage"
     ],
     "category": "DeveloperTool",
+    "license": "GPL-3.0-or-later",
     "shortDescription": "Bumeter: AI usage stats (Claude Code, Kiro)",
     "longDescription": "Track tokens, quotas, skills, and context composition of coding AI tools, running in the background in the tray.",
     "icon": [
