@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 
 describe('sidebar', () => {
-  it('thẻ Bum tự tính lại biểu cảm mỗi 60 giây (không cần data-changed)', async () => {
+  it('the Bum card recomputes its expression every 60 seconds (without data-changed)', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
     try {
       const start = Date.parse('2026-09-11T06:00:00Z');
@@ -37,7 +37,7 @@ describe('sidebar', () => {
       vi.advanceTimersByTime(60_000);
       await flush(); await flush();
       expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).not.toBe('blaze');
-      // Mount lại: interval cũ được dọn, không chạy chồng.
+      // Remount: the old interval is cleaned up, they do not stack.
       await mountSidebar(el);
       expect(vi.getTimerCount()).toBe(1);
     } finally {
@@ -46,7 +46,7 @@ describe('sidebar', () => {
   });
 
 
-  it('mục điều hướng mới, số hội thoại theo phạm vi và quota ghi rõ của Claude Code', async () => {
+  it('new navigation items, conversation count by scope, and Claude Code explicit quota', async () => {
     fake(handlers);
     await mountSidebar(el);
     const items = [...el.querySelectorAll('.side-item')].map((b) => b.getAttribute('data-view'));
@@ -62,14 +62,14 @@ describe('sidebar', () => {
     }
   });
 
-  it('thẻ Bum: quota 78% thì Bum lo lắng (worry)', async () => {
+  it('Bum card: 78% quota makes Bum worry', async () => {
     fake(handlers);
     await mountSidebar(el);
     expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).toBe('worry');
     expect(el.querySelector('.bumcard .fuel')).not.toBeNull();
   });
 
-  it('không còn bộ chọn công cụ ở thanh bên; phạm vi Kiro thì quota ẩn vì Kiro không có', async () => {
+  it('no more tool picker in the sidebar; Kiro scope hides quota since Kiro has none', async () => {
     fake(handlers);
     await mountSidebar(el);
     expect(el.querySelector('.tool-tabs, [role="radiogroup"]')).toBeNull();
@@ -82,7 +82,7 @@ describe('sidebar', () => {
     expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).not.toBe('worry');
   });
 
-  it('thẻ Bum: trung bình ngày lấy toàn cục (day_stats không tool), khớp với token hôm nay toàn cục', async () => {
+  it('Bum card: daily average is global (day_stats without tool), matching global tokens today', async () => {
     const today = new Date().toISOString().slice(0, 10);
     const { calls } = fake({
       ...handlers,
@@ -96,7 +96,7 @@ describe('sidebar', () => {
     expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).toBe('happy');
   });
 
-  it('tiếng Anh', async () => {
+  it('English', async () => {
     fake(handlers);
     setLang('en');
     await mountSidebar(el);

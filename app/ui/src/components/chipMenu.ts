@@ -1,4 +1,4 @@
-// Chip mở popover listbox (đơn chọn / đa chọn). Chữ luôn qua textContent.
+// Chip that opens a listbox popover (single select / multi select). Text always goes through textContent.
 import { h } from '../dom';
 
 type Opt<T> = { value: T; label: string; color?: string };
@@ -28,7 +28,7 @@ function menu<T>(o: { label: string; options: Opt<T>[]; multi: boolean; selected
     if (o.multi) paintPop(); else close();
   };
   const onDoc = (e: Event) => { if (pop && !pop.contains(e.target as Node) && !chip.contains(e.target as Node)) close(false); };
-  // Đóng; trả focus về chip trừ khi người dùng đã chủ động chuyển focus đi nơi khác.
+  // Close; return focus to the chip unless the user has already moved focus elsewhere.
   function close(refocus = true) {
     if (!pop) return;
     pop.remove(); pop = null;

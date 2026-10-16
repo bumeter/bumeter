@@ -37,7 +37,7 @@ export async function mountSession(el: HTMLElement, sessionId: string) {
   cleanup?.();
   let disposed = false;
   cleanup = () => { disposed = true; };
-  // Người dùng có thể đã chuyển màn trong lúc đang phân tích.
+  // The user may have switched screens while the analysis was running.
   const stillHere = () => !disposed && state.view === 'session' && state.session === sessionId;
   el.replaceChildren(h('div', { class: 'toolbar' }, h('h1', {}, t('sess.title'))), h('div', { class: 'empty' }, t('sess.loading')));
   let a: SessionAnalysis;

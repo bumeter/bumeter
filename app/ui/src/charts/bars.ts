@@ -1,15 +1,15 @@
-// Biểu đồ cột từng lượt gọi API: phần đọc context (màu nhấn) + phần output (xanh lá).
+// Bar chart of individual API calls: the context-read portion (accent color) + the output portion (green).
 import { svg } from '../dom';
 import { t } from '../i18n';
 
 export interface Bar { x: number; width: number; contextHeight: number; outputHeight: number }
 
 const GAP = 3;
-const MAX_BARS = 100; // nhiều lượt gọi hơn thì gộp cột
-const MIN_OUTPUT = 2; // output nhỏ vẫn phải nhìn thấy
-const MAX_BAR = 28; // ít lượt gọi thì cột không phình thành một khối lớn
+const MAX_BARS = 100; // more calls than this and bars get merged
+const MIN_OUTPUT = 2; // small output must still be visible
+const MAX_BAR = 28; // with few calls a bar should not balloon into one big block
 
-/** Gộp các lượt gọi liên tiếp thành `buckets` cột, lấy giá trị lớn nhất mỗi cột. */
+/** Merge consecutive calls into `buckets` bars, taking the largest value per bar. */
 function bucket(calls: { context: number; output: number }[], buckets: number) {
   const size = calls.length / buckets;
   return Array.from({ length: buckets }, (_, b) => {

@@ -7,22 +7,22 @@ import { loadSources } from '../src/tools';
 import type { TranscriptTurn } from '../src/api';
 
 const turns = () => [
-  row('p1', '2026-09-25T02:52:00Z', 'test chạy e2e với lambda ở local', 14_900_000, { ratio: 6 }),
-  row('p2', '2026-09-25T04:02:00Z', 'tức là ntn ?', 620_000, { ratio: 1, stats: { ...row('p2', '2026-09-25T04:02:00Z', 'tức là ntn ?', 620_000).stats, interrupted: true } }),
+  row('p1', '2026-09-25T02:52:00Z', 'run e2e test with local lambda', 14_900_000, { ratio: 6 }),
+  row('p2', '2026-09-25T04:02:00Z', 'what do you mean?', 620_000, { ratio: 1, stats: { ...row('p2', '2026-09-25T04:02:00Z', 'what do you mean?', 620_000).stats, interrupted: true } }),
 ];
 const transcript = (): TranscriptTurn[] => [
-  { key: 'p1', ts: '', question: 'test chạy e2e với lambda ở local', interrupted: false, items: [
-    { kind: 'text', text: 'Mình sẽ chạy test local.' },
+  { key: 'p1', ts: '', question: 'run e2e test with local lambda', interrupted: false, items: [
+    { kind: 'text', text: 'I will run the test locally.' },
     { kind: 'tool', id: 't1', name: 'Bash', input: 'sam local invoke', output: '<script>x</script>', error: false },
-    { kind: 'text', text: 'Đã chạy xong, 3 test qua.' },
+    { kind: 'text', text: 'Done running, 3 tests passed.' },
   ] },
-  { key: 'p2', ts: '', question: 'tức là ntn ?', interrupted: true, items: [{ kind: 'text', text: 'Nghĩa là handler trả 404.' }] },
+  { key: 'p2', ts: '', question: 'what do you mean?', interrupted: true, items: [{ kind: 'text', text: 'It means the handler returns 404.' }] },
 ];
 const detail = (key: string) => ({ row: turns().find((r) => r.stats.key === key)!, calls: [], reread_share: 0.998, explanation: { code: 'reread', pct: 99.8, context: 841_000 }, duration_secs: 60, note: null });
 
 const handlers = (extra: Record<string, (p: any) => unknown> = {}) => ({
   sources: () => SOURCES,
-  conversation_turns: () => ({ title: 'Sửa lỗi 404 khi gửi mail', turns: turns() }),
+  conversation_turns: () => ({ title: 'Fix 404 error when sending mail', turns: turns() }),
   conversation_transcript: transcript,
   prompt_detail: (p: any) => detail(p.key),
   set_note: () => true,
@@ -39,27 +39,27 @@ beforeEach(async () => {
   update({ view: 'conversations', scope: undefined, filter: {}, conversation: 's1', turn: null });
 });
 
-describe('chi tiết hội thoại', () => {
-  it('tiêu đề, danh sách lượt kèm xem nhanh câu trả lời cuối, màu mức tốn', async () => {
+describe('conversation detail', () => {
+  it('title, turn list with a preview of the last answer, cost-level colors', async () => {
     fake(handlers());
     await mountConversation(el);
     await flush();
-    expect(el.querySelector('h2')?.textContent).toBe('Sửa lỗi 404 khi gửi mail');
+    expect(el.querySelector('h2')?.textContent).toBe('Fix 404 error when sending mail');
     expect(el.querySelector('.dh .sub')?.textContent).toContain('TICKET-101');
-    expect(el.querySelector('.dh .sub')?.textContent).not.toMatch(/lượt|token/);
+    expect(el.querySelector('.dh .sub')?.textContent).not.toMatch(/turns?|tokens?/i);
     const kpis = [...el.querySelectorAll('.kpi')].map((k) => k.textContent);
     expect(kpis).toEqual(['Token15.5M', 'Lượt2', 'Context lớn nhất1K']);
     expect(el.querySelector('.kpi.tone-acc')?.textContent).toContain('Token');
     expect(el.querySelector('[data-action="session"]')?.className).toContain('primary');
     expect(el.querySelector('[data-action="mark"]')).not.toBeNull();
     expect(el.querySelectorAll('.turn').length).toBe(2);
-    expect(el.querySelector('[data-key="p1"] .a')?.textContent).toBe('↳ Đã chạy xong, 3 test qua.');
+    expect(el.querySelector('[data-key="p1"] .a')?.textContent).toBe('↳ Done running, 3 tests passed.');
     expect(el.querySelector('[data-key="p1"] .value')?.className).toContain('hot');
     expect(el.querySelector('[data-key="p2"]')?.textContent).toContain('ngắt ngang');
     expect(el.querySelector('[data-action="session"]')).not.toBeNull();
   });
 
-  it('bấm một lượt: xem đầy đủ hỏi/đáp, tool call dạng chữ và "vì sao tốn"', async () => {
+  it('clicking a turn: full Q/A, tool calls as text and "why so costly"', async () => {
     const f = fake(handlers());
     await mountConversation(el);
     await flush();
@@ -67,8 +67,8 @@ describe('chi tiết hội thoại', () => {
     expect(state.turn).toBe('p1');
     await flush(); await flush();
     const exp = el.querySelector('[data-key="p1"] .exp')!;
-    expect(exp.querySelector('.bubble.user')?.textContent).toContain('test chạy e2e');
-    expect([...exp.querySelectorAll('.bubble.ai .text')].map((x) => x.textContent)).toEqual(['Mình sẽ chạy test local.', 'Đã chạy xong, 3 test qua.']);
+    expect(exp.querySelector('.bubble.user')?.textContent).toContain('run e2e test');
+    expect([...exp.querySelectorAll('.bubble.ai .text')].map((x) => x.textContent)).toEqual(['I will run the test locally.', 'Done running, 3 tests passed.']);
     expect(exp.querySelector('details.tool summary')?.textContent).toBe('Bash · sam local invoke');
     expect(exp.querySelector('script')).toBeNull();
     expect(exp.querySelector('details.tool pre')?.textContent).toBe('<script>x</script>');
@@ -79,7 +79,7 @@ describe('chi tiết hội thoại', () => {
     expect(state.turn).toBeNull();
   });
 
-  it('đánh dấu xem lại một lượt', async () => {
+  it('marks a turn for review', async () => {
     const f = fake(handlers());
     update({ turn: 'p1' });
     await mountConversation(el);
@@ -90,7 +90,7 @@ describe('chi tiết hội thoại', () => {
     expect(el.querySelector('[data-key="p1"] .q')?.textContent).toMatch(/^★ /);
   });
 
-  it('Context lớn nhất đỏ khi vượt 300K', async () => {
+  it('Peak context turns red above 300K', async () => {
     const big = () => turns().map((r) => ({ ...r, stats: { ...r.stats, context_at_start: 450_000 } }));
     fake(handlers({ conversation_turns: () => ({ title: 'x', turns: big() }) }));
     await mountConversation(el);
@@ -98,8 +98,8 @@ describe('chi tiết hội thoại', () => {
     expect(el.querySelectorAll('.kpi')[2].className).toContain('tone-red');
   });
 
-  it('không đọc được log thì báo trong lượt, danh sách lượt vẫn hiện', async () => {
-    fake(handlers({ conversation_transcript: () => { throw new Error('không tìm thấy file log của phiên'); } }));
+  it('a log read failure is reported in the turn, the turn list still renders', async () => {
+    fake(handlers({ conversation_transcript: () => { throw new Error('session log file not found'); } }));
     update({ turn: 'p2' });
     await mountConversation(el);
     await flush(); await flush();
@@ -107,7 +107,7 @@ describe('chi tiết hội thoại', () => {
     expect(el.querySelector('[data-key="p2"] .exp')?.textContent).toContain('Không đọc được nội dung từ log');
   });
 
-  it('Kiro: không có Phân tích context, token có dấu ~', async () => {
+  it('Kiro: no context analysis, tokens have a ~ prefix', async () => {
     const kiro = () => turns().map((r) => ({ ...r, stats: { ...r.stats, tool: 'kiro', credits: 0.4 } }));
     fake(handlers({ conversation_turns: () => ({ title: 'Kiro', turns: kiro() }) }));
     await mountConversation(el);
@@ -117,7 +117,7 @@ describe('chi tiết hội thoại', () => {
     expect(el.querySelector('.kpi')?.textContent).toContain('0.8 credit');
   });
 
-  it('tiếng Anh', async () => {
+  it('English', async () => {
     fake(handlers());
     setLang('en');
     update({ turn: 'p1' });

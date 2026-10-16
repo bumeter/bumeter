@@ -1,4 +1,4 @@
-//! Một lệnh duy nhất cho UI, cùng bộ lệnh với bum-service (spec mục 14.4).
+//! A single command for the UI, with the same set of commands as bum-service (spec section 14.4).
 use serde_json::Value;
 use tauri::State;
 use bum_core::handlers::{dispatch, HandlerCtx};
@@ -6,29 +6,29 @@ use bum_core::store::Store;
 
 use crate::state::AppState;
 
-/// `async`: chạy ngoài main thread để truy vấn DB không làm đơ cửa sổ.
+/// `async`: runs off the main thread so DB queries don't freeze the window.
 #[tauri::command(async)]
 pub fn call(state: State<'_, AppState>, method: String, params: Option<Value>) -> Result<Value, String> {
     #[cfg(debug_assertions)]
     eprintln!("bumeter: ui call {method}");
     let store = Store::open_readonly(&state.paths.db()).map_err(|e| e.to_string())?;
-    // Phân tích phiên cần đọc log Claude trực tiếp (adapter), không qua dispatch của lõi.
+    // Session analysis needs to read the Claude log directly (adapter), bypassing the core dispatch.
     let params = params.unwrap_or(Value::Null);
     if method == "session_analysis" || method == "call_detail" {
         use bum_adapters::claude_code::composition::{analyze_file, call_detail};
-        let sid = params["session_id"].as_str().ok_or("thiếu 'session_id'")?;
-        let file = store.session_file(sid).map_err(|e| e.to_string())?.ok_or("không tìm thấy file log của phiên")?;
+        let sid = params["session_id"].as_str().ok_or("missing 'session_id'")?;
+        let file = store.session_file(sid).map_err(|e| e.to_string())?.ok_or("session log file not found")?;
         let path = std::path::Path::new(&file);
         return if method == "session_analysis" {
             analyze_file(path).map(|a| serde_json::to_value(a).unwrap_or_default()).map_err(|e| e.to_string())
         } else {
-            let rid = params["request_id"].as_str().ok_or("thiếu 'request_id'")?;
-            call_detail(path, rid).map(|d| serde_json::to_value(d).unwrap_or_default()).ok_or_else(|| "không có lượt gọi này".into())
+            let rid = params["request_id"].as_str().ok_or("missing 'request_id'")?;
+            call_detail(path, rid).map(|d| serde_json::to_value(d).unwrap_or_default()).ok_or_else(|| "no such call".into())
         };
     }
     if method == "conversation_transcript" {
-        let sid = params["session_id"].as_str().ok_or("thiếu 'session_id'")?;
-        let file = store.session_file(sid).map_err(|e| e.to_string())?.ok_or("không tìm thấy file log của phiên")?;
+        let sid = params["session_id"].as_str().ok_or("missing 'session_id'")?;
+        let file = store.session_file(sid).map_err(|e| e.to_string())?.ok_or("session log file not found")?;
         let tool = store.session_tool(sid).map_err(|e| e.to_string())?.unwrap_or_default();
         let path = std::path::Path::new(&file);
         let turns = match tool.as_str() {
@@ -48,7 +48,7 @@ pub fn call(state: State<'_, AppState>, method: String, params: Option<Value>) -
     dispatch(&ctx, &method, &params, chrono::Utc::now())
 }
 
-/// Mỗi công cụ: mô tả từ adapter + trạng thái (thư mục log có không, số phiên, lượt, lần cuối).
+/// Per tool: description from the adapter + state (whether the log directory exists, number of sessions, prompts, last time).
 fn sources_json(roots: Vec<(bum_core::source::SourceInfo, std::path::PathBuf)>, stats: &[bum_core::handlers::ToolStat]) -> Value {
     let list: Vec<Value> = roots
         .into_iter()

@@ -1,11 +1,11 @@
-// Bố cục theo độ rộng: wide ≥ 1200px, medium 700–1199px, narrow < 700px.
+// Width-based layout: wide ≥ 1200px, medium 700–1199px, narrow < 700px.
 export type Layout = 'wide' | 'medium' | 'narrow';
 
 export function layoutFor(w: number): Layout {
   return w >= 1200 ? 'wide' : w >= 700 ? 'medium' : 'narrow';
 }
 
-/** Gọi `cb` ngay với bố cục hiện tại rồi mỗi khi nó đổi. Trả về hàm huỷ theo dõi. */
+/** Call `cb` right away with the current layout, then whenever it changes. Returns an unsubscribe function. */
 export function watchLayout(el: HTMLElement, cb: (l: Layout) => void): () => void {
   let last: Layout | null = null;
   const check = () => {

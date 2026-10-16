@@ -1,4 +1,4 @@
-//! Icon và menu tray (spec mục 7.2).
+//! Tray icon and menu (spec section 7.2).
 use chrono::{DateTime, SecondsFormat, Utc};
 use tauri::image::Image;
 use std::collections::HashMap;
@@ -22,9 +22,9 @@ use bum_core::store::Store;
 
 pub struct TrayItems {
     sources: Vec<SourceInfo>,
-    /// Các dòng theo công cụ (tiêu đề + số liệu), `meter::tray_row_count` dòng mỗi công cụ.
+    /// Per-tool rows (title + figures), `meter::tray_row_count` rows per tool.
     rows: Vec<RowItem>,
-    /// Icon đang đặt của từng dòng: chỉ `set_icon` khi đổi.
+    /// Currently set icon of each row: only `set_icon` when it changes.
     row_icons: Mutex<Vec<RowIcon>>,
     today: MenuItem<Wry>,
     open: MenuItem<Wry>,
@@ -40,20 +40,20 @@ const TRAY_PNGS: [(Face, &[u8]); 5] = [
     (Face::Sleep, include_bytes!("../icons/tray/bum-sleep.png")),
 ];
 
-/// Logo 32×32 theo tool id (tạo từ `app/ui/public/tool-icons/*.svg`).
-#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
+/// 32×32 logo by tool id (generated from `app/ui/public/tool-icons/*.svg`).
+#[cfg_attr(target_os = "linux", allow(dead_code))] // menu item icons are only used outside Linux
 const TOOL_PNGS: [(&str, &[u8]); 2] = [
     ("claude_code", include_bytes!("../icons/tools/claude_code.png")),
     ("kiro", include_bytes!("../icons/tools/kiro.png")),
 ];
 
-/// Logo công cụ cho dòng tiêu đề; công cụ lạ → không icon.
-#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
+/// Tool logo for the title row; unknown tool → no icon.
+#[cfg_attr(target_os = "linux", allow(dead_code))] // menu item icons are only used outside Linux
 pub fn tool_logo(tool: &str) -> Option<Image<'static>> {
     TOOL_PNGS.iter().find(|(id, _)| *id == tool).and_then(|(_, b)| Image::from_bytes(b).ok())
 }
 
-/// Icon của một dòng menu ở dạng so sánh được (vòng đã lượng tử hoá).
+/// Icon of a menu row in a comparable form (ring quantized).
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum RowIcon {
     Empty,
@@ -72,8 +72,8 @@ fn row_icon(icon: &TrayIcon, threshold: u8) -> RowIcon {
     }
 }
 
-/// Ảnh vòng % theo (pct, màu), cache để không vẽ lại.
-#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
+/// Ring image by (pct, color), cached to avoid redrawing.
+#[cfg_attr(target_os = "linux", allow(dead_code))] // menu item icons are only used outside Linux
 fn ring_image(pct: u8, tone: RingTone) -> Image<'static> {
     static CACHE: OnceLock<Mutex<HashMap<(u8, RingTone), Image<'static>>>> = OnceLock::new();
     let mut cache = CACHE.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
@@ -86,7 +86,7 @@ fn ring_image(pct: u8, tone: RingTone) -> Image<'static> {
         .clone()
 }
 
-#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
+#[cfg_attr(target_os = "linux", allow(dead_code))] // menu item icons are only used outside Linux
 fn icon_image(icon: RowIcon, tool: &str) -> Option<Image<'static>> {
     match icon {
         RowIcon::Empty => None,
@@ -95,31 +95,31 @@ fn icon_image(icon: RowIcon, tool: &str) -> Option<Image<'static>> {
     }
 }
 
-/// Id mục menu của dòng thứ `i` thuộc công cụ `tool`.
+/// Menu item id of row `i` for tool `tool`.
 fn row_id(tool: &str, i: usize) -> String {
     format!("tool:{tool}:{i}")
 }
 
-/// Công cụ của một mục menu dòng công cụ (`tool:<id>:<i>`), None với mục khác.
+/// Tool of a tool-row menu item (`tool:<id>:<i>`), None for other items.
 pub fn tool_of_menu_id(id: &str) -> Option<&str> {
     let rest = id.strip_prefix("tool:")?;
     rest.rsplit_once(':').map(|(tool, _)| tool).filter(|t| !t.is_empty())
 }
 
-/// Ngưỡng cảnh báo 1 (đổi màu vòng sang đỏ).
+/// Alert threshold 1 (turns the ring red).
 fn first_threshold(cfg: &Config) -> u8 {
     cfg.quota_thresholds.first().copied().unwrap_or(70)
 }
 
-/// Hai ngưỡng quota người dùng đặt (mặc định 70/90).
+/// The two user-set quota thresholds (default 70/90).
 fn thresholds(cfg: &Config) -> [u8; 2] {
     [first_threshold(cfg), cfg.quota_thresholds.get(1).copied().unwrap_or(90)]
 }
 
-/// Icon tray 32×32 của một biểu cảm Bum.
+/// 32×32 tray icon of a Bum expression.
 pub fn face_image(face: Face) -> Image<'static> {
-    let bytes = TRAY_PNGS.iter().find(|(f, _)| *f == face).map(|(_, b)| *b).expect("đủ 5 biểu cảm");
-    Image::from_bytes(bytes).expect("PNG tray hợp lệ")
+    let bytes = TRAY_PNGS.iter().find(|(f, _)| *f == face).map(|(_, b)| *b).expect("all 5 expressions present");
+    Image::from_bytes(bytes).expect("valid tray PNG")
 }
 
 fn minutes_since(ts: Option<String>, now: DateTime<Utc>) -> Option<i64> {
@@ -127,7 +127,7 @@ fn minutes_since(ts: Option<String>, now: DateTime<Utc>) -> Option<i64> {
     Some((now - t.with_timezone(&Utc)).num_minutes().max(0))
 }
 
-/// Gom đầu vào chọn biểu cảm từ DB + trạng thái quota (spec 3.4). Lỗi truy vấn coi như "không có dữ liệu".
+/// Gathers the input for choosing an expression from the DB + quota state (spec 3.4). A query error is treated as "no data".
 pub fn face_input(store: &Store, cfg: &Config, limits: &LimitState, today_tokens: u64, now: DateTime<Utc>) -> FaceInput {
     let thresholds = match cfg.quota_thresholds.as_slice() {
         [a, b, ..] => (*a, *b),
@@ -136,7 +136,7 @@ pub fn face_input(store: &Store, cfg: &Config, limits: &LimitState, today_tokens
     let offset = chrono::Local::now().offset().local_minus_utc();
     let (today_from, _) = local_day_bounds(now);
     let since = DateTime::parse_from_rfc3339(&today_from).map(|t| (t.with_timezone(&Utc) - chrono::Duration::days(30)).to_rfc3339_opts(SecondsFormat::Millis, true));
-    // Trung bình token/ngày trên các ngày có lượt hỏi, trong 30 ngày trước hôm nay.
+    // Average tokens/day over days with prompts, in the 30 days before today.
     let avg_daily_tokens = since.ok().and_then(|since| {
         let days = store.active_days_between(&since, &today_from, offset).ok()?;
         let total = store.model_usage_between(&since, &today_from).ok()?.iter().map(|(_, u)| u.total()).sum::<u64>();
@@ -153,24 +153,24 @@ pub fn face_input(store: &Store, cfg: &Config, limits: &LimitState, today_tokens
     }
 }
 
-/// Dòng theo công cụ + dòng "Hôm nay" + title (bum_core::meter). Lỗi truy vấn → chỉ quota, không credit/hoạt động.
+/// Per-tool rows + the "Today" row + title (bum_core::meter). A query error → quota only, no credit/activity.
 pub fn menu_text(store: &Store, cfg: &Config, quotas: &std::collections::BTreeMap<String, ToolQuota>, sources: &[SourceInfo], limits: &LimitState, now: DateTime<Utc>, lang: Lang) -> TrayText {
     let snap = meter::snapshot(store, cfg, quotas, sources, now).unwrap_or_default();
     meter::render_tray(sources, limits, &snap, now.timestamp(), lang)
 }
 
-/// Nhãn các mục cố định: mở Bumeter, tạm dừng, thoát.
+/// Labels of the fixed items: open Bumeter, pause, quit.
 pub fn action_labels(lang: Lang) -> [&'static str; 3] {
     [lang.pick("Mở Bumeter", "Open Bumeter"), lang.pick("Tạm dừng thông báo 1 giờ", "Pause notifications for 1 hour"), lang.pick("Thoát", "Quit")]
 }
 
-/// Công cụ hiện trên tray: theo thứ tự registry, chỉ những công cụ có thư mục log trên máy.
+/// Tools shown on the tray: in registry order, only tools that have a log directory on the machine.
 pub fn sources(cfg: &Config) -> Vec<SourceInfo> {
     bum_adapters::installed(&bum_service::host::claude_root(cfg), &bum_service::host::kiro_root(cfg))
 }
 
-/// Linux (AppIndicator/dbusmenu): icon của mục menu không được xuất ra thanh GNOME và `IconMenuItem::set_text`
-/// không đổi được nhãn (muda dựng hộp ảnh + nhãn riêng) → dùng mục chữ thường, dòng số liệu thụt vào dưới tên công cụ.
+/// Linux (AppIndicator/dbusmenu): menu item icons are not exported to the GNOME bar and `IconMenuItem::set_text`
+/// cannot change the label (muda builds a separate image box + label) → use plain text items, with the figure row indented under the tool name.
 #[cfg(target_os = "linux")]
 type RowItem = MenuItem<Wry>;
 #[cfg(not(target_os = "linux"))]
@@ -185,7 +185,7 @@ fn new_row(app: &AppHandle, id: String, text: &str, icon: RowIcon, tool: &str) -
     IconMenuItem::with_id(app, id, text, true, icon_image(icon, tool), None::<&str>)
 }
 
-/// Thanh % 10 ô hình bình hành ▰▱: đã dùng thì ít nhất 1 ô, chỉ đầy khi đạt 100%.
+/// 10-cell parallelogram % bar ▰▱: at least 1 cell when used, full only at 100%.
 fn block_bar(pct: Option<f64>) -> String {
     const N: usize = 10;
     let p = pct.unwrap_or(0.0).max(0.0);
@@ -193,8 +193,8 @@ fn block_bar(pct: Option<f64>) -> String {
     format!("{}{}", "▰".repeat(on), "▱".repeat(N - on))
 }
 
-/// Chấm màu theo mức dùng (chữ menu không tô màu được, emoji thì có): dưới ngưỡng 1 xanh, từ ngưỡng 1 cam,
-/// từ ngưỡng 2 đỏ; dữ liệu cũ hoặc chưa có thì trắng.
+/// Color dot by usage level (menu text can't be colored, emoji can): below threshold 1 green, from threshold 1 orange,
+/// from threshold 2 red; stale or missing data is white.
 fn level_dot(pct: Option<f64>, stale: bool, [t1, t2]: [u8; 2]) -> &'static str {
     match pct {
         Some(_) if stale => "⚪",
@@ -205,8 +205,8 @@ fn level_dot(pct: Option<f64>, stale: bool, [t1, t2]: [u8; 2]) -> &'static str {
     }
 }
 
-/// Nhãn hiển thị của một dòng. Linux không hiện icon mục menu: mọi dòng sát lề trái (không thụt),
-/// thanh % + chấm màu đặt đầu dòng để các thanh thẳng hàng (font menu là font tỉ lệ).
+/// Display label of a row. Linux doesn't show menu item icons: every row is flush left (no indent),
+/// with the % bar + color dot at the start of the line so the bars line up (the menu font is proportional).
 fn row_label(text: &str, icon: &TrayIcon, thresholds: [u8; 2]) -> String {
     if !cfg!(target_os = "linux") {
         return text.to_string();
@@ -220,8 +220,8 @@ fn row_label(text: &str, icon: &TrayIcon, thresholds: [u8; 2]) -> String {
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let st = app.state::<crate::state::AppState>();
     let sources = sources(&st.cfg);
-    // Số dòng theo công cụ cố định từ registry; nội dung đặt lại ở `refresh`. Để enabled: GNOME làm xám icon của mục disabled,
-    // bấm vào thì mở app ở phạm vi công cụ đó.
+    // The number of rows per tool is fixed by the registry; contents are reset in `refresh`. Kept enabled: GNOME grays out the icon of a disabled item,
+    // and clicking it opens the app scoped to that tool.
     let mut rows = Vec::new();
     let mut row_icons = Vec::new();
     let mut seps = Vec::new();
@@ -274,7 +274,7 @@ pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &Toda
     let st = app.state::<crate::state::AppState>();
     let lang = st.lang();
     let now = Utc::now();
-    // Đọc lại config/hạn mức mỗi lần: người dùng sửa ở Cài đặt thì tray theo ngay.
+    // Re-read config/limits every time: if the user changes them in Settings, the tray follows immediately.
     let cfg = Config::load(&st.paths.config());
     let quotas = meter::read_quotas(&st.paths.tool_quotas());
     let text = menu_text(store, &cfg, &quotas, &items.sources, limits, now, lang);
@@ -317,23 +317,23 @@ mod tests {
         }
         let ring = |p: f64| TrayIcon::Ring { pct: Some(p), stale: false };
         let t = [70, 90];
-        assert_eq!(row_label("5 giờ · 42% · reset 13:10", &ring(42.0), t), "▰▰▰▰▱▱▱▱▱▱ 🟢  5 giờ · 42% · reset 13:10");
-        // Màu theo ngưỡng: < 70 xanh, 70–89 cam, ≥ 90 đỏ.
+        assert_eq!(row_label("5 hours · 42% · reset 13:10", &ring(42.0), t), "▰▰▰▰▱▱▱▱▱▱ 🟢  5 hours · 42% · reset 13:10");
+        // Color by threshold: < 70 green, 70–89 orange, ≥ 90 red.
         assert_eq!(row_label("x", &ring(69.9), t), "▰▰▰▰▰▰▰▱▱▱ 🟢  x");
         assert_eq!(row_label("x", &ring(70.0), t), "▰▰▰▰▰▰▰▱▱▱ 🟠  x");
         assert_eq!(row_label("x", &ring(89.0), t), "▰▰▰▰▰▰▰▰▰▱ 🟠  x");
         assert_eq!(row_label("x", &ring(90.0), t), "▰▰▰▰▰▰▰▰▰▱ 🔴  x");
         assert_eq!(row_label("x", &ring(130.0), t), "▰▰▰▰▰▰▰▰▰▰ 🔴  x");
-        // Ngưỡng người dùng đặt khác.
+        // Different user-set thresholds.
         assert_eq!(row_label("x", &ring(60.0), [50, 80]), "▰▰▰▰▰▰▱▱▱▱ 🟠  x");
-        // Đã dùng thì ít nhất 1 ô; chỉ đầy khi đạt 100%.
+        // When used, at least 1 cell; full only at 100%.
         assert_eq!(row_label("x", &ring(0.4), t), "▰▱▱▱▱▱▱▱▱▱ 🟢  x");
         assert_eq!(row_label("x", &ring(99.6), t), "▰▰▰▰▰▰▰▰▰▱ 🔴  x");
-        // Dữ liệu cũ hoặc chưa có: chấm trắng.
+        // Stale or missing data: white dot.
         assert_eq!(row_label("x", &TrayIcon::Ring { pct: Some(95.0), stale: true }, t), "▰▰▰▰▰▰▰▰▰▱ ⚪  x");
         assert_eq!(row_label("x", &TrayIcon::Ring { pct: None, stale: false }, t), "▱▱▱▱▱▱▱▱▱▱ ⚪  x");
-        // Dòng không có % và tiêu đề công cụ: giữ nguyên.
-        assert_eq!(row_label("Kiro · hôm nay", &TrayIcon::None, t), "Kiro · hôm nay");
+        // Rows without a % and tool titles: kept as-is.
+        assert_eq!(row_label("Kiro · today", &TrayIcon::None, t), "Kiro · today");
         assert_eq!(row_label("Kiro", &TrayIcon::Logo, t), "Kiro");
     }
 
@@ -350,7 +350,7 @@ mod tests {
         for (id, _) in TOOL_PNGS {
             let img = tool_logo(id).expect(id);
             assert_eq!((img.width(), img.height()), (32, 32), "{id}");
-            assert_eq!(img.rgba()[3], 0, "{id}: góc trong suốt");
+            assert_eq!(img.rgba()[3], 0, "{id}: transparent corner");
         }
         assert!(tool_logo("other").is_none());
     }
@@ -398,7 +398,7 @@ mod tests {
         assert!(t.rows[4].text.starts_with("Tháng · 0% · 0/1000 credit · reset "), "{}", t.rows[4].text);
         assert_eq!(t.today, "Hôm nay: chưa có hoạt động");
         assert_eq!(t.title.as_deref(), Some("47%"));
-        // /usage còn mới thì thắng hạn mức người dùng nhập.
+        // A fresh /usage wins over user-entered limits.
         let mut q = std::collections::BTreeMap::new();
         q.insert("kiro".to_string(), ToolQuota { used: 270.69, limit: 1000.0, resets_on: chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), plan: "KIRO PRO".into(), fetched_at: now.timestamp() });
         let t = menu_text(&store, &cfg, &q, &srcs, &st, now, Lang::Vi);

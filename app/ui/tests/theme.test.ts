@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyTheme } from '../src/theme';
 
 describe('applyTheme', () => {
-  it('light/dark đặt data-theme, system gỡ đi', () => {
+  it('light/dark set data-theme, system removes it', () => {
     applyTheme('dark');
     expect(document.documentElement.dataset.theme).toBe('dark');
     applyTheme('light');

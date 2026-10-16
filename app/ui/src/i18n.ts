@@ -1,4 +1,4 @@
-// Đa ngôn ngữ: vi (mặc định) và en. Chuỗi có tham số dạng `{n}`.
+// Localization: vi (default) and en. Parameterized strings use the `{n}` form.
 import { vi } from './locales/vi';
 import { en } from './locales/en';
 

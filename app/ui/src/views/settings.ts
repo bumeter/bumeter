@@ -8,11 +8,11 @@ import { applyTheme } from '../theme';
 import type { ThemeChoice } from '../theme';
 import { allSources, glyph, loadSources } from '../tools';
 
-/** Chờ sau lần sửa cuối rồi mới lưu, để gõ dở ("7" trong "70") không bị lưu. */
+/** Wait until after the last edit before saving, so partial typing ("7" in "70") is not saved. */
 export const SAVE_DEBOUNCE_MS = 400;
 
 let cleanup: (() => void) | null = null;
-/** Lời nhắn còn lại sau khi đổi ngôn ngữ (màn được mount lại). */
+/** Message left over after a language change (the screen is remounted). */
 let carried = '';
 
 type NumField = 'anomaly_multiplier' | 'context_threshold' | 'quota_thresholds' | `credits_limit_${string}` | `credits_reset_${string}`;
@@ -21,7 +21,7 @@ type Parsed = { ok: true; value: number | number[] | null } | { ok: false; error
 function parseField(name: NumField, raw: string): Parsed {
   const v = raw.trim();
   if (name.startsWith('credits_limit_')) {
-    if (v === '') return { ok: true, value: null }; // trống = không theo dõi
+    if (v === '') return { ok: true, value: null }; // blank = not tracked
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? { ok: true, value: n } : { ok: false, error: 'set.errNumber' };
   }
@@ -69,11 +69,11 @@ export async function mountSettings(el: HTMLElement) {
     input.addEventListener('blur', () => { validate(name); });
     return h('label', { class: 'field' }, h('span', {}, label), input, h('small', {}, hint), err);
   };
-  /** Hiện hoặc xoá lỗi của ô; trả về giá trị hợp lệ. */
+  /** Show or clear the field's error; return the valid value. */
   const validate = (name: NumField, show = true): Parsed => {
     const input = inputs.get(name)!;
     const r = parseField(name, input.value);
-    if (!show && !r.ok) return r; // gõ dở: không báo lỗi, chỉ không lưu
+    if (!show && !r.ok) return r; // partial typing: no error, just do not save
     errors.get(name)!.textContent = r.ok ? '' : t(r.error);
     input.setAttribute('aria-invalid', r.ok ? 'false' : 'true');
     return r;
@@ -86,7 +86,7 @@ export async function mountSettings(el: HTMLElement) {
     return h('label', { class: 'toggle' }, input, label);
   };
   const langSel = h('select', { name: 'language', class: 'select', 'aria-label': t('set.languageLabel') },
-    h('option', { value: 'vi', selected: (info.config.language ?? 'vi') === 'vi' }, 'Tiếng Việt'),
+    h('option', { value: 'vi', selected: (info.config.language ?? 'vi') === 'vi' }, 'Vietnamese'),
     h('option', { value: 'en', selected: info.config.language === 'en' }, 'English')) as HTMLSelectElement;
   let language: Lang = info.config.language ?? 'vi';
 
@@ -110,7 +110,7 @@ export async function mountSettings(el: HTMLElement) {
     };
   };
 
-  /** Lưu giá trị hợp lệ; giá trị lỗi chỉ báo tại ô, không gọi save_config. */
+  /** Save a valid value; an invalid value is only flagged in the field, without calling save_config. */
   const save = async (show = false): Promise<boolean> => {
     if (timer) { clearTimeout(timer); timer = null; }
     const cfg = current(show);
@@ -130,8 +130,8 @@ export async function mountSettings(el: HTMLElement) {
     timer = setTimeout(() => { void save(false); }, SAVE_DEBOUNCE_MS);
   };
 
-  /** Ngôn ngữ/theme lưu độc lập với các ô số: chỉ đổi 2 trường này trên cấu hình đã lưu gần nhất.
-   *  Lưu lỗi thì đưa lựa chọn về giá trị cũ. */
+  /** Language/theme are saved independently of the number fields: only these 2 fields change on the last saved config.
+   *  If saving fails, the choice is reverted to the old value. */
   const saveAppearance = async (next: { language: Lang; theme: ThemeChoice }): Promise<boolean> => {
     const prev = { language, theme };
     language = next.language; theme = next.theme;
@@ -153,7 +153,7 @@ export async function mountSettings(el: HTMLElement) {
 
   langSel.addEventListener('change', async () => {
     if (!(await saveAppearance({ language: langSel.value as Lang, theme })) || language === state.lang) return;
-    // Đổi ngôn ngữ: cả app vẽ lại (màn này được mount lại), lời nhắn giữ qua `carried`.
+    // Language change: the whole app redraws (this screen is remounted), the message is carried over via `carried`.
     setLang(language);
     carried = t('set.saved');
     update({ lang: language });
@@ -174,7 +174,7 @@ export async function mountSettings(el: HTMLElement) {
   const themeSeg = h('div', { class: 'segmented', role: 'group', 'aria-label': t('set.theme') },
     themeBtn('light', t('set.themeLight')), themeBtn('dark', t('set.themeDark')), themeBtn('system', t('set.themeSystem')));
 
-  /** Công cụ tính bằng credit: thêm hạn mức mỗi tháng + ngày reset (dự phòng khi công cụ không tự báo). */
+  /** Tools billed in credits: add a monthly limit + reset day (a fallback for when the tool does not report its own). */
   const creditTools = allSources().filter((s) => s.info.credits).map((s) => s.info.id);
   const creditFields = (id: string, label: string) => {
     const lim = info.config.tool_limits?.[id];
@@ -192,7 +192,7 @@ export async function mountSettings(el: HTMLElement) {
       s.found ? h('span', { class: 'pill ok' }, t('set.toolFound')) : h('span', { class: 'pill missing' }, t('set.toolMissing'))),
     s.info.credits ? creditFields(s.info.id, s.info.label) : ''));
 
-  // Trạng thái statusline + hộp xác nhận: vẽ riêng để không làm mất giá trị đang gõ ở ô khác.
+  // Statusline state + confirm box: rendered separately so typing in another field is not lost.
   const limitsHost = h('div', {});
   const renderLimits = () => {
     const hooked = status.kind === 'hooked';
@@ -253,6 +253,6 @@ export async function mountSettings(el: HTMLElement) {
         h('div', { class: 'sub' }, t('set.parseErrors', { n: info.parse_errors })))),
   );
   renderLimits();
-  // Rời màn khi còn lần sửa chờ lưu: lưu nốt (nếu hợp lệ) thay vì làm mất.
+  // Leaving the screen with a pending edit: flush the save (if valid) rather than lose it.
   cleanup = () => { if (timer) void save(true); };
 }

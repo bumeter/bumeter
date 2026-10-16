@@ -1,4 +1,4 @@
-// Chi tiết một hội thoại: danh sách lượt; bấm một lượt để xem đầy đủ hỏi/đáp, tool call và "vì sao tốn".
+// Detail of one conversation: list of turns; click a turn to see the full Q/A, tool calls and "why so costly".
 import { api } from '../api';
 import type { Explain, PromptDetail, PromptRow, TranscriptItem, TranscriptTurn } from '../api';
 import { callsChart } from '../charts/bars';
@@ -20,7 +20,7 @@ export function explainText(e: Explain | null | undefined): string {
   }
 }
 
-/** Câu trả lời cuối của lượt (để xem nhanh trong danh sách). */
+/** Last answer of the turn (for a quick preview in the list). */
 function answerPreview(tt: TranscriptTurn | undefined): string {
   const texts = (tt?.items ?? []).filter((i): i is Extract<TranscriptItem, { kind: 'text' }> => i.kind === 'text');
   return texts.length ? texts[texts.length - 1].text.replace(/\s+/g, ' ').slice(0, 200) : '';
@@ -34,7 +34,7 @@ const CONTEXT_THRESHOLD = 300_000;
 
 let cleanup: (() => void) | null = null;
 
-/** Gỡ chi tiết đang mount (đóng ngăn kéo, đổi bố cục): ngừng nghe sự kiện, không đụng DOM. */
+/** Tear down the mounted detail (close drawer, change layout): stop listening to events, leave the DOM alone. */
 export function unmountConversation() { cleanup?.(); cleanup = null; }
 
 export async function mountConversation(el: HTMLElement) {
@@ -181,7 +181,7 @@ export async function mountConversation(el: HTMLElement) {
     turns = res.turns;
     title = res.title || res.turns[0]?.stats.text || '';
     render();
-    // Nội dung hỏi/đáp đọc thẳng từ log, có thể chậm với phiên lớn: tải sau.
+    // Q/A content is read straight from the log and can be slow for large sessions: load it afterwards.
     try {
       const tx = await api.transcript(id);
       if (my !== seq) return;

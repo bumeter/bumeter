@@ -1,4 +1,4 @@
-// Giao diện sáng/tối: 'system' bỏ data-theme để CSS theo prefers-color-scheme.
+// Light/dark appearance: 'system' removes data-theme so CSS follows prefers-color-scheme.
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
 export function applyTheme(t: ThemeChoice): void {

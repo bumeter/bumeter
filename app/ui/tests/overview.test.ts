@@ -35,14 +35,14 @@ const skillReport = { rows: [
 describe('comparePeriods', () => {
   const D = (i: number, tokens: number) => ({ ...day(i, tokens) });
   const today = new Date();
-  it('kỳ trước là đúng range ngày liền trước', () => {
+  it('the previous period is exactly the preceding range of days', () => {
     const days = [D(0, 10), D(6, 20), D(7, 100), D(13, 100), D(14, 999)];
     expect(comparePeriods(days, 7, today)).toEqual({ current: 30, previous: 200, pct: -85 });
   });
-  it('kỳ trước 0 thì pct null', () => {
+  it('previous period 0 means pct null', () => {
     expect(comparePeriods([D(0, 10)], 7, today)).toEqual({ current: 10, previous: 0, pct: null });
   });
-  it('Hôm nay so với hôm qua', () => {
+  it('today vs yesterday', () => {
     expect(comparePeriods([D(0, 30), D(1, 10), D(2, 500)], 1, today)).toEqual({ current: 30, previous: 10, pct: 200 });
   });
 });
@@ -59,9 +59,9 @@ beforeEach(async () => {
 
 const startOf = (n: number) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - n); return d.toISOString(); };
 
-describe('Tổng quan', () => {
-  it('thẻ Hội thoại đếm theo khoảng đang chọn và theo công cụ (không dùng sources[].sessions)', async () => {
-    // Số theo khoảng: 30 ngày → CC 3, Kiro 2; Hôm nay → CC 1, Kiro 0.
+describe('Overview', () => {
+  it('the Conversations card counts by selected range and by tool (not sources[].sessions)', async () => {
+    // Counts by range: 30 days → CC 3, Kiro 2; Today → CC 1, Kiro 0.
     const totals: Record<string, Record<string, number>> = { [startOf(29)]: { claude_code: 3, kiro: 2 }, [startOf(0)]: { claude_code: 1, kiro: 0 } };
     const f = fake({ ...handlers(), list_conversations: (p: any) => ({ ...convList([]), total_conversations: totals[p.from]?.[p.tool] ?? 99 }) });
     await mountOverview(el);
@@ -80,7 +80,7 @@ describe('Tổng quan', () => {
   });
 
 
-  it('gộp ngày, project, model; không còn $', async () => {
+  it('merges days, projects, models; no more $', async () => {
     fake(handlers());
     await mountOverview(el);
     expect(el.querySelector('[data-card="tokens"] .big')?.textContent).toBe('12.0M');
@@ -91,7 +91,7 @@ describe('Tổng quan', () => {
     expect(el.textContent).not.toContain('$');
   });
 
-  it('credit Kiro ở thẻ Model có cột riêng, không bị quy tắc ẩn .num.dim', async () => {
+  it('Kiro credits in the Model card have their own column, not hit by the .num.dim hiding rule', async () => {
     fake(handlers());
     await mountOverview(el);
     const row = el.querySelector('[data-model="kiro:auto"]')!;
@@ -102,7 +102,7 @@ describe('Tổng quan', () => {
     expect(el.querySelector('[data-model="claude-opus-5"] .ov-credit')).toBeNull();
   });
 
-  it('gợi ý: bất thường (đỏ) → skill tốn base (cam) → project (xám); bấm thì mở đúng nơi', async () => {
+  it('suggestions: anomaly (red) → base-cost skills (orange) → project (gray); clicking opens the right place', async () => {
     fake({ ...handlers(), skills_list: () => skillReport });
     await mountOverview(el);
     const rows = [...el.querySelectorAll('.bum-tips .insight')];
@@ -120,15 +120,15 @@ describe('Tổng quan', () => {
     expect(state.filter.project).toBe('TICKET-101');
   });
 
-  it('skills lỗi: ẩn gợi ý skill nhưng màn vẫn hiện', async () => {
-    fake(handlers()); // không có skills_list → lỗi
+  it('skills error: hides the skill suggestion but the screen still renders', async () => {
+    fake(handlers()); // no skills_list → error
     await mountOverview(el);
     expect(el.querySelectorAll('.bum-tips .insight').length).toBe(2);
     expect(el.querySelector('.ico.acc')).toBeNull();
     expect(el.querySelectorAll('svg.days rect.bar').length).toBe(4);
   });
 
-  it('khoảng thời gian: Hôm nay / 7 / 30 / 90', async () => {
+  it('time ranges: Today / 7 / 30 / 90', async () => {
     fake(handlers());
     await mountOverview(el);
     expect([...el.querySelectorAll('[data-range]')].map((b) => b.getAttribute('data-range'))).toEqual(['1', '7', '30', '90']);
@@ -138,13 +138,13 @@ describe('Tổng quan', () => {
     expect(el.querySelector('[data-card="tokens"] .cmp')?.className).toContain('grn');
   });
 
-  it('kỳ trước bằng 0: không hiện dòng so sánh', async () => {
+  it('previous period 0: no comparison line shown', async () => {
     fake({ ...handlers(), day_stats: () => [day(0, 5_000_000)] });
     await mountOverview(el);
     expect(el.querySelector('[data-card="tokens"] .cmp')).toBeNull();
   });
 
-  it('bấm cột ngày thì Hội thoại lọc đúng ngày đó', async () => {
+  it('clicking a day bar filters Conversations by that day', async () => {
     fake(handlers());
     await mountOverview(el);
     const d = day(1, 0);
@@ -154,7 +154,7 @@ describe('Tổng quan', () => {
     expect(state.filter.to).toBe(d.to);
   });
 
-  it('theo phạm vi công cụ: gửi tool cho backend, chỉ hiện model của công cụ đó', async () => {
+  it('by tool scope: sends tool to the backend, shows only models of that tool', async () => {
     const f = fake(handlers());
     update({ scope: 'kiro' });
     await mountOverview(el);
@@ -164,7 +164,7 @@ describe('Tổng quan', () => {
     expect(el.querySelector('[data-card="tokens"] .lbl')?.textContent).toBe('Token (ước lượng)');
   });
 
-  it('bấm project thì lọc Hội thoại theo project', async () => {
+  it('clicking a project filters Conversations by project', async () => {
     fake(handlers());
     await mountOverview(el);
     (el.querySelector('[data-project="TICKET-203"]') as HTMLButtonElement).click();

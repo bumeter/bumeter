@@ -5,7 +5,7 @@ import { state, update } from '../src/state';
 import type { SkillReport, SkillRow } from '../src/api';
 
 const r = (name: string, extra: Partial<SkillRow['entry']> = {}, stats: Partial<SkillRow> = {}): SkillRow => ({
-  entry: { name, tool: 'claude_code', description: `mô tả ${name}`, source: { kind: 'personal' }, state: 'enabled', path: `/home/u/.claude/skills/${name}`, symlink: false, always_on_tokens: 90, on_invoke_tokens: 4000, estimated: true, managed: true, ...extra },
+  entry: { name, tool: 'claude_code', description: `description of ${name}`, source: { kind: 'personal' }, state: 'enabled', path: `/home/u/.claude/skills/${name}`, symlink: false, always_on_tokens: 90, on_invoke_tokens: 4000, estimated: true, managed: true, ...extra },
   uses: 0, projects: 0, tokens: 0, avg_tokens: null, last_used: null, unused_30d: false, usage_known: true, ...stats,
 });
 
@@ -19,7 +19,7 @@ const report = (): SkillReport => ({
     r('<img src=x onerror=1>', { source: { kind: 'synced' }, managed: false }),
   ],
   commands: [r('/model', { source: { kind: 'command' }, managed: false, always_on_tokens: null }, { uses: 14 })],
-  total_always_on: 2400, unused: ['pj-code', 'pj-debug'], unused_always_on: 165, warnings: ['Không đọc được danh sách plugin'],
+  total_always_on: 2400, unused: ['pj-code', 'pj-debug'], unused_always_on: 165, warnings: ['Could not read the plugin list'],
 });
 
 let list: HTMLElement;
@@ -33,12 +33,12 @@ beforeEach(() => {
 
 const click = (root: ParentNode, sel: string) => (root.querySelector(sel) as HTMLElement).click();
 
-describe('màn Skill', () => {
-  it('chia nhóm, hiện tổng chi phí nền, cảnh báo và tên lạ dạng chữ', async () => {
+describe('Skills screen', () => {
+  it('groups, shows total base cost, warnings and odd names as text', async () => {
     fake({ skills_list: report });
     await mountSkills(list, detail);
     expect(list.textContent).toContain('~2.4K tok/phiên');
-    expect(list.textContent).toContain('Không đọc được danh sách plugin');
+    expect(list.textContent).toContain('Could not read the plugin list');
     const groups = [...list.querySelectorAll('.group-header')].map((g) => g.textContent);
     expect(groups.some((g) => g?.includes('Chưa dùng 30 ngày'))).toBe(true);
     expect(groups.some((g) => g?.includes('Đã tắt'))).toBe(true);
@@ -47,10 +47,10 @@ describe('màn Skill', () => {
     expect(list.querySelector('[data-skill="pj-review"] .uses')?.textContent).toBe('5');
   });
 
-  it('gợi ý tắt hàng loạt: plan → xác nhận → apply → hoàn tác', async () => {
+  it('bulk-disable suggestion: plan → confirm → apply → undo', async () => {
     const f = fake({
       skills_list: report,
-      skills_plan: (p: any) => ({ id: 'plan-1', description: `• chuyển ${p.targets.join(', ')} <b>` }),
+      skills_plan: (p: any) => ({ id: 'plan-1', description: `• move ${p.targets.join(', ')} <b>` }),
       skills_apply: () => ({ id: 'op-1', ts: 't', op: 'disable', description: 'x', undone: false }),
       skills_undo: () => true,
     });
@@ -70,20 +70,20 @@ describe('màn Skill', () => {
     expect(f.calls.find((c) => c.method === 'skills_undo')!.params).toMatchObject({ id: 'op-1' });
   });
 
-  it('chọn skill: hiện "dùng ở đâu", bấm một lượt thì mở đúng hội thoại và lượt đó', async () => {
-    const f = fake({ skills_list: report, list_prompts: () => listOf([row('p9', '2026-09-16T09:45:00Z', 'review lại tài liệu', 4_400_000)]) });
+  it('selecting a skill: shows "used where", clicking a turn opens the right conversation and turn', async () => {
+    const f = fake({ skills_list: report, list_prompts: () => listOf([row('p9', '2026-09-16T09:45:00Z', 'review the document', 4_400_000)]) });
     await mountSkills(list, detail);
     click(list, '[data-skill="pj-review"]');
     await flush(); await flush();
     expect(f.calls.find((c) => c.method === 'list_prompts')!.params).toMatchObject({ skill: 'pj-review' });
-    expect(detail.textContent).toContain('review lại tài liệu');
+    expect(detail.textContent).toContain('review the document');
     click(detail, '[data-key="p9"]');
     expect(state.view).toBe('conversations');
     expect(state.conversation).toBe('s1');
     expect(state.turn).toBe('p9');
   });
 
-  it('nút thao tác đúng theo loại skill', async () => {
+  it('action buttons match the skill type', async () => {
     const f = fake({ skills_list: report, list_prompts: () => listOf([row('p1', '2026-09-01T00:00:00Z', 'x', 1)]), skills_plan: () => ({ id: 'p', description: 'd' }) });
     await mountSkills(list, detail);
     click(list, '[data-skill="superpowers:brainstorming"]');
@@ -102,8 +102,8 @@ describe('màn Skill', () => {
     expect(detail.querySelectorAll('.skill-actions button').length).toBe(0);
   });
 
-  it('cài skill từ thư mục qua hộp thoại', async () => {
-    const f = fake({ skills_list: report, skills_plan: () => ({ id: 'plan-i', description: 'tạo symlink' }), skills_apply: () => ({ id: 'op-i', ts: 't', op: 'install_dir', description: '', undone: false }) });
+  it('install a skill from a folder via the dialog', async () => {
+    const f = fake({ skills_list: report, skills_plan: () => ({ id: 'plan-i', description: 'create symlink' }), skills_apply: () => ({ id: 'op-i', ts: 't', op: 'install_dir', description: '', undone: false }) });
     await mountSkills(list, detail);
     click(list, '[data-action="install"]');
     click(document, '[data-tab="dir"]');
@@ -112,19 +112,19 @@ describe('màn Skill', () => {
     click(document, '[data-action="install-check"]');
     await flush(); await flush();
     expect(f.calls.find((c) => c.method === 'skills_plan')!.params).toEqual({ op: 'install_dir', source: '/home/u/work/skills-repo/pj-new' });
-    expect(document.querySelector('.confirm')?.textContent).toContain('tạo symlink');
+    expect(document.querySelector('.confirm')?.textContent).toContain('create symlink');
   });
 });
 
-describe('tải nhanh và số liệu nhất quán', () => {
-  it('hiện skill cá nhân ngay, không chờ CLI plugin', async () => {
+describe('fast load and consistent figures', () => {
+  it('shows personal skills right away, without waiting for the plugin CLI', async () => {
     const f = fake({ skills_list: (p: any) => (p?.plugins === false ? report() : new Promise(() => {})) });
     await mountSkills(list, detail);
     expect(list.querySelector('[data-skill="pj-review"]')).not.toBeNull();
     expect(f.calls.filter((c) => c.method === 'skills_list').map((c) => c.params?.plugins)).toEqual([false, true]);
   });
 
-  it('khung gợi ý tính token đúng tập skill sẽ tắt', async () => {
+  it('suggestion box counts tokens for exactly the skills that will be disabled', async () => {
     const rep = report();
     rep.rows.push(r('superpowers:old', { source: { kind: 'plugin', plugin: 'superpowers@x' }, always_on_tokens: 500 }, { unused_30d: true }));
     rep.unused = ['pj-code', 'pj-debug', 'superpowers:old'];
@@ -136,7 +136,7 @@ describe('tải nhanh và số liệu nhất quán', () => {
     expect(text).toContain('~180 tok');
   });
 
-  it('chọn phạm vi một công cụ thì chỉ hiện skill của công cụ đó, không cần tag công cụ', async () => {
+  it('scoping to one tool shows only that tool’s skills, with no tool tag needed', async () => {
     const rep = report();
     rep.rows.push(r('kiro-skill', { tool: 'kiro' }, { uses: 1 }));
     fake({ skills_list: () => rep });
@@ -148,13 +148,13 @@ describe('tải nhanh và số liệu nhất quán', () => {
     update({ scope: undefined });
   });
 
-  it('tìm trên skills.sh: hiện kết quả dạng chữ, skill đã có thì "Đã cài", bấm Cài thì tạo plan install_market', async () => {
+  it('search skills.sh: shows text results, already-installed skills say "Installed", clicking Install creates an install_market plan', async () => {
     vi.useFakeTimers();
     const hits = [
       { id: 'acme/skills/code-review', source: 'acme/skills', skill_id: 'code-review', name: '<img src=x onerror=1>', installs: 625_917 },
       { id: 'x/y/pj-review', source: 'x/y', skill_id: 'pj-review', name: 'pj-review', installs: 830 },
     ];
-    const f = fake({ skills_list: report, skills_search: () => hits, skills_plan: () => ({ id: 'plan-m', description: 'tải skill code-review từ https://github.com/acme/skills.git' }) });
+    const f = fake({ skills_list: report, skills_search: () => hits, skills_plan: () => ({ id: 'plan-m', description: 'download skill code-review from https://github.com/acme/skills.git' }) });
     await mountSkills(list, detail);
     click(list, '[data-action="install"]');
     expect(document.querySelector('[data-tab="market"]')?.getAttribute('aria-pressed')).toBe('true');
@@ -180,9 +180,9 @@ describe('tải nhanh và số liệu nhất quán', () => {
     expect(document.querySelector('.confirm')?.textContent).toContain('github.com/acme/skills');
   });
 
-  it('skills.sh lỗi mạng thì báo trong hộp thoại', async () => {
+  it('a skills.sh network error is reported in the dialog', async () => {
     vi.useFakeTimers();
-    fake({ skills_list: report, skills_search: () => { throw new Error('không chạy được curl'); } });
+    fake({ skills_list: report, skills_search: () => { throw new Error('could not run curl'); } });
     await mountSkills(list, detail);
     click(list, '[data-action="install"]');
     const q = document.querySelector('.install input[name="market-q"]') as HTMLInputElement;
@@ -191,10 +191,10 @@ describe('tải nhanh và số liệu nhất quán', () => {
     await vi.advanceTimersByTimeAsync(400);
     vi.useRealTimers();
     await flush();
-    expect(document.querySelector('.install .warning')?.textContent).toContain('không chạy được curl');
+    expect(document.querySelector('.install .warning')?.textContent).toContain('could not run curl');
   });
 
-  it('tiêu đề có số đếm; nhãn cảnh báo "tốn nền mà không dùng" bấm vào thì lọc ra đúng các skill đó', async () => {
+  it('title has a count; the "cost base but unused" warning badge filters to exactly those skills when clicked', async () => {
     fake({ skills_list: report });
     await mountSkills(list, detail);
     expect(list.querySelector('.toolbar .pill')?.textContent).toBe('7');
@@ -211,7 +211,7 @@ describe('tải nhanh và số liệu nhất quán', () => {
     expect(list.querySelectorAll('[data-skill]').length).toBe(7);
   });
 
-  it('chip lọc theo trạng thái và nguồn', async () => {
+  it('chips filter by status and source', async () => {
     fake({ skills_list: report });
     await mountSkills(list, detail);
     click(list, '[data-filter="disabled"]');
@@ -223,9 +223,9 @@ describe('tải nhanh và số liệu nhất quán', () => {
     expect([...list.querySelectorAll('[data-skill]')].map((x) => x.getAttribute('data-skill'))).toEqual(['superpowers:brainstorming']);
   });
 
-  it('chuyển sang dạng thẻ (nhớ lựa chọn); thẻ có chi phí nền, số lần dùng, logo công cụ', async () => {
+  it('switching to card view (remembers the choice); cards show base cost, use count, tool logo', async () => {
     fake({ skills_list: report });
-    try { localStorage.removeItem('bumeter.skillView'); } catch { /* bỏ qua */ }
+    try { localStorage.removeItem('bumeter.skillView'); } catch { /* ignore */ }
     await mountSkills(list, detail);
     expect(list.querySelector('.skill-cards')).toBeNull();
     click(list, '[data-view-mode="cards"]');
@@ -240,8 +240,8 @@ describe('tải nhanh và số liệu nhất quán', () => {
     localStorage.removeItem('bumeter.skillView');
   });
 
-  it('công tắc trên thẻ: tắt qua hộp xác nhận; skill không quản lý được thì không có công tắc', async () => {
-    const f = fake({ skills_list: report, skills_plan: () => ({ id: 'p-t', description: 'chuyển pj-review' }) });
+  it('card switch: turning off goes through the confirm box; non-managed skills have no switch', async () => {
+    const f = fake({ skills_list: report, skills_plan: () => ({ id: 'p-t', description: 'move pj-review' }) });
     localStorage.setItem('bumeter.skillView', 'cards');
     await mountSkills(list, detail);
     const sw = list.querySelector('.skill-card[data-skill="pj-review"] [role="switch"]') as HTMLButtonElement;
@@ -252,11 +252,11 @@ describe('tải nhanh và số liệu nhất quán', () => {
     expect(document.querySelector('.confirm')).not.toBeNull();
     expect(list.querySelector('.skill-card[data-skill="old-skill"] [role="switch"]')?.getAttribute('aria-checked')).toBe('false');
     expect(list.querySelector('.skill-card[data-skill="/model"] [role="switch"]')).toBeNull();
-    expect(detail.textContent).not.toContain('pj-review'); // bấm công tắc không mở chi tiết
+    expect(detail.textContent).not.toContain('pj-review'); // clicking the switch does not open the detail
     localStorage.removeItem('bumeter.skillView');
   });
 
-  it('kết quả skills.sh dạng thẻ: "✓ Đã cài", chip lọc theo repo nguồn', async () => {
+  it('skills.sh results as cards: "✓ Installed", chips filter by source repo', async () => {
     vi.useFakeTimers();
     const hits = [
       { id: 'a/s/one', source: 'a/s', skill_id: 'one', name: 'one', installs: 10 },
@@ -283,8 +283,8 @@ describe('tải nhanh và số liệu nhất quán', () => {
   });
 });
 
-describe('giao diện Bumeter: chip Tất cả, thẻ costly, trạng thái rỗng', () => {
-  it('chip "Tất cả" bật khi chưa lọc, bấm thì bỏ mọi bộ lọc', async () => {
+describe('Bumeter UI: All chip, costly cards, empty states', () => {
+  it('the "All" chip is on when unfiltered; clicking it clears every filter', async () => {
     fake({ skills_list: report });
     await mountSkills(list, detail);
     expect(list.querySelector('[data-filter="all"]')?.getAttribute('aria-pressed')).toBe('true');
@@ -298,7 +298,7 @@ describe('giao diện Bumeter: chip Tất cả, thẻ costly, trạng thái rỗ
     expect(list.querySelectorAll('[data-skill]').length).toBe(7);
   });
 
-  it('thẻ costly có class costly, không có chấm trạng thái; skill không có công tắc mà đã tắt thì ghi chữ', async () => {
+  it('costly cards have the costly class and no status dot; a disabled skill with no switch shows text', async () => {
     const rep = report();
     rep.rows.push(r('manual-off', { state: 'disabled', managed: false }));
     fake({ skills_list: () => rep });
@@ -312,7 +312,7 @@ describe('giao diện Bumeter: chip Tất cả, thẻ costly, trạng thái rỗ
     localStorage.removeItem('bumeter.skillView');
   });
 
-  it('không có skill nào: Bum ngủ + nút mở hộp Cài skill', async () => {
+  it('no skills at all: sleeping Bum + button to open the Install skill box', async () => {
     fake({ skills_list: () => ({ rows: [], commands: [], total_always_on: 0, unused: [], unused_always_on: 0, warnings: [] }) });
     await mountSkills(list, detail);
     expect(list.querySelector('.empty svg')).not.toBeNull();
@@ -320,7 +320,7 @@ describe('giao diện Bumeter: chip Tất cả, thẻ costly, trạng thái rỗ
     expect(document.querySelector('.install')).not.toBeNull();
   });
 
-  it('không khớp bộ lọc: Bum + nút Xoá bộ lọc', async () => {
+  it('no filter match: Bum + Clear filters button', async () => {
     fake({ skills_list: report });
     await mountSkills(list, detail);
     click(list, '[data-filter="disabled"]');
@@ -332,38 +332,38 @@ describe('giao diện Bumeter: chip Tất cả, thẻ costly, trạng thái rỗ
   });
 });
 
-describe('bố cục theo độ rộng', () => {
+describe('layout by width', () => {
   const esc = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   const mountWith = async (layout: 'wide' | 'medium' | 'narrow') => {
     update({ layout });
-    fake({ skills_list: report, list_prompts: () => listOf([row('p9', '2026-09-16T09:45:00Z', 'review lại tài liệu', 4_400_000)]) });
+    fake({ skills_list: report, list_prompts: () => listOf([row('p9', '2026-09-16T09:45:00Z', 'review the document', 4_400_000)]) });
     await mountSkills(list, detail);
   };
 
-  it('medium: chọn skill mở ngăn kéo có tên skill + "dùng ở đâu"; Esc đóng', async () => {
+  it('medium: selecting a skill opens a drawer with the skill name + "used where"; Esc closes', async () => {
     await mountWith('medium');
     click(list, '[data-skill="pj-review"]');
     await flush(); await flush();
     const drawer = document.querySelector('.drawer')!;
     expect(drawer.getAttribute('aria-label')).toBe('pj-review');
-    expect(drawer.textContent).toContain('review lại tài liệu');
-    expect(detail.textContent).not.toContain('review lại tài liệu');
+    expect(drawer.textContent).toContain('review the document');
+    expect(detail.textContent).not.toContain('review the document');
     esc();
     expect(document.querySelector('.drawer')).toBeNull();
     expect(list.querySelector('[data-skill="pj-review"]')?.getAttribute('aria-selected')).toBe('true');
   });
 
-  it('medium → wide: ngăn kéo đóng, chi tiết ở cột phải', async () => {
+  it('medium → wide: the drawer closes, detail moves to the right column', async () => {
     await mountWith('medium');
     click(list, '[data-skill="pj-review"]');
     await flush(); await flush();
     update({ layout: 'wide' });
     await flush(); await flush();
     expect(document.querySelector('.drawer')).toBeNull();
-    expect(detail.textContent).toContain('review lại tài liệu');
+    expect(detail.textContent).toContain('review the document');
   });
 
-  it('rời view Skill thì đóng ngăn kéo', async () => {
+  it('leaving the Skills view closes the drawer', async () => {
     await mountWith('medium');
     click(list, '[data-skill="pj-review"]');
     await flush(); await flush();
@@ -371,12 +371,12 @@ describe('bố cục theo độ rộng', () => {
     expect(document.querySelector('.drawer')).toBeNull();
   });
 
-  it('narrow: chi tiết thay danh sách, nút "← Skill" quay lại', async () => {
+  it('narrow: the detail replaces the list, a "← Skills" button goes back', async () => {
     await mountWith('narrow');
     click(list, '[data-skill="pj-review"]');
     await flush(); await flush();
     expect((list.querySelector('.sk-list') as HTMLElement).hidden).toBe(true);
-    expect(list.querySelector('.sk-narrow')?.textContent).toContain('review lại tài liệu');
+    expect(list.querySelector('.sk-narrow')?.textContent).toContain('review the document');
     const back = list.querySelector('[data-action="back"]') as HTMLButtonElement;
     expect(back.textContent).toBe('← Skill');
     back.click();

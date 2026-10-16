@@ -1,4 +1,4 @@
-// Dữ liệu giả để xem giao diện trên trình duyệt (không có Tauri). Số liệu lấy gần với dữ liệu thật.
+// Mock data to preview the UI in a browser (without Tauri). Figures are kept close to real data.
 import type { CallRow, Conversation, ConversationList, Source, PromptDetail, PromptList, PromptRow, SessionGroup } from './api';
 
 const u = (read: number, write: number, out: number) => ({ input: 10, cache_write_5m: 0, cache_write_1h: write, cache_read: read, output: out });
@@ -9,15 +9,15 @@ const row = (key: string, ts: string, text: string, read: number, out: number, c
 
 const s1: PromptRow[] = [
   row('a5', '2026-09-11T04:40:00Z', 'ok', 866_000, 1_200, 1),
-  row('a4', '2026-09-11T04:28:23Z', 'giờ bạn cập nhật tiến độ nhé, và tôi cần tài liệu cuối cùng của task này', 9_382_000, 17_407, 11),
-  row('a3', '2026-09-11T04:15:00Z', 'bạn cứ lấy đúng format mail tôi gửi trong file .md', 6_780_000, 9_000, 8),
-  row('a2', '2026-09-11T04:02:00Z', 'tức là ntn ?', 618_000, 900, 1, [{ skill: 'run', how: 'continued' }], { stats: { key: 'a2', tool: 'claude_code', credits: 0, models: ['claude-opus-5'], session_id: '2026-09-11', project: 'TICKET-101', ts: '2026-09-11T04:02:00Z', text: 'tức là ntn ?', interrupted: true, usage: u(618_000, 1000, 900), api_calls: 1, context_at_start: 618_000, last_call_ts: null } }),
-  row('a1', '2026-09-11T02:52:00Z', 'ok giờ tôi cần test chạy e2e với lambda ở local để kiểm tra', 14_900_000, 41_000, 23, [{ skill: 'run', how: 'direct' }]),
+  row('a4', '2026-09-11T04:28:23Z', 'please update the progress now, and I need the final document for this task', 9_382_000, 17_407, 11),
+  row('a3', '2026-09-11T04:15:00Z', 'just use the exact format of the email I sent in the .md file', 6_780_000, 9_000, 8),
+  row('a2', '2026-09-11T04:02:00Z', 'what do you mean?', 618_000, 900, 1, [{ skill: 'run', how: 'continued' }], { stats: { key: 'a2', tool: 'claude_code', credits: 0, models: ['claude-opus-5'], session_id: '2026-09-11', project: 'TICKET-101', ts: '2026-09-11T04:02:00Z', text: 'what do you mean?', interrupted: true, usage: u(618_000, 1000, 900), api_calls: 1, context_at_start: 618_000, last_call_ts: null } }),
+  row('a1', '2026-09-11T02:52:00Z', 'ok now I need to run an e2e test with a local lambda to check', 14_900_000, 41_000, 23, [{ skill: 'run', how: 'direct' }]),
 ];
 const s2: PromptRow[] = [
-  row('b3', '2026-09-10T08:02:00Z', 'có, hãy cập nhật, sau đó hãy review lại tài liệu trên', 1_290_000, 8_000, 14, [{ skill: 'pj-estimate', how: 'direct' }]),
-  row('b2', '2026-09-10T07:38:00Z', 'giờ bạn review lại xem đúng ko nhé', 5_600_000, 21_000, 25, [{ skill: 'pj-review', how: 'direct' }]),
-  row('b1', '2026-09-10T07:27:00Z', 'tôi nghĩ bạn code trước đi', 7_900_000, 30_000, 17),
+  row('b3', '2026-09-10T08:02:00Z', 'yes, go ahead and update, then review the document above again', 1_290_000, 8_000, 14, [{ skill: 'pj-estimate', how: 'direct' }]),
+  row('b2', '2026-09-10T07:38:00Z', 'now please review it again to check if it is right', 5_600_000, 21_000, 25, [{ skill: 'pj-review', how: 'direct' }]),
+  row('b1', '2026-09-10T07:27:00Z', 'I think you should write the code first', 7_900_000, 30_000, 17),
 ];
 const group = (id: string, project: string, rows: PromptRow[]): SessionGroup => ({
   session_id: id, project, first_ts: rows[rows.length - 1].stats.ts, last_ts: rows[0].stats.ts,
@@ -31,13 +31,13 @@ const conv = (session_id: string, tool: string, project: string, title: string, 
   peak_context: Math.max(...rows.map((r) => r.stats.context_at_start)), interrupted: rows.filter((r) => r.stats.interrupted).length,
   anomalous: rows.filter((r) => r.anomalous).length, starred: 0, ...extra,
 });
-const kiroRows: PromptRow[] = [row('k2', '2026-09-11T09:12:00Z', 'thêm test cho màn đăng nhập', 420_000, 2_000, 3), row('k1', '2026-09-11T08:50:00Z', 'đọc dự án và tóm tắt kiến trúc', 310_000, 1_500, 2)]
+const kiroRows: PromptRow[] = [row('k2', '2026-09-11T09:12:00Z', 'add tests for the login screen', 420_000, 2_000, 3), row('k1', '2026-09-11T08:50:00Z', 'read the project and summarize the architecture', 310_000, 1_500, 2)]
   .map((r) => ({ ...r, cost_usd: null, stats: { ...r.stats, tool: 'kiro', session_id: 'k1', models: ['kiro:auto'], credits: 0.6 } }));
 const turnsBySession: Record<string, PromptRow[]> = { s1: s1.map((r) => ({ ...r, stats: { ...r.stats, session_id: 's1' } })), s2: s2.map((r) => ({ ...r, stats: { ...r.stats, session_id: 's2' } })), k1: kiroRows };
 const conversations: Conversation[] = [
-  conv('k1', 'kiro', 'TICKET-203', 'Tóm tắt kiến trúc và thêm test đăng nhập', kiroRows, { credits: 1.2, models: ['kiro:auto'] }),
-  conv('s1', 'claude_code', 'TICKET-101', 'Cập nhật tiến độ và test e2e lambda', s1, { models: ['claude-opus-5', 'claude-sonnet-5'] }),
-  conv('s2', 'claude_code', 'TICKET-102', 'Review tài liệu ước lượng', s2),
+  conv('k1', 'kiro', 'TICKET-203', 'Summarize the architecture and add login tests', kiroRows, { credits: 1.2, models: ['kiro:auto'] }),
+  conv('s1', 'claude_code', 'TICKET-101', 'Update progress and lambda e2e tests', s1, { models: ['claude-opus-5', 'claude-sonnet-5'] }),
+  conv('s2', 'claude_code', 'TICKET-102', 'Review the estimation document', s2),
 ];
 function listConversations(p: any): ConversationList {
   const q = (p?.q ?? '').toLowerCase();
@@ -91,10 +91,10 @@ export const transport = {
         return rows.filter((r) => !params?.key || r.stats.key === params.key).map((r) => ({
           key: r.stats.key, ts: r.stats.ts, question: r.stats.text, interrupted: r.stats.interrupted,
           items: [
-            { kind: 'text', text: 'Mình sẽ đọc file tiến độ trước.' },
-            { kind: 'tool', id: 't1', name: 'Read', input: 'docs/progress.md', output: '# Tiến độ\n- Task 1: xong', error: false },
+            { kind: 'text', text: 'I will read the progress file first.' },
+            { kind: 'tool', id: 't1', name: 'Read', input: 'docs/progress.md', output: '# Progress\n- Task 1: done', error: false },
             { kind: 'tool', id: 't2', name: 'Bash', input: 'npm test', output: 'Tests 53 passed', error: false },
-            { kind: 'text', text: 'Đã cập nhật tiến độ: Task 1 xong, Task 2 đang làm.' },
+            { kind: 'text', text: 'Progress updated: Task 1 done, Task 2 in progress.' },
           ],
         }));
       }
@@ -114,11 +114,11 @@ export const transport = {
         { model: 'claude-sonnet-5', tool: 'claude_code', calls: 140, prompts: 30, tokens: 17_600_000, output: 60_000, cost_usd: 4.1, credits: 0, last_used: '2026-09-20T01:00:00Z' },
       ];
       case 'project_stats': return [
-        { project: 'TICKET-101', sessions: 3, prompts: 231, tokens: 184_000_000, cost_usd: 121.4, top_skills: ['pj-review', 'run', 'pj-estimate'], priciest: { key: 'a1', text: 'ok giờ tôi cần test chạy e2e với lambda ở local', total: 14_900_000 }, last_used: '2026-09-23T09:00:00Z' },
-        { project: 'TICKET-102', sessions: 2, prompts: 88, tokens: 98_000_000, cost_usd: 61.2, top_skills: ['pj-spec', 'pj-clarify'], priciest: { key: 'x', text: 'liệt kê câu hỏi cho khách hàng', total: 8_700_000 }, last_used: '2026-08-28T09:00:00Z' },
-        { project: 'TICKET-103', sessions: 2, prompts: 64, tokens: 61_000_000, cost_usd: 38.9, top_skills: ['pj-investigate'], priciest: { key: 'y', text: 'hãy review lại toàn bộ file điều tra', total: 4_100_000 }, last_used: '2026-09-21T09:00:00Z' },
-        { project: 'PROJECT-SUMMARY', sessions: 1, prompts: 52, tokens: 54_000_000, cost_usd: 33.0, top_skills: ['pj-review'], priciest: { key: 'z', text: 'docs/pages/… hãy lấy đúng', total: 15_400_000 }, last_used: '2026-08-29T09:00:00Z' },
-        { project: 'bumeter', sessions: 1, prompts: 60, tokens: 12_000_000, cost_usd: 7.1, top_skills: ['superpowers:brainstorming'], priciest: { key: 'w', text: 'ngoài ra thống kê được tất cả skill', total: 420_000 }, last_used: '2026-09-24T09:00:00Z' },
+        { project: 'TICKET-101', sessions: 3, prompts: 231, tokens: 184_000_000, cost_usd: 121.4, top_skills: ['pj-review', 'run', 'pj-estimate'], priciest: { key: 'a1', text: 'ok now I need to run an e2e test with a local lambda', total: 14_900_000 }, last_used: '2026-09-23T09:00:00Z' },
+        { project: 'TICKET-102', sessions: 2, prompts: 88, tokens: 98_000_000, cost_usd: 61.2, top_skills: ['pj-spec', 'pj-clarify'], priciest: { key: 'x', text: 'list questions for the customer', total: 8_700_000 }, last_used: '2026-08-28T09:00:00Z' },
+        { project: 'TICKET-103', sessions: 2, prompts: 64, tokens: 61_000_000, cost_usd: 38.9, top_skills: ['pj-investigate'], priciest: { key: 'y', text: 'please review the whole investigation file', total: 4_100_000 }, last_used: '2026-09-21T09:00:00Z' },
+        { project: 'PROJECT-SUMMARY', sessions: 1, prompts: 52, tokens: 54_000_000, cost_usd: 33.0, top_skills: ['pj-review'], priciest: { key: 'z', text: 'docs/pages/… get it right', total: 15_400_000 }, last_used: '2026-08-29T09:00:00Z' },
+        { project: 'bumeter', sessions: 1, prompts: 60, tokens: 12_000_000, cost_usd: 7.1, top_skills: ['superpowers:brainstorming'], priciest: { key: 'w', text: 'also it can tally every skill', total: 420_000 }, last_used: '2026-09-24T09:00:00Z' },
       ];
       case 'day_stats': return Array.from({ length: 40 }, (_, i) => {
         const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (39 - i));
@@ -135,7 +135,7 @@ export const transport = {
         ],
         tools: [
           { name: 'Edit', summary: 'src/handler.ts', result: 'The file src/handler.ts has been updated.', truncated: false, old_text: 'const status = res.code\nreturn status', new_text: 'const status = res.statusCode ?? 404\nreturn status' },
-          { name: 'Bash', summary: 'npm test -- handler', result: 'PASS  tests/handler.test.ts\n  ✓ trả 404 khi không có dữ liệu (12 ms)\n\nTests: 8 passed, 8 total', truncated: false, old_text: null, new_text: null },
+          { name: 'Bash', summary: 'npm test -- handler', result: 'PASS  tests/handler.test.ts\n  ✓ returns 404 when there is no data (12 ms)\n\nTests: 8 passed, 8 total', truncated: false, old_text: null, new_text: null },
         ],
       };
       case 'skills:search': {
@@ -146,20 +146,20 @@ export const transport = {
           { id: 'someone/skills/pj-review', source: 'someone/skills', skill_id: 'pj-review', name: 'pj-review', installs: 830 },
         ].filter((x) => x.name.includes(q) || q.length < 2);
       }
-      case 'skills:plan': return { id: 'mock', description: '• chuyển ~/.claude/skills/pj-debug → ~/.claude/skills-disabled/pj-debug\nCó hiệu lực từ phiên Claude Code mới.' };
+      case 'skills:plan': return { id: 'mock', description: '• move ~/.claude/skills/pj-debug → ~/.claude/skills-disabled/pj-debug\nTakes effect in the next Claude Code session.' };
       case 'skills:apply': return { id: 'op', ts: new Date().toISOString(), op: 'disable', description: '', undone: false };
       case 'skills:undo': return true;
       case 'settings:get': return { config: { anomaly_multiplier: 3, context_threshold: 300000, quota_thresholds: [70, 90], notify: { quota: true, blocked: true, anomaly: true, context: true }, claude_projects_dir: null }, statusline: { kind: 'custom', command: 'bash ~/.claude/statusline-command.sh' }, data_dir: '~/.local/share/bumeter', parse_errors: 0 };
-      case 'settings:statusline_plan': return { description: 'Sẽ đổi statusLine.command trong ~/.claude/settings.json', noop: false };
+      case 'settings:statusline_plan': return { description: 'Will change statusLine.command in ~/.claude/settings.json', noop: false };
       case 'settings:statusline_apply': case 'settings:statusline_undo': case 'settings:save_config': return true;
-      default: throw new Error(`mock: không có lệnh ${method}`);
+      default: throw new Error(`mock: no such method ${method}`);
     }
   },
   listen: async (_event: string, _cb: (p: unknown) => void) => () => {},
 };
 
 function mockSkills() {
-  const e = (name: string, extra: any = {}) => ({ name, description: `Skill ${name} theo quy trình dự án`, source: { kind: 'personal' }, state: 'enabled', path: `~/.claude/skills/${name}`, symlink: false, always_on_tokens: 85, on_invoke_tokens: 5000, estimated: true, managed: true, ...extra });
+  const e = (name: string, extra: any = {}) => ({ name, description: `Skill ${name} per the project process`, source: { kind: 'personal' }, state: 'enabled', path: `~/.claude/skills/${name}`, symlink: false, always_on_tokens: 85, on_invoke_tokens: 5000, estimated: true, managed: true, ...extra });
   const r = (entry: any, uses: number, avg: number | null, last: string | null, extra: any = {}) => ({ entry, uses, projects: Math.min(uses, 5), tokens: (avg ?? 0) * uses, avg_tokens: avg, last_used: last, unused_30d: false, ...extra });
   const sp = (n: string, on: number, inv: number) => ({ source: { kind: 'plugin', plugin: 'superpowers@claude-plugins-official' }, estimated: false, always_on_tokens: on, on_invoke_tokens: inv, path: null, description: `superpowers ${n}` });
   return {
@@ -191,7 +191,7 @@ function mockSession() {
   });
   return {
     calls, compactions: [150],
-    prompts: [0, 22, 48, 80, 111, 150, 170, 205].map((i, k) => ({ call_index: i, key: `k${k}`, text: 'câu hỏi' })),
+    prompts: [0, 22, 48, 80, 111, 150, 170, 205].map((i, k) => ({ call_index: i, key: `k${k}`, text: 'question' })),
     suggestions: [{ code: 'repeated_read', file: '/src/services/worker/handler.ts', times: 4, tokens: 51_200 }, { code: 'long_output', label: 'Bash cat result.log', tokens: 18_400 }],
   };
 }

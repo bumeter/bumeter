@@ -19,7 +19,7 @@ export function compactNum(n: number): string {
   return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
 }
 
-/** `~2.4K`, `~90`: số ước lượng, một chữ số thập phân. */
+/** `~2.4K`, `~90`: estimated numbers, one decimal place. */
 export function approx(n: number | null | undefined): string {
   if (n == null) return '—';
   if (n < 1000) return `~${n}`;
@@ -36,10 +36,10 @@ function sourceTags(r: SkillRow): HTMLElement[] {
 
 type Group = { title: string; rows: SkillRow[] };
 
-/** Skill thuộc phạm vi công cụ đang chọn. */
+/** Skills within the selected tool scope. */
 const inScope = (r: SkillRow) => !state.scope || (r.entry.tool ?? 'claude_code') === state.scope;
 
-/** Skill chưa dùng 30 ngày mà vẫn tốn chi phí nền mỗi phiên. */
+/** Skills unused for 30 days that still cost base tokens every session. */
 const isCostly = (r: SkillRow) => r.unused_30d && (r.entry.always_on_tokens ?? 0) > 0;
 
 type StatusFilter = 'active' | 'unused' | 'disabled';
@@ -59,7 +59,7 @@ function savedView(): 'table' | 'cards' {
   try { return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'table'; } catch { return 'table'; }
 }
 function saveView(v: 'table' | 'cards') {
-  try { localStorage.setItem(VIEW_KEY, v); } catch { /* bỏ qua */ }
+  try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ }
 }
 
 function groups(rep: SkillReport, keep: (r: SkillRow) => boolean = () => true): Group[] {
@@ -95,7 +95,7 @@ let cleanup: (() => void) | null = null;
 
 export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
   cleanup?.();
-  // Skill cá nhân hiện ngay; plugin (qua CLI `claude`, có thể chậm) bổ sung sau.
+  // Personal skills show right away; plugins (via the `claude` CLI, which can be slow) are added later.
   let rep: SkillReport = await api.skills(false);
   let selected: string | null = null;
   let view = savedView();
@@ -104,7 +104,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
   let disposed = false;
   let drawer: { close(): void; el: HTMLElement } | null = null;
   let narrowOpen = false;
-  let host: HTMLElement = detail; // nơi đang dựng chi tiết: cột phải (wide), ngăn kéo (medium) hoặc màn thay danh sách (narrow)
+  let host: HTMLElement = detail; // where the detail is being built: right column (wide), drawer (medium) or a screen replacing the list (narrow)
   const listWrap = h('div', { class: 'sk-list' });
   list.replaceChildren(listWrap);
 
@@ -167,7 +167,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
     });
   };
 
-  /** Hộp "Cài skill": tìm trên skills.sh (mặc định), từ thư mục, hoặc từ git URL. */
+  /** "Install skill" box: search skills.sh (default), from a folder, or from a git URL. */
   const openInstall = () => {
     let tab: 'market' | 'dir' | 'git' = 'market';
     const tool = state.scope ?? 'claude_code';
@@ -178,7 +178,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
     let seq = 0;
 
     const marketRow = (x: SkillHit) => {
-      // Cùng quy tắc với backend: skill được cài vào thư mục `skill_id`, trùng tên thì không cài được.
+      // Same rule as the backend: a skill installs into the `skill_id` folder, so a duplicate name cannot be installed.
       const has = installed.has(x.skill_id);
       return h('div', { class: 'market-row', 'data-skill-id': x.skill_id },
         h('div', { class: 'what' }, h('b', {}, x.name),
@@ -190,7 +190,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
               `+ ${t('sk.installBtn')}`));
     };
 
-    /** Kết quả dạng thẻ + chip lọc theo repo nguồn (chỉ lọc trong kết quả đã tải). */
+    /** Card results + a chip to filter by source repo (only filters within the loaded results). */
     const renderHits = (box: HTMLElement, hits: SkillHit[]) => {
       let source = '';
       const sources = [...new Set(hits.map((x) => x.source))];
@@ -256,7 +256,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
       h('div', { class: 'num' }, r.avg_tokens != null ? fmtTokens(r.avg_tokens) : '—'),
       h('div', { class: 'num' }, shortDate(r.last_used)));
 
-  /** Công tắc bật/tắt (skill cá nhân hoặc plugin quản lý được); vẫn qua hộp xác nhận. */
+  /** On/off switch (personal skills or managed plugins); still goes through the confirm box. */
   const toggleEl = (r: SkillRow): HTMLElement | null => {
     const a = actionsFor(r).find((x) => ['disable', 'enable', 'plugin_disable', 'plugin_enable'].includes(x.op));
     if (!a) return null;
@@ -290,7 +290,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
     const keep = (r: SkillRow) => matches(r, filters);
     const none = !filters.status && !filters.source && !filters.costly;
     const visibleGroups = groups(rep, keep);
-    // Một skill có thể nằm ở hai nhóm (vd. vừa tắt vừa chưa dùng): thẻ chỉ hiện một lần.
+    // A skill can fall into two groups (e.g. both disabled and unused): the card is shown only once.
     const shown = [...new Map(visibleGroups.flatMap((g) => g.rows).map((r) => [r.entry.name, r])).values()];
     listWrap.replaceChildren(...compact([
       h('div', { class: 'toolbar' }, h('h1', {}, t('nav.skills')), countPill(inScopeRows.length),
@@ -352,7 +352,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
       h('span', { class: 'num value' }, fmtTokens(totalOf(p.stats.usage))));
 
   const renderDetail = async () => {
-    if (host === detail && state.layout !== 'wide') return; // cột phải bị ẩn: chi tiết chỉ dựng khi mở ngăn kéo / màn thay thế
+    if (host === detail && state.layout !== 'wide') return; // right column is hidden: build the detail only when a drawer / replacing screen is open
     const target = host;
     const r = [...rep.rows, ...rep.commands].find((x) => x.entry.name === selected);
     if (!r) {

@@ -20,8 +20,8 @@
       "appimage"
     ],
     "category": "DeveloperTool",
-    "shortDescription": "Bumeter: thống kê sử dụng AI (Claude Code, Kiro)",
-    "longDescription": "Theo dõi token, quota, skill và thành phần context của các công cụ AI lập trình, chạy nền trên tray.",
+    "shortDescription": "Bumeter: AI usage stats (Claude Code, Kiro)",
+    "longDescription": "Track tokens, quotas, skills, and context composition of coding AI tools, running in the background in the tray.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

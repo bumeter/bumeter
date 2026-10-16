@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { layoutFor, watchLayout } from '../src/layout';
 
 describe('layout', () => {
-  it('mốc độ rộng', () => {
+  it('width breakpoints', () => {
     expect(layoutFor(1200)).toBe('wide');
     expect(layoutFor(1199)).toBe('medium');
     expect(layoutFor(700)).toBe('medium');
     expect(layoutFor(699)).toBe('narrow');
   });
 
-  it('đổi độ rộng giả lập thì data-layout đổi; huỷ theo dõi thì thôi', () => {
+  it('simulated width change updates data-layout; unsubscribing stops it', () => {
     const app = document.createElement('div');
     document.body.append(app);
     const setW = (w: number) => { (window as any).innerWidth = w; window.dispatchEvent(new Event('resize')); };

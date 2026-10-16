@@ -1,4 +1,4 @@
-// Tổng quan: 3 thẻ (Token + Bum, Lượt, Hội thoại), token theo ngày, "Bum gợi ý", project và model. Theo phạm vi công cụ đang chọn.
+// Overview: 3 cards (Tokens + Bum, Turns, Conversations), tokens per day, "Bum suggests", projects and models. Scoped to the selected tool.
 import { api } from '../api';
 import type { DayStat, LimitState, ModelStat, ProjectStat, SidebarCounts, SkillReport } from '../api';
 import { bum } from '../components/bum';
@@ -20,7 +20,7 @@ const RANGES = [1, 7, 30, 90];
 const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const daysAgo = (today: Date, n: number) => { const d = new Date(today.getFullYear(), today.getMonth(), today.getDate()); d.setDate(d.getDate() - n); return dayKey(d); };
 
-/** So tổng token của `range` ngày kết thúc hôm nay với `range` ngày liền trước (theo ngày địa phương). */
+/** Compare total tokens for the `range` days ending today against the previous `range` days (by local date). */
 export function comparePeriods(days: DayStat[], range: number, today: Date): { current: number; previous: number; pct: number | null } {
   const curFrom = daysAgo(today, range - 1);
   const prevFrom = daysAgo(today, 2 * range - 1);
@@ -46,7 +46,7 @@ function dayChart(days: DayStat[], onPick: (d: DayStat) => void): SVGElement {
   const hot = [...days].sort((a, b) => b.tokens - a.tokens)[0];
   days.forEach((d, i) => {
     const bh = Math.max((d.tokens / max) * H, 1);
-    // Cột bo góc trên: vẽ cao thêm r rồi cắt đáy bằng clipPath.
+    // Rounded top corners: draw taller by r and clip the bottom with clipPath.
     const bar = svg('rect', { class: `bar${d === hot ? ' hot' : ''}`, x: i * (w + gap), y: H - bh, width: w, height: bh + r, rx: r, 'data-day': d.day });
     const title = svg('title', {});
     title.textContent = t('ov.barTitle', { day: d.day, tokens: fmtTokens(d.tokens), n: d.prompts });
@@ -77,14 +77,14 @@ export async function mountOverview(el: HTMLElement) {
   let report: SkillReport | null = null;
   let limits: LimitState | null = null;
   let info: BumInfo = EMPTY_BUM_INFO;
-  /** Số hội thoại có lượt trong khoảng đang chọn, theo công cụ. */
+  /** Number of conversations with turns in the selected range, per tool. */
   let convCounts: Record<string, number> = {};
   let seq = 0;
   let convSeq = 0;
 
   const go = (filter: object) => update({ view: 'conversations', filter: { tool: state.scope, ...filter }, conversation: null, turn: null });
 
-  /** Tối đa 3 gợi ý: lượt bất thường → skill tốn base token mà 30 ngày không dùng → project chiếm nhiều nhất. */
+  /** Up to 3 suggestions: unusual turns → skills that cost base tokens but were unused for 30 days → the project taking the most. */
   const insights = (): HTMLElement[] => {
     const out: HTMLElement[] = [];
     if (counts?.anomalous) {
@@ -160,7 +160,7 @@ export async function mountOverview(el: HTMLElement) {
                 h('span', { class: 'name' }, modelTag(m.model, m.tool)),
                 h('span', { class: 'num dim' }, t('ov.modelMeta', { calls: m.calls, n: m.prompts })),
                 h('span', { class: 'tok' }, meterEl(m.tokens, maxM, d.color), h('span', { class: 'num' }, d.realTokens ? fmtTokens(m.tokens) : `~${fmtTokens(m.tokens)}`)),
-                // Credit là số liệu chính của Kiro: cột riêng, luôn hiện (khác cột "đầu ra" phụ bị ẩn ở khung hẹp).
+                // Credits are Kiro's headline metric: its own column, always shown (unlike the secondary "output" column hidden at narrow widths).
                 d.credits ? h('span', { class: 'num ov-credit' }, fmtCredits(m.credits)) : h('span', { class: 'num dim' }, t('ov.output', { tokens: fmtTokens(m.output) })));
             }),
             models.some((m) => !toolDef(m.tool).realTokens) ? h('p', { class: 'sub' }, t('ov.estNote')) : null)),
@@ -168,7 +168,7 @@ export async function mountOverview(el: HTMLElement) {
     );
   };
 
-  /** Đếm hội thoại theo khoảng + công cụ: `list_conversations` trả tổng trước khi cắt `limit`. */
+  /** Count conversations by range + tool: `list_conversations` returns the total before applying `limit`. */
   const loadConvs = async () => {
     const my = ++convSeq;
     const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - (range - 1));

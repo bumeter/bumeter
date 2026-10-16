@@ -1,4 +1,4 @@
-// Không mở cửa sổ console trên Windows.
+// Don't open a console window on Windows.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
@@ -18,12 +18,12 @@ fn main() {
         .manage(state::AppState::load())
         .manage(skills::PendingPlans::default())
         .setup(|app| {
-            // Máy đã bật theo dõi giới hạn bằng `tk`: trỏ hook sang `bum` (best effort).
+            // The machine already had limit tracking enabled via `tk`: point the hook at `bum` (best effort).
             if let Some(state) = app.try_state::<state::AppState>() {
                 match settings::setup(&state).migrate_legacy_hook() {
-                    Ok(true) => eprintln!("bumeter: đã chuyển hook statusline từ tk sang bum"),
+                    Ok(true) => eprintln!("bumeter: migrated statusline hook from tk to bum"),
                     Ok(false) => {}
-                    Err(e) => eprintln!("bumeter: không chuyển được hook statusline: {e}"),
+                    Err(e) => eprintln!("bumeter: could not migrate statusline hook: {e}"),
                 }
             }
             tray::create(app.handle())?;
@@ -32,9 +32,9 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![commands::call, settings::settings, skills::skills])
         .build(tauri::generate_context!())
-        .expect("không khởi tạo được app")
+        .expect("failed to initialize app")
         .run(|app, event| {
-            // Đóng cửa sổ không thoát app; chỉ menu "Thoát" (có exit code) mới thoát.
+            // Closing the window doesn't quit the app; only the "Quit" menu item (with an exit code) quits.
             if let RunEvent::ExitRequested { api, code, .. } = event {
                 if code.is_none() {
                     api.prevent_exit();

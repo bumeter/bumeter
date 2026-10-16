@@ -12,7 +12,7 @@ body {
 
 .app { display: grid; grid-template-columns: 220px minmax(360px, 1fr) 340px; height: 100vh; }
 
-/* Sidebar: trong mờ nếu WebView hỗ trợ, không thì nền đặc. */
+/* Sidebar: translucent if the WebView supports it, otherwise a solid background. */
 .sidebar {
   background: var(--sidebar);
   border-right: var(--hair) solid var(--separator);
@@ -71,7 +71,7 @@ body {
 .empty { color: var(--label-3); text-align: center; padding: 48px 20px; font-size: 13px; }
 .scroll { overflow: auto; flex: 1; min-height: 0; }
 
-/* Danh sách lần hỏi */
+/* Prompt list */
 .list-summary { font-size: 11px; color: var(--label-3); padding: 6px 16px 0; flex: none; }
 .list-summary:empty { display: none; }
 .group-header {
@@ -85,7 +85,7 @@ body {
 .side-item:disabled { color: var(--label-3); }
 .side-item:disabled svg { color: var(--label-3); }
 
-/* Panel chi tiết */
+/* Detail panel */
 .toolbar.end { justify-content: flex-end; gap: 8px; }
 .pad { padding: 18px 20px 24px; }
 .question { font: 600 15px/1.35 var(--font); letter-spacing: -0.2px; margin: 0 0 6px; user-select: text; }
@@ -117,7 +117,7 @@ svg.calls rect.out { fill: var(--green); }
 .actions { display: flex; gap: 8px; margin-top: 18px; }
 .button:disabled { opacity: 0.5; }
 
-/* Cài đặt */
+/* Settings */
 .app.settings-view { grid-template-columns: 220px 1fr; }
 .app.conv-view { grid-template-columns: 220px minmax(340px, 420px) minmax(380px, 1fr); }
 .app.settings-view .detail-pane { display: none; }
@@ -169,7 +169,7 @@ code { font: 12px ui-monospace, "SF Mono", Menlo, monospace; background: var(--f
 .sheet input.wide:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-tint); border-color: var(--accent); }
 .group-header.caps span:first-child { text-transform: uppercase; }
 
-/* Phân tích phiên */
+/* Session analysis */
 :root { --c-system: #8e8e93; --c-skill: var(--purple); --c-file_read: var(--accent); --c-tool_io: var(--orange); --c-thinking: #30b0c7; --c-output: var(--green); --c-user: #ff2d55; }
 svg.area { display: block; background: var(--fill); border-radius: var(--radius-m); cursor: crosshair; }
 svg.area .layer { opacity: 0.85; stroke: none; }
@@ -203,7 +203,7 @@ details.tool pre { font: 11.5px/1.45 ui-monospace, "SF Mono", Menlo, monospace; 
 .diff .add { color: var(--green); background: color-mix(in srgb, var(--green) 10%, transparent); }
 .diff .same { color: var(--label-2); }
 
-/* Project + Ngày */
+/* Project + Days */
 svg.days { display: block; margin: 14px 0 8px; }
 svg.days rect.bar { fill: var(--accent); opacity: 0.85; cursor: default; }
 svg.days rect.bar:hover { opacity: 1; }
@@ -211,11 +211,11 @@ svg.days rect.bar.hot { fill: var(--red); }
 svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .quota-scope { font: 600 10.5px var(--font); color: var(--label-3); margin-top: 8px; letter-spacing: 0.2px; }
 
-/* Phạm vi công cụ (đầu sidebar) */
+/* Tool scope (top of the sidebar) */
 .glyph { --tc: var(--grey); width: 18px; height: 18px; border-radius: 5px; display: inline-grid; place-items: center; font: 700 10.5px var(--font); color: #fff; background: var(--tc); flex: none; }
 .glyph.all { background: var(--accent); }
 
-/* Tag công cụ và model: màu lấy từ backend qua --tc */
+/* Tool and model tags: color comes from the backend via --tc */
 .ttag { --tc: var(--grey); display: inline-flex; align-items: center; gap: 4px; font: 600 10.5px var(--font); padding: 1px 7px 1px 2px; border-radius: 9px; margin-right: 6px; vertical-align: 1px;
   background: color-mix(in srgb, var(--tc) 15%, transparent); color: var(--tc); }
 .ttag .glyph { width: 14px; height: 14px; font-size: 8.5px; border-radius: 4px; }
@@ -230,9 +230,9 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .select { font: 500 12px var(--font); height: 24px; padding: 0 6px; border-radius: var(--radius-s); background: var(--button-bg); border: var(--hair) solid var(--button-border); color: var(--label); max-width: 180px; }
 .chips { align-items: center; }
 
-/* Danh sách hội thoại */
+/* Conversation list */
 
-/* Chi tiết hội thoại: danh sách lượt, mở rộng để xem hỏi/đáp */
+/* Conversation detail: list of turns, expand to see Q/A */
 .dh { padding: 14px 20px 12px; border-bottom: var(--hair) solid var(--separator); flex: none; }
 .dh h2 { font: 700 16px var(--font); margin: 6px 0 4px; letter-spacing: -0.2px; }
 .dh .sub.models { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
@@ -263,7 +263,7 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .exp .cell b { font-size: 14px; }
 .exp .callout, .exp .note, .exp .actions { margin: 0; }
 
-/* Tổng quan */
+/* Overview */
 .overview .cells { margin-top: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 900px) { .overview .cells { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .insight { display: block; width: 100%; text-align: left; margin: 8px 0 0; padding: 9px 12px; border-radius: var(--radius-m); border: var(--hair) solid var(--callout-border); background: var(--callout-bg); font: 12.5px var(--font); color: var(--label); }
@@ -280,7 +280,7 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
   .ov-row .skills, .ov-row > .num.dim { display: none; }
 }
 
-/* Cài skill: tab tìm trên skills.sh */
+/* Install skill: tab to search skills.sh */
 .install .segmented { margin: 4px 0 10px; }
 .install-body { display: flex; flex-direction: column; gap: 8px; min-width: min(460px, 80vw); }
 .market-results { max-height: 300px; overflow: auto; display: flex; flex-direction: column; }
@@ -289,11 +289,11 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .market-row .what b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .install .warning { margin: 4px 0; }
 
-/* Logo công cụ thay cho ô chữ cái */
+/* Tool logo in place of the letter box */
 .glyph.logo { background: transparent; overflow: hidden; }
 .glyph.logo img { width: 100%; height: 100%; display: block; object-fit: contain; }
 
-/* Màn Skill: số đếm, nhãn cảnh báo, chip, thẻ, công tắc */
+/* Skills screen: counts, warning badge, chips, cards, switch */
 .count-pill { font: 600 11.5px var(--font); color: var(--label-2); background: var(--fill); border-radius: 10px; padding: 1px 8px; }
 .warn-badge { border: var(--hair) solid var(--callout-border); background: var(--callout-bg); color: var(--orange); font: 500 12px var(--font); border-radius: 12px; padding: 2px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42%; }
 .warn-badge:focus-visible, .switch:focus-visible, .skill-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -324,14 +324,14 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .market-row .src { color: var(--accent); }
 .market-row .installed { color: var(--green); font: 500 11.5px var(--font); white-space: nowrap; }
 
-/* Tổng quan: thẻ gợi ý có nút hành động */
+/* Overview: suggestion cards with an action button */
 .insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 12px; }
 .insights .insight { margin: 0; display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: var(--radius-l); cursor: default; }
 .insight .ititle { font: 600 13px var(--font); }
 .insight .ibody { font-size: 12px; color: var(--label-2); flex: 1; }
 .insight .action { align-self: flex-start; }
 
-/* Sidebar mới: thương hiệu + thẻ Bum */
+/* New sidebar: brand + Bum card */
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 17px; letter-spacing: -0.6px; margin: 0 6px 14px; flex: none; }
 .brand svg { flex: none; }
 .side-item .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -343,12 +343,12 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .bumcard .fuel { margin-top: 6px; }
 .bumcard .fuel .bar { width: 100%; }
 
-/* Bố cục theo độ rộng (#app[data-layout]); đặt cuối để thắng .settings-view/.conv-view */
+/* Width-based layout (#app[data-layout]); placed last to beat .settings-view/.conv-view */
 .app[data-layout="wide"] { grid-template-columns: 220px minmax(360px, 1fr) 340px; }
 .app[data-layout="wide"].settings-view { grid-template-columns: 220px 1fr; }
 .app[data-layout="wide"].conv-view { grid-template-columns: 220px minmax(340px, 420px) minmax(380px, 1fr); }
 
-/* medium: cột icon + danh sách; ngăn chi tiết ẩn (ngăn kéo ở Task 5) */
+/* medium: icon column + list; the detail pane is hidden (drawer lands in Task 5) */
 .app[data-layout="medium"], .app[data-layout="medium"].settings-view, .app[data-layout="medium"].conv-view { grid-template-columns: 64px minmax(0, 1fr); }
 .app[data-layout="medium"] .detail-pane { display: none; }
 .app[data-layout="medium"] .sidebar, .app[data-layout="narrow"] .sidebar { padding: 10px 8px; }
@@ -360,7 +360,7 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .app[data-layout="medium"] .side-item { width: 44px; height: 36px; padding: 0; justify-content: center; }
 .app[data-layout="medium"] .bumcard { padding: 8px; background: transparent; }
 
-/* narrow: một cột, thanh tab ở trên */
+/* narrow: single column, tab bar on top */
 .app[data-layout="narrow"], .app[data-layout="narrow"].settings-view, .app[data-layout="narrow"].conv-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
 .app[data-layout="narrow"] .detail-pane { display: none; }
 .app[data-layout="narrow"] .sidebar { flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; border-right: 0; border-bottom: var(--hair) solid var(--separator); position: relative; }
@@ -371,7 +371,7 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .app[data-layout="narrow"] .side-item { width: 40px; height: 36px; padding: 0; justify-content: center; flex: none; }
 .app[data-layout="narrow"] .bumcard { margin: 0 0 0 auto; padding: 4px; background: transparent; flex: none; }
 
-/* Tổng quan (Bumeter): thẻ, biểu đồ + gợi ý, project/model */
+/* Overview (Bumeter): cards, chart + suggestions, projects/models */
 .overview .ov-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .overview .ov-card { display: flex; align-items: center; gap: 14px; }
 .overview .ov-card .lbl { font: 600 11.5px var(--font); color: var(--ink2); }

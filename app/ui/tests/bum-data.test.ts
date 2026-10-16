@@ -8,11 +8,11 @@ const base = (anomaly: (p: any) => unknown) => ({
   day_stats: () => [],
   settings_get: () => ({ config: { quota_thresholds: [70, 90] } }),
   latest_anomaly_ts: anomaly,
-  list_conversations: () => { throw new Error('không được dùng list_conversations cho mốc bất thường'); },
+  list_conversations: () => { throw new Error('must not use list_conversations for the anomaly mark'); },
 });
 
-describe('loadBumInfo — mốc bất thường chung nguồn với tray', () => {
-  it('lấy anomalyTs từ RPC latest_anomaly_ts, truyền phạm vi công cụ', async () => {
+describe('loadBumInfo — anomaly mark shares its source with the tray', () => {
+  it('takes anomalyTs from the latest_anomaly_ts RPC, passing the tool scope', async () => {
     const f = fake(base(() => '2026-09-11T06:00:00.000Z'));
     const info = await loadBumInfo('kiro');
     expect(info.anomalyTs).toBe('2026-09-11T06:00:00.000Z');
@@ -20,12 +20,12 @@ describe('loadBumInfo — mốc bất thường chung nguồn với tray', () =>
     expect(f.calls.some((c) => c.method === 'list_conversations')).toBe(false);
   });
 
-  it('chưa có bất thường → null', async () => {
+  it('no anomaly yet → null', async () => {
     fake(base(() => null));
     expect((await loadBumInfo()).anomalyTs).toBeNull();
   });
 
-  it('mock vite preview có lệnh latest_anomaly_ts', async () => {
+  it('mock vite preview has the latest_anomaly_ts command', async () => {
     const v = await mockTransport.call('latest_anomaly_ts', {});
     expect(v === null || typeof v === 'string').toBe(true);
   });

@@ -1,4 +1,4 @@
-//! Lệnh cho màn Cài đặt: đọc/ghi config, bật/gỡ theo dõi giới hạn qua statusline (spec mục 7.1).
+//! Commands for the Settings screen: read/write config, enable/remove limit tracking via statusline (spec section 7.1).
 use serde_json::{json, Value};
 use tauri::State;
 use bum_adapters::claude_code::statusline::StatuslineSetup;
@@ -6,7 +6,7 @@ use bum_core::config::Config;
 
 use crate::state::AppState;
 
-/// Đường dẫn `bum`: `BUM_BIN` (hoặc `TK_BIN` cũ), hoặc file nằm cạnh app, hoặc tìm trong PATH.
+/// Path to `bum`: `BUM_BIN` (or the old `TK_BIN`), or a file next to the app, or searched in PATH.
 pub fn bum_bin() -> String {
     if let Ok(p) = std::env::var("BUM_BIN").or_else(|_| std::env::var("TK_BIN")) {
         return p;
@@ -51,6 +51,6 @@ pub fn settings(state: State<'_, AppState>, action: String, params: Option<Value
             state.set_lang(cfg.language);
             Ok(json!(true))
         }
-        other => Err(format!("không có thao tác '{other}'")),
+        other => Err(format!("no such action '{other}'")),
     }
 }

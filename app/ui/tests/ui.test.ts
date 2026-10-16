@@ -36,7 +36,7 @@ describe('ui builders', () => {
 });
 
 describe('emptyState', () => {
-  it('Bum sleep aria-hidden + title + body + nút', () => {
+  it('Bum sleep aria-hidden + title + body + button', () => {
     const fn = vi.fn();
     const e = emptyState({ title: '<b>T</b>', body: 'B', action: 'Go', onAction: fn });
     expect(e.classList.contains('empty')).toBe(true);
@@ -47,7 +47,7 @@ describe('emptyState', () => {
     (e.querySelector('button[data-action="empty"]') as HTMLButtonElement).click();
     expect(fn).toHaveBeenCalledOnce();
   });
-  it('không action thì không có nút', () => {
+  it('no action means no button', () => {
     expect(emptyState({ title: 'T' }).querySelector('button')).toBeNull();
   });
 });

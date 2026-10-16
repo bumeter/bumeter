@@ -1,6 +1,6 @@
-/* Component dùng chung cho giao diện Bumeter (spec mục 3.1/3.2).
-   Phẳng: nền màu đặc, không đổ bóng cho nút/chip/panel — bóng chỉ
-   dành cho lớp nổi (ngăn kéo, hộp thoại, menu), xem layout.css: .sheet/.overlay. */
+/* Shared components for the Bumeter UI (spec sections 3.1/3.2).
+   Flat: solid backgrounds, no shadows on buttons/chips/panels — shadows are
+   only for floating layers (drawer, dialog, menu), see layout.css: .sheet/.overlay. */
 
 .panel {
   background: var(--surf);
@@ -158,13 +158,13 @@ div.bar i {
 @keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .drawer { animation: none; } }
 
-/* ---- Hội thoại (spec 4.2) ---- */
+/* ---- Conversations (spec 4.2) ---- */
 .conv-list { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .conv-list[hidden] { display: none; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 14px 6px; }
 .filters .menus, .filters .quick { display: contents; }
 .conv-panel { margin: 6px 14px 14px; padding: 4px 0 6px; border-radius: var(--r-panel); background: var(--surf); border: 1px solid var(--line); }
-/* Tiêu đề ngày: dải nền chìm, chữ nhỏ nhạt — khác hẳn dòng hội thoại (đậm, nền thẻ). */
+/* Day header: muted background strip, small faint text — clearly distinct from conversation rows (bold, card background). */
 .conv-panel .group-header { position: sticky; top: 0; background: var(--sunk); border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 7px 16px; font: 600 11.5px var(--font); letter-spacing: .02em; color: var(--ink2); }
 .conv-panel .group-header span:last-child { color: var(--ink2); font-weight: 500; }
 .conv-panel .group-header.today span:first-child { color: var(--acc2); font-weight: 700; }
@@ -198,7 +198,7 @@ div.bar i {
 .callout.why { display: flex; gap: 10px; align-items: flex-start; background: var(--tint); border: 0; border-radius: var(--r-box); }
 .drawer-body .scroll.turns { overflow: visible; }
 
-/* Màn Skill (spec 4.3) */
+/* Skills screen (spec 4.3) */
 .sk-list { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .sk-list[hidden] { display: none; }
 .sk-narrow, .sk-detail { display: flex; flex-direction: column; min-height: 0; flex: 1; }
@@ -217,7 +217,7 @@ div.bar i {
 .sk-list .empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 20px; color: var(--ink2); }
 .sk-list .empty p { margin: 0; }
 
-/* Cài đặt: các khung Chung / Công cụ / Giới hạn & thông báo / Chẩn đoán */
+/* Settings: the General / Tools / Limits & notifications / Diagnostics sections */
 .settings { display: flex; flex-direction: column; gap: 14px; }
 .settings .panel h2 { font: 800 13px var(--font); color: var(--ink); margin: 0 0 10px; }
 .settings .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; font-size: 13px; }
@@ -244,7 +244,7 @@ div.bar i {
 .settings .message { color: var(--ink2); font-size: 12px; margin: 0; }
 .settings .message.error { color: var(--red); }
 
-/* Hàng tab công cụ dưới thanh tiêu đề: gạch chân cam ở tab đang chọn, nhiều công cụ thì cuộn ngang. */
+/* Tool tab row below the title bar: orange underline on the selected tab, scrolls horizontally with many tools. */
 .tool-tabs { display: flex; flex: none; gap: 2px; padding: 0 12px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
 .tool-tabs::-webkit-scrollbar { display: none; }
 .tool-tab { flex: none; display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink2); font: 600 12.5px var(--font); white-space: nowrap; cursor: default; }

@@ -8,8 +8,8 @@ const CATS = ['system', 'skill', 'file_read', 'tool_io', 'thinking', 'output', '
 const call = (i: number, ctx: number) => ({ request_id: `r${i}`, ts: '2026-09-11T05:00:00Z', context: ctx, output: 10, parts: CATS.map((c, k) => [c, k === 2 ? ctx - 100 : k === 0 ? 100 : 0] as [string, number]) });
 
 describe('areaLayout', () => {
-  it('rỗng thì không vẽ', () => { expect(areaLayout([], 600, 160).xs).toEqual([]); });
-  it('đỉnh chồng bằng context theo tỉ lệ, gộp khi quá nhiều điểm', () => {
+  it('empty draws nothing', () => { expect(areaLayout([], 600, 160).xs).toEqual([]); });
+  it('stacked top equals context proportionally, merged when too many points', () => {
     const l = areaLayout([call(0, 500), call(1, 1000)], 600, 160);
     expect(l.xs.length).toBe(2);
     expect(l.top[1]).toBeCloseTo(0);
@@ -22,7 +22,7 @@ describe('areaLayout', () => {
 
 const analysis = () => ({
   calls: [call(0, 1010), call(1, 5000), call(2, 30000)],
-  prompts: [{ call_index: 0, key: 'p1', text: 'sửa lỗi <b>a.rs</b>' }],
+  prompts: [{ call_index: 0, key: 'p1', text: 'fix bug <b>a.rs</b>' }],
   compactions: [2],
   suggestions: [{ code: 'repeated_read', file: '/src/a.rs <script>', times: 3, tokens: 2000 }],
 });
@@ -38,8 +38,8 @@ beforeEach(() => {
   update({ view: 'session', session: 's9', conversation: null });
 });
 
-describe('màn Phân tích phiên', () => {
-  it('hiện tổng quan, gợi ý dạng chữ và chọn lượt gọi cuối', async () => {
+describe('session analysis screen', () => {
+  it('shows the overview, text suggestions, and selects the last call', async () => {
     const f = fake({ session_analysis: analysis, call_detail: detail });
     await mountSession(el, 's9');
     await flush(); await flush();
@@ -52,7 +52,7 @@ describe('màn Phân tích phiên', () => {
     expect(f.calls.find((c) => c.method === 'call_detail')!.params).toEqual({ session_id: 's9', request_id: 'r2' });
   });
 
-  it('diff của Edit hiện dòng − và +', async () => {
+  it('Edit diff shows − and + lines', async () => {
     fake({ session_analysis: analysis, call_detail: detail });
     await mountSession(el, 's9');
     await flush(); await flush();
@@ -60,7 +60,7 @@ describe('màn Phân tích phiên', () => {
     expect(lines).toEqual(['- let b = 2;', '+ let b = 3;']);
   });
 
-  it('bấm vào lượt gọi khác thì tải chi tiết lượt đó; nút quay lại về Hội thoại', async () => {
+  it('clicking another call loads that call detail; the back button returns to Conversations', async () => {
     const f = fake({ session_analysis: analysis, call_detail: detail });
     await mountSession(el, 's9');
     await flush();
@@ -72,37 +72,37 @@ describe('màn Phân tích phiên', () => {
   });
 });
 
-describe('an toàn khi chuyển màn', () => {
-  it('phân tích xong muộn thì không vẽ đè lên màn khác', async () => {
+describe('safety when switching screens', () => {
+  it('a late analysis result does not paint over another screen', async () => {
     let resolve!: (v: unknown) => void;
     fake({ session_analysis: () => new Promise((r) => { resolve = r; }), call_detail: detail });
     const p = mountSession(el, 's9');
     await flush();
     update({ view: 'settings' });
-    el.textContent = 'màn cài đặt';
+    el.textContent = 'settings screen';
     resolve(analysis());
     await p; await flush();
-    expect(el.textContent).toBe('màn cài đặt');
+    expect(el.textContent).toBe('settings screen');
   });
 
-  it('lỗi tải chi tiết lượt gọi thì báo cho người dùng', async () => {
-    fake({ session_analysis: analysis, call_detail: () => { throw new Error('không có lượt gọi này'); } });
+  it('a call detail load error is reported to the user', async () => {
+    fake({ session_analysis: analysis, call_detail: () => { throw new Error('no such call'); } });
     await mountSession(el, 's9');
     await flush(); await flush();
-    expect(el.textContent).toContain('không có lượt gọi này');
+    expect(el.textContent).toContain('no such call');
   });
 
-  it('lỗi phân tích: Bum + nút quay lại Hội thoại', async () => {
-    fake({ session_analysis: () => { throw new Error('hỏng log'); } });
+  it('analysis error: Bum + back-to-Conversations button', async () => {
+    fake({ session_analysis: () => { throw new Error('broken log'); } });
     await mountSession(el, 's9');
     await flush(); await flush();
     expect(el.querySelector('.empty svg[aria-hidden="true"]')).not.toBeNull();
-    expect(el.textContent).toContain('hỏng log');
+    expect(el.textContent).toContain('broken log');
     (el.querySelector('.empty [data-action="empty"]') as HTMLButtonElement).click();
     expect(state.view).toBe('conversations');
   });
 
-  it('biểu đồ, thành phần và gợi ý nằm trong .panel riêng; gợi ý là insight', async () => {
+  it('chart, composition and suggestions are in their own .panel; suggestions are insights', async () => {
     fake({ session_analysis: analysis, call_detail: detail });
     await mountSession(el, 's9');
     await flush(); await flush();

@@ -1,4 +1,4 @@
-// Ngăn kéo bên phải (spec 3.2): nền mờ + panel ~60% rộng. Nội dung do caller dựng bằng h().
+// Right-side drawer (spec 3.2): dimmed backdrop + panel ~60% wide. Content is built by the caller with h().
 import { h } from '../dom';
 import { t } from '../i18n';
 

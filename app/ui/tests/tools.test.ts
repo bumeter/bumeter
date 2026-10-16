@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { fake, SOURCES, SOURCES_NO_ICON } from './fake';
 import { glyph, loadSources, toolTag } from '../src/tools';
 
-describe('logo công cụ', () => {
+describe('tool logo', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
 
-  it('có logo thì hiện ảnh từ tool-icons/, kèm tên để đọc màn hình', async () => {
+  it('with a logo, shows the image from tool-icons/, with the name for screen readers', async () => {
     fake({ sources: () => SOURCES });
     await loadSources();
     const g = glyph('kiro');
@@ -16,7 +16,7 @@ describe('logo công cụ', () => {
     expect(toolTag('claude_code').textContent).toBe('Claude Code');
   });
 
-  it('ảnh lỗi thì quay về ô chữ cái màu', async () => {
+  it('image error falls back to the colored letter box', async () => {
     fake({ sources: () => SOURCES });
     await loadSources();
     const g = glyph('claude_code');
@@ -26,7 +26,7 @@ describe('logo công cụ', () => {
     expect(g.classList.contains('logo')).toBe(false);
   });
 
-  it('không có logo (công cụ mới, công cụ lạ) thì là ô chữ cái', async () => {
+  it('no logo (new tool, unknown tool) means a letter box', async () => {
     fake({ sources: () => SOURCES_NO_ICON });
     await loadSources();
     expect(glyph('kiro').textContent).toBe('K');
@@ -34,7 +34,7 @@ describe('logo công cụ', () => {
     expect(glyph('kiro').querySelector('img')).toBeNull();
   });
 
-  it('tên file logo lạ (có đường dẫn) bị bỏ qua', async () => {
+  it('an odd logo file name (with a path) is ignored', async () => {
     fake({ sources: () => SOURCES.map((s) => ({ ...s, info: { ...s.info, icon: '../../evil.svg' } })) });
     await loadSources();
     expect(glyph('kiro').querySelector('img')).toBeNull();

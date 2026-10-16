@@ -1,4 +1,4 @@
-// Trạng thái giao diện. Đăng ký nhận thay đổi đơn giản.
+// UI state. Simple change subscription.
 import type { ConversationFilter } from './api';
 import type { Lang } from './i18n';
 import type { Layout } from './layout';
@@ -7,17 +7,17 @@ export type View = 'overview' | 'conversations' | 'skills' | 'settings' | 'sessi
 
 export interface UiState {
   view: View;
-  /** Phạm vi công cụ áp dụng cho cả app; `undefined` = tất cả. */
+  /** Tool scope applied across the app; `undefined` = all tools. */
   scope: string | undefined;
   filter: ConversationFilter;
-  /** Hội thoại đang mở (session id). */
+  /** Currently open conversation (session id). */
   conversation: string | null;
-  /** Lượt đang mở rộng (prompt key). */
+  /** Turn currently expanded (prompt key). */
   turn: string | null;
-  /** Phiên đang phân tích context. */
+  /** Session whose context is being analyzed. */
   session?: string | null;
   lang: Lang;
-  /** Bố cục theo độ rộng (main.ts đặt). */
+  /** Width-based layout (set by main.ts). */
   layout: Layout;
 }
 

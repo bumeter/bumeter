@@ -1,8 +1,8 @@
-/* Design token — phong cách Bumeter: cam ấm, thân thiện, phẳng (spec mục 2, 3.1). */
+/* Design tokens — Bumeter style: warm orange, friendly, flat (spec sections 2, 3.1). */
 :root {
   --font: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
 
-  /* Token mới (mockup chuẩn bumeter-ui-mascot.html, .u sáng) */
+  /* New tokens (from the standard mockup bumeter-ui-mascot.html, light `.u`) */
   --bg: #faf7f4;
   --surf: #ffffff;
   --sunk: #f4efea;
@@ -16,7 +16,7 @@
   --red: #ff4b2b;
   --grn: #22a05a;
 
-  /* Linh vật Bum (components/bum.ts) — mặc định sáng. */
+  /* Bum mascot (components/bum.ts) — light by default. */
   --bum-body: #ff7a1a;
   --bum-face: #3a1c0c;
   --bum-cheek: #ffb27a;
@@ -29,8 +29,8 @@
   --r-tag: 5px;
   --sp: 4px;
 
-  /* Bí danh token cũ → token mới, để layout.css hiện có ăn theo bảng màu cam
-     mới mà không phải viết lại từng luật (task sau sẽ thay markup dần). */
+  /* Old token aliases → new tokens, so the existing layout.css follows the new
+     orange palette without rewriting every rule (later tasks will migrate the markup gradually). */
   --sidebar: var(--surf);
   --sidebar-glass: var(--surf);
   --toolbar: var(--surf);
@@ -73,7 +73,7 @@
     --red: #ff5a3a;
     --grn: #3dcc7e;
 
-    /* Tối: mặt Bum lấy màu nền panel (#1f1a16) để trông như "khoét" ra khỏi thân. */
+    /* Dark: Bum's face takes the panel background color (#1f1a16) so it looks "carved" out of the body. */
     --bum-body: #ff7a1a;
     --bum-face: var(--surf);
     --bum-cheek: #ffb27a;

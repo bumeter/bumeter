@@ -1,4 +1,4 @@
-// Màn Hội thoại: danh sách hội thoại nhóm theo ngày, lọc theo Project / Model / thời gian / lọc nhanh.
+// Conversations screen: conversation list grouped by day, filtered by Project / Model / time range / quick filters.
 import { api } from '../api';
 import type { Conversation, ConversationList, ModelStat, Quick } from '../api';
 import { chipMenu, chipMultiMenu } from '../components/chipMenu';
@@ -37,7 +37,7 @@ function rangeFrom(days: number | null): string | undefined {
 
 const CONTEXT_THRESHOLD = 300_000;
 
-/** Thanh nhiên liệu + số token: đỏ khi hội thoại tốn bất thường; công cụ không ghi token thì số có "~". */
+/** Fuel bar + token count: red when the conversation is unusually costly; tools that do not log tokens get a "~". */
 function fuelEl(c: Conversation, max: number): HTMLElement {
   const d = toolDef(c.tool);
   const pct = max > 0 ? Math.max(2, Math.min(100, Math.round((c.tokens / max) * 100))) : 0;
@@ -75,7 +75,7 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
   let models: ModelStat[] = [];
   let drawer: { close(): void; el: HTMLElement } | null = null;
   let narrowOpen = false;
-  let keepMenus = false; // đang chọn trong menu đa chọn: không dựng lại chip (popover đang mở)
+  let keepMenus = false; // selecting inside a multi-select menu: do not rebuild the chip (popover is open)
 
   const input = h('input', { type: 'search', placeholder: t('conv.search'), 'aria-label': t('conv.search'), value: state.filter.q ?? '' }) as HTMLInputElement;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -129,7 +129,7 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
     });
   };
 
-  // ---- Chi tiết theo bố cục: wide = cột phải, medium = ngăn kéo, narrow = thay danh sách ----
+  // ---- Detail by layout: wide = right column, medium = drawer, narrow = replaces the list ----
   const closeDrawer = () => { const d = drawer; drawer = null; d?.close(); };
   const closeNarrow = () => {
     if (!narrowOpen) return;
@@ -182,7 +182,7 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
     order = list.days.flatMap((d) => d.conversations.map((c) => c.session_id));
     titles = new Map(list.days.flatMap((d) => d.conversations.map((c) => [c.session_id, c.title || t('conv.untitled')] as const)));
     pill.replaceChildren(countPill(list.total_conversations));
-    // Phạm vi "Tất cả": thêm số hội thoại theo từng công cụ (chỉ trong phần đã tải).
+    // "All" scope: also add the conversation count per tool (only within the loaded part).
     const byTool = new Map<string, number>();
     list.days.forEach((d) => d.conversations.forEach((c) => byTool.set(c.tool, (byTool.get(c.tool) ?? 0) + 1)));
     const breakdown = !state.scope && byTool.size > 1 ? ` · ${[...byTool].map(([k, n]) => `${toolDef(k).label} ${n}`).join(' · ')}` : '';
@@ -213,7 +213,7 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
   const load = async () => {
     const seq = ++loadSeq;
     const list = await api.listConversations({ ...state.filter, tool: state.scope, limit });
-    if (seq !== loadSeq) return; // có lần tải mới hơn
+    if (seq !== loadSeq) return; // there is a newer load
     renderList(list);
     if (!order.length) update({ conversation: null, turn: null });
     else if (!state.conversation) update({ conversation: order[0], turn: null });
@@ -225,7 +225,7 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
     const target = e.target as HTMLElement | null;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); input.focus(); return; }
     if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT') return;
-    if (drawer || narrowOpen) return; // đang xem chi tiết: ↑/↓ không đổi hội thoại phía sau
+    if (drawer || narrowOpen) return; // viewing the detail: ↑/↓ do not change the conversation behind it
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     e.preventDefault();
     const i = state.conversation ? order.indexOf(state.conversation) : -1;
@@ -246,7 +246,7 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
   });
   const offData = await api.onDataChanged(() => void load());
   cleanup = () => {
-    loadSeq = Number.MAX_SAFE_INTEGER; // huỷ các lần tải còn dở của view cũ
+    loadSeq = Number.MAX_SAFE_INTEGER; // cancel the in-flight loads of the old view
     unsub(); offData(); document.removeEventListener('keydown', onKey); clearTimeout(timer);
     closeDrawer(); unmountConversation();
   };
@@ -255,7 +255,7 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
   await Promise.all([load(), loadOptions()]);
 }
 
-/** `from` (RFC3339 UTC đầu ngày giờ máy) → `YYYY-MM-DD` giờ máy. */
+/** `from` (RFC3339 UTC start-of-day local time) → `YYYY-MM-DD` local time. */
 function localDay(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');

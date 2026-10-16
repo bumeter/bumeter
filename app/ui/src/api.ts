@@ -1,5 +1,5 @@
-// Lớp gọi lõi duy nhất của UI. Trong Tauri dùng IPC; ngoài Tauri (xem thử trên trình duyệt) dùng dữ liệu giả.
-// M8 (VS Code) chỉ cần thay transport ở đây.
+// The UI's single core-call layer. Under Tauri it uses IPC; outside Tauri (browser preview) it uses mock data.
+// M8 (VS Code) only needs to swap the transport here.
 
 export interface Usage { input: number; cache_write_5m: number; cache_write_1h: number; cache_read: number; output: number }
 export interface PromptStats {
@@ -28,10 +28,10 @@ export interface Config {
   theme?: 'system' | 'light' | 'dark';
   anomaly_multiplier: number; context_threshold: number; quota_thresholds: number[];
   notify: { quota: boolean; blocked: boolean; anomaly: boolean; context: boolean }; claude_projects_dir: string | null;
-  /** Hạn mức người dùng nhập theo công cụ (id → hạn mức); `monthly_credits` null = không theo dõi. */
+  /** Per-tool user-entered limits (id → limit); `monthly_credits` null = not tracked. */
   tool_limits?: Record<string, { monthly_credits: number | null; reset_day: number }>;
 }
-/** Hạn mức công cụ tự báo (vd Kiro `/usage`), lần lấy gần nhất. */
+/** Limits the tool reports itself (e.g. Kiro `/usage`), from the most recent fetch. */
 export interface ToolQuota { used: number; limit: number; resets_on: string; plan: string; fetched_at: number }
 export type StatuslineStatus = { kind: 'not_configured' } | { kind: 'custom'; command: string } | { kind: 'hooked'; command: string };
 export interface SettingsInfo { config: Config; statusline: StatuslineStatus; data_dir: string; parse_errors: number; tool_quotas?: Record<string, ToolQuota> }
@@ -130,7 +130,7 @@ export const api = {
   saveConfig: (config: Config) => call<boolean>('settings:save_config', { config }),
   modelStats: () => call<ModelStat[]>('model_stats'),
   projectStats: (tool?: string) => call<ProjectStat[]>('project_stats', { tool }),
-  /** Mốc bất thường mới nhất (cùng nguồn với mặt Bum ở tray), null nếu chưa có. */
+  /** Latest anomaly mark (same source as the Bum face in the tray), null if none yet. */
   latestAnomalyTs: (tool?: string) => call<string | null>('latest_anomaly_ts', { tool }),
   dayStats: (tool?: string) => call<DayStat[]>('day_stats', { tool }),
   sessionAnalysis: (session_id: string) => call<SessionAnalysis>('session_analysis', { session_id }),
@@ -142,7 +142,7 @@ export const api = {
   skillSearch: (q: string, limit = 20) => call<SkillHit[]>('skills:search', { q, limit }),
   skillLog: () => call<SkillJournalEntry[]>('skills:log'),
   onDataChanged: async (cb: (c: Change) => void) => (await getTransport()).listen('data-changed', (p) => cb(p as Change)),
-  /** Bấm dòng một công cụ trong menu tray: payload là tool id. */
+  /** Clicking a tool row in the tray menu: the payload is a tool id. */
   onTrayScope: async (cb: (tool: unknown) => void) => (await getTransport()).listen('tray-scope', cb),
   onLimitsChanged: async (cb: (l: LimitState) => void) => (await getTransport()).listen('limits-changed', (p) => cb(p as LimitState)),
 };

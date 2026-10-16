@@ -1,4 +1,4 @@
-// Tạo DOM an toàn: chuỗi luôn đi vào textContent, không bao giờ vào innerHTML.
+// Safe DOM creation: strings always go through textContent, never innerHTML.
 type Child = Node | string | number | null | undefined | false;
 type Attrs = Record<string, string | number | boolean | null | undefined | EventListener>;
 
@@ -30,7 +30,7 @@ export function svg(tag: string, attrs: Record<string, string | number> = {}, ..
   return el;
 }
 
-/** Icon nét mảnh 16×16 (dạng SF Symbols). */
+/** Thin-stroke 16×16 icon (SF Symbols style). */
 export function icon(paths: string[]): SVGElement {
   return svg('svg', { viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' },
     ...paths.map((d) => svg('path', { d })));
@@ -50,7 +50,7 @@ export const ICONS = {
   chat: ['M2.5 4a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 13.5 4v5.5A1.5 1.5 0 0 1 12 11H7l-3 2.5V11H4a1.5 1.5 0 0 1-1.5-1.5Z'],
 };
 
-/** Bỏ phần tử null (cho `replaceChildren`). */
+/** Drop null entries (for `replaceChildren`). */
 export function compact(xs: (Node | null | false | undefined)[]): Node[] {
   return xs.filter((x): x is Node => !!x);
 }

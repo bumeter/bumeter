@@ -1,4 +1,4 @@
-// Builder nhỏ dùng chung: countPill, kpi, insightRow. Chữ luôn qua textContent.
+// Small shared builders: countPill, kpi, insightRow. Text always goes through textContent.
 import { h, icon, ICONS } from '../dom';
 import { bum } from './bum';
 
@@ -19,7 +19,7 @@ export function insightRow(o: { severity: 'red' | 'acc' | 'muted'; icon: string;
     h('button', { class: 'btn', type: 'button', onclick: (() => o.onAction()) as EventListener }, o.action));
 }
 
-/** Trạng thái trống/lỗi dùng chung: Bum ngủ + một câu + (tuỳ chọn) một nút hành động. */
+/** Shared empty/error state: sleeping Bum + one sentence + (optional) one action button. */
 export function emptyState(o: { title: string; body?: string; action?: string; onAction?(): void }): HTMLElement {
   const onAction = o.onAction;
   return h('div', { class: 'empty' },

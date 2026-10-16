@@ -12,8 +12,8 @@ beforeEach(async () => {
   update({ filter: {}, view: 'overview', scope: undefined, conversation: null, turn: null });
 });
 
-describe('toolTabs (hàng tab công cụ dưới thanh tiêu đề)', () => {
-  it('hiện đủ Tất cả + từng công cụ có logo, chọn Kiro thì cả app lọc theo Kiro', () => {
+describe('toolTabs (tool tab row below the title bar)', () => {
+  it('shows All + each tool with a logo; selecting Kiro filters the whole app by Kiro', () => {
     const el = toolTabs();
     expect(el.classList.contains('tool-tabs')).toBe(true);
     document.body.replaceChildren(el);
@@ -30,7 +30,7 @@ describe('toolTabs (hàng tab công cụ dưới thanh tiêu đề)', () => {
     expect(el.querySelector('[data-scope="all"]')?.getAttribute('aria-checked')).toBe('false');
   });
 
-  it('công cụ không thấy thư mục log thì mờ, có tooltip đường dẫn', async () => {
+  it('a tool whose log folder is missing is dimmed, with a path tooltip', async () => {
     fake({ sources: () => SOURCES.map((x, i) => (i === 1 ? { ...x, found: false, root: '/no/kiro' } : x)) });
     await loadSources();
     const kiro = toolTabs().querySelector('[data-scope="kiro"]')!;
@@ -38,7 +38,7 @@ describe('toolTabs (hàng tab công cụ dưới thanh tiêu đề)', () => {
     expect(kiro.getAttribute('title')).toContain('/no/kiro');
   });
 
-  it('bấm dòng công cụ ở menu tray (event tray-scope) thì đổi phạm vi và nhớ lại; công cụ lạ bỏ qua', async () => {
+  it('clicking a tool row in the tray menu (tray-scope event) changes the scope and remembers it; unknown tools are ignored', async () => {
     const f = fake({ sources: () => SOURCES });
     await loadSources();
     await followTrayScope();
@@ -57,7 +57,7 @@ describe('toolTabs (hàng tab công cụ dưới thanh tiêu đề)', () => {
     expect(state.scope).toBe('claude_code');
   });
 
-  it('mở mới từ tray (?tray_scope=) thì dùng và nhớ phạm vi đó', () => {
+  it('opened fresh from the tray (?tray_scope=) uses and remembers that scope', () => {
     localStorage.removeItem('bumeter.scope');
     expect(scopeFromTray(new URLSearchParams('tray_scope=kiro'))).toBe('kiro');
     expect(localStorage.getItem('bumeter.scope')).toBe('kiro');

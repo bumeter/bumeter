@@ -17,12 +17,12 @@ import { state, subscribe, update } from './state';
 import type { View } from './state';
 
 const params = new URLSearchParams(location.search);
-// ?theme=light|dark, ?lang=vi|en, ?view=…, ?scope=…, ?open=1 để xem thử / chụp ảnh.
+// ?theme=light|dark, ?lang=vi|en, ?view=…, ?scope=…, ?open=1 for previewing / screenshots.
 const forced = params.get('theme');
 if (forced === 'light' || forced === 'dark') applyTheme(forced);
 const VIEWS: View[] = ['overview', 'conversations', 'skills', 'settings', 'session'];
 const skillView = params.get('skillView');
-if (skillView === 'cards' || skillView === 'table') { try { localStorage.setItem('bumeter.skillView', skillView); } catch { /* bỏ qua */ } }
+if (skillView === 'cards' || skillView === 'table') { try { localStorage.setItem('bumeter.skillView', skillView); } catch { /* ignore */ } }
 
 export async function boot() {
   const { mountSidebar, rememberedScope } = await import('./views/sidebar');
@@ -34,13 +34,13 @@ export async function boot() {
   const { loadSources } = await import('./tools');
   const { followTrayScope, scopeFromTray } = await import('./components/toolTabs');
 
-  // Ngôn ngữ lưu trong config của app; ?lang= ghi đè để xem thử.
+  // The language is stored in the app config; ?lang= overrides it for previewing.
   let lang: Lang = 'vi';
   try {
     const cfg = (await api.settings()).config;
     lang = cfg.language ?? 'vi';
-    if (!forced) applyTheme(cfg.theme ?? 'system'); // ?theme= trên URL thắng config
-  } catch { /* mặc định vi, theo hệ thống */ }
+    if (!forced) applyTheme(cfg.theme ?? 'system'); // ?theme= in the URL beats the config
+  } catch { /* default vi, follow the system */ }
   const q = params.get('lang');
   if (q === 'vi' || q === 'en') lang = q;
   setLang(lang);
@@ -50,7 +50,7 @@ export async function boot() {
   await loadSources();
 
   const view = params.get('view') as View | null;
-  // Mở từ dòng công cụ trong menu tray thì theo công cụ đó.
+  // Opening from a tool row in the tray menu follows that tool.
   const scope = (scopeFromTray(params) ?? params.get('scope') ?? rememberedScope()) || undefined;
   update({ lang, scope, filter: { tool: scope }, view: view && VIEWS.includes(view) ? view : state.view,
     session: view === 'session' ? 'mock' : state.session,
@@ -77,7 +77,7 @@ export async function boot() {
   await mountSidebar(document.getElementById('sidebar')!);
   await show();
   void followTrayScope();
-  // ?open=1: mở chi tiết của hội thoại đang chọn như khi bấm (ngăn kéo ở medium, toàn màn ở narrow) — để chụp ảnh.
+  // ?open=1: open the detail of the selected conversation as if clicking it (drawer at medium, full screen at narrow) — for screenshots.
   if (params.get('open') === '1' && state.view === 'conversations') {
     const started = Date.now();
     const tryOpen = () => {

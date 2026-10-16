@@ -1,4 +1,4 @@
-// Định dạng hiển thị theo ngôn ngữ đang chọn. Giờ luôn theo giờ máy người dùng.
+// Display formatting per the selected language. Times always follow the user's machine clock.
 import { getLang, locale, t } from './i18n';
 
 export function fmtTokens(n: number): string {
@@ -16,7 +16,7 @@ export function fmtTime(iso: string): string {
 
 const VI_DAYS = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
-/** `Thứ Sáu 11/09` / `Fri, Sep 11`. */
+/** Vietnamese weekday name + `11/09` / `Fri, Sep 11`. */
 export function fmtDay(iso: string): string {
   const d = new Date(iso);
   if (getLang() === 'vi') return `${VI_DAYS[d.getDay()]} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
@@ -30,7 +30,7 @@ export function fmtShortDate(iso: string): string {
   return d.toLocaleDateString(locale(), { month: 'short', day: 'numeric' });
 }
 
-/** Tiêu đề nhóm ngày: "Hôm nay · Thứ Sáu 25/09". `day` = `YYYY-MM-DD` giờ máy. */
+/** Day group header: "today · weekday DD/MM" in the current language. `day` = `YYYY-MM-DD` local time. */
 export function fmtDayHeader(day: string, now = new Date()): string {
   const [y, m, d] = day.split('-').map(Number);
   const date = new Date(y, m - 1, d, 12);
@@ -42,7 +42,7 @@ export function fmtDayHeader(day: string, now = new Date()): string {
   return label;
 }
 
-/** `then`, `now`: giây epoch. */
+/** `then`, `now`: epoch seconds. */
 export function fmtAgo(then: number, now: number): string {
   const s = Math.max(0, Math.round(now - then));
   if (s < 60) return t('ago.s', { n: s });
@@ -65,7 +65,7 @@ export function totalOf(u: { input: number; cache_write_5m: number; cache_write_
   return u.input + u.cache_write_5m + u.cache_write_1h + u.cache_read + u.output;
 }
 
-/** Mức tốn so với trung vị: đỏ ≥5×, cam 2–5× (spec mục 4.4). */
+/** Cost level vs the median: red ≥5×, orange 2–5× (spec section 4.4). */
 export function heat(ratio: number | null): '' | 'warm' | 'hot' {
   if (ratio == null) return '';
   return ratio >= 5 ? 'hot' : ratio >= 2 ? 'warm' : '';

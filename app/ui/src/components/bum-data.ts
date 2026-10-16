@@ -1,4 +1,4 @@
-// Dữ liệu và luật chọn biểu cảm Bum dùng chung cho thanh bên và Tổng quan.
+// Data and rules for choosing the Bum expression, shared by the sidebar and Overview.
 import { api } from '../api';
 import type { LimitState, Source } from '../api';
 import { bumStateFor } from './bum';
@@ -8,7 +8,7 @@ export interface BumInfo { today: number; avg: number | null; anomalyTs: string 
 
 export const EMPTY_BUM_INFO: BumInfo = { today: 0, avg: null, anomalyTs: null, thresholds: [70, 90] };
 
-/** Lấy token hôm nay, trung bình 30 ngày, mốc bất thường gần nhất (cùng nguồn với tray: `latest_anomaly_ts`) và ngưỡng quota. Lỗi từng phần thì dùng giá trị mặc định. */
+/** Get today's tokens, the 30-day average, the latest anomaly mark (same source as the tray: `latest_anomaly_ts`) and the quota thresholds. Partial failures fall back to defaults. */
 export async function loadBumInfo(scope?: string): Promise<BumInfo> {
   const settle = <T,>(p: Promise<T>, fallback: T) => p.catch(() => fallback);
   const [today, days, anomalies, settings] = await Promise.all([
@@ -27,7 +27,7 @@ export async function loadBumInfo(scope?: string): Promise<BumInfo> {
   };
 }
 
-/** Biểu cảm Bum + % quota 5 giờ (null nếu phạm vi không có quota). */
+/** Bum's expression + 5-hour quota % (null if the scope has no quota). */
 export function bumMood(info: BumInfo, o: { scope?: string; sources: Source[]; limits: LimitState | null }): { mood: BumState; pct: number | null; showQuota: boolean } {
   const inScope = o.sources.filter((s) => !o.scope || s.info.id === o.scope);
   const showQuota = o.sources.some((s) => s.info.limits && (!o.scope || s.info.id === o.scope));

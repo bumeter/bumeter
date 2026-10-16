@@ -1,4 +1,4 @@
-//! Lệnh cho màn Skill (spec mục 8). UI chỉ được `apply` plan do chính lõi tạo ra.
+//! Commands for the Skill screen (spec section 8). The UI may only `apply` a plan created by the core itself.
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -21,7 +21,7 @@ fn kiro_dir() -> std::path::PathBuf {
     dirs::home_dir().unwrap_or_default().join(".kiro")
 }
 
-/// Mỗi công cụ một Manager, cùng bố cục `skills/` + `skills-disabled/`; thùng rác/nhật ký tách riêng.
+/// One Manager per tool, with the same `skills/` + `skills-disabled/` layout; trash/log kept separate.
 fn manager(state: &AppState, tool: &str) -> Manager {
     if tool == "kiro" {
         Manager::new(kiro_dir(), state.paths.data_dir.join("kiro"), ClaudeCli::system())
@@ -51,7 +51,7 @@ pub fn skills(state: State<'_, AppState>, pending: State<'_, PendingPlans>, acti
             let _ = manager(&state, "kiro").purge_trash(chrono::Utc::now());
             let mut entries = scan_personal(&StatuslineSetup::default_claude_dir());
             entries.extend(bum_skills::catalog::scan_personal_for(&kiro_dir(), "kiro"));
-            // `plugins: false`: trả skill cá nhân ngay; UI gọi lần hai để lấy plugin (CLI có thể chậm).
+            // `plugins: false`: return personal skills immediately; the UI makes a second call to fetch plugins (the CLI can be slow).
             let mut warnings = Vec::new();
             if params["plugins"].as_bool().unwrap_or(true) {
                 let (plugins, w) = scan_plugins(&ClaudeCli::system());
@@ -68,21 +68,21 @@ pub fn skills(state: State<'_, AppState>, pending: State<'_, PendingPlans>, acti
             Ok(out)
         }
         "apply" => {
-            let id = params["id"].as_str().ok_or("thiếu 'id'")?;
-            let (plan_tool, plan) = pending.0.lock().map_err(|e| e.to_string())?.remove(id).ok_or("plan không tồn tại hoặc đã dùng")?;
+            let id = params["id"].as_str().ok_or("missing 'id'")?;
+            let (plan_tool, plan) = pending.0.lock().map_err(|e| e.to_string())?.remove(id).ok_or("plan does not exist or was already used")?;
             manager(&state, &plan_tool).apply(&plan).map(|e| serde_json::to_value(e).unwrap_or_default()).map_err(err)
         }
         "undo" => {
-            let id = params["id"].as_str().ok_or("thiếu 'id'")?;
+            let id = params["id"].as_str().ok_or("missing 'id'")?;
             m.undo(id).map(|_| json!(true)).map_err(err)
         }
         "search" => {
-            // skills.sh chỉ là danh mục; cài thì clone thẳng từ GitHub (op `install_market`).
+            // skills.sh is only a catalog; installing clones directly from GitHub (op `install_market`).
             let q = params["q"].as_str().unwrap_or_default();
             let limit = params["limit"].as_u64().unwrap_or(20) as u32;
             bum_skills::market::search(q, limit).map(|h| serde_json::to_value(h).unwrap_or_default()).map_err(err)
         }
         "log" => m.log().map(|l| serde_json::to_value(l).unwrap_or_default()).map_err(err),
-        other => Err(format!("không có thao tác '{other}'")),
+        other => Err(format!("no such action '{other}'")),
     }
 }

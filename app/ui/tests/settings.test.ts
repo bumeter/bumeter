@@ -16,12 +16,12 @@ beforeEach(() => {
   applyTheme('system');
 });
 
-describe('cài đặt', () => {
-  it('hiện trạng thái statusline và bật qua hộp xác nhận', async () => {
+describe('settings', () => {
+  it('shows statusline status and enables it via the confirm box', async () => {
     let status: any = { kind: 'custom', command: 'bash ~/.claude/statusline-command.sh' };
     const f = fake({
       settings_get: () => ({ config: cfg, statusline: status, data_dir: '/home/u/.local/share/bumeter', parse_errors: 0 }),
-      statusline_plan: () => ({ description: 'Sẽ đổi statusLine.command <script>', noop: false }),
+      statusline_plan: () => ({ description: 'Will change statusLine.command <script>', noop: false }),
       statusline_apply: () => { status = { kind: 'hooked', command: 'x' }; return true; },
     });
     await mountSettings(el);
@@ -43,7 +43,7 @@ describe('cài đặt', () => {
   const type = (name: string, v: string) => { const i = input(name); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); };
   const saves = (f: { calls: { method: string; params: any }[] }) => f.calls.filter((c) => c.method === 'save_config');
 
-  it('đổi toggle: lưu ngay đúng 1 lần sau debounce, không có nút Lưu', async () => {
+  it('toggling saves once right after the debounce, with no Save button', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
     expect(el.querySelector('[data-action="save"]')).toBeNull();
@@ -60,7 +60,7 @@ describe('cài đặt', () => {
     expect(el.textContent).toContain('0 dòng');
   });
 
-  it('quota "abc": không lưu, lỗi chỉ hiện khi rời ô', async () => {
+  it('quota "abc": not saved, error only shown when leaving the field', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
     type('quota_thresholds', '70,');
@@ -76,7 +76,7 @@ describe('cài đặt', () => {
     expect(input('quota_thresholds').getAttribute('aria-invalid')).toBe('true');
   });
 
-  it('hệ số ≤ 0 không được lưu; sửa lại đúng thì lưu và xoá lỗi', async () => {
+  it('a multiplier ≤ 0 is not saved; fixing it saves and clears the error', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
     type('anomaly_multiplier', '0');
@@ -92,7 +92,7 @@ describe('cài đặt', () => {
     expect(input('anomaly_multiplier').closest('.field')!.querySelector('.field-error')!.textContent).toBe('');
   });
 
-  it('gõ dở "7" trong "70": không lưu giá trị giữa chừng', async () => {
+  it('partial typing "7" of "70": does not save the intermediate value', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
     type('quota_thresholds', '7');
@@ -103,7 +103,7 @@ describe('cài đặt', () => {
     expect(saves(f)[0].params.config.quota_thresholds).toEqual([70]);
   });
 
-  it('chọn Tối: áp dụng data-theme ngay và lưu theme; Theo hệ thống gỡ data-theme', async () => {
+  it('choosing Dark: applies data-theme right away and saves the theme; System removes data-theme', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
     (el.querySelector('[data-theme-value="dark"]') as HTMLButtonElement).click();
@@ -116,7 +116,7 @@ describe('cài đặt', () => {
     expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
   });
 
-  it('Công cụ liệt kê đủ 2 công cụ, thư mục không có thì báo rõ', async () => {
+  it('Tools lists both tools, a missing folder is clearly reported', async () => {
     fake({
       settings_get: () => hookedInfo(),
       sources: () => [SOURCES[0], { ...SOURCES[1], found: false, root: '/home/u/.kiro/sessions/cli', prompts: 0 }],
@@ -134,7 +134,7 @@ describe('cài đặt', () => {
     expect(rows[1].textContent).not.toContain('Đang theo dõi');
   });
 
-  it('đổi ngôn ngữ/giao diện khi layout medium: giữ data-layout, không mở ngăn kéo rỗng', async () => {
+  it('changing language/appearance at medium layout: keeps data-layout, does not open an empty drawer', async () => {
     document.body.innerHTML = '<div id="app" data-layout="medium"><section id="s"></section></div>';
     el = document.getElementById('s')!;
     update({ layout: 'medium', lang: 'vi' });
@@ -153,7 +153,7 @@ describe('cài đặt', () => {
     setLang('vi'); update({ lang: 'vi' });
   });
 
-  it('đổi theme rồi rời màn: lưu chờ được flush, không mất', async () => {
+  it('change theme then leave the screen: the pending save is flushed, not lost', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
     type('context_threshold', '123');
@@ -161,7 +161,7 @@ describe('cài đặt', () => {
     expect(saves(f)).toHaveLength(1);
     expect(saves(f)[0].params.config.context_threshold).toBe(123000);
   });
-  it('ngôn ngữ lưu độc lập khi ô số khác đang sai: chỉ đổi language trên cấu hình đã lưu', async () => {
+  it('language saves independently when another number field is invalid: only changes language on the saved config', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
     type('quota_thresholds', 'abc');
@@ -176,7 +176,7 @@ describe('cài đặt', () => {
     setLang('vi'); update({ lang: 'vi' });
   });
 
-  it('theme lưu ngay, độc lập với ô số đang sai', async () => {
+  it('theme saves right away, independently of an invalid number field', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
     type('anomaly_multiplier', '-1');
@@ -185,8 +185,8 @@ describe('cài đặt', () => {
     expect(saves(f).some((c) => c.params.config.theme === 'dark' && c.params.config.anomaly_multiplier === 3)).toBe(true);
   });
 
-  it('lưu lỗi: select ngôn ngữ và theme quay về giá trị cũ', async () => {
-    fake({ settings_get: () => hookedInfo({ ...cfg, theme: 'light' }), save_config: () => { throw new Error('đĩa đầy'); } });
+  it('save error: the language select and theme revert to their old values', async () => {
+    fake({ settings_get: () => hookedInfo({ ...cfg, theme: 'light' }), save_config: () => { throw new Error('disk full'); } });
     applyTheme('light');
     await mountSettings(el);
     const sel = el.querySelector('select[name="language"]') as HTMLSelectElement;
@@ -203,14 +203,14 @@ describe('cài đặt', () => {
     expect(el.querySelector('.message')?.classList.contains('error')).toBe(true);
   });
 
-  it('chưa lưu gì thì không hiện "Đã lưu", chỉ gợi ý tự lưu', async () => {
+  it('nothing saved yet: does not show "Saved", just the autosave hint', async () => {
     fake({ settings_get: () => hookedInfo() });
     await mountSettings(el);
     expect(el.textContent).not.toContain('Đã lưu');
     expect(el.textContent).toContain('Tự lưu khi bạn thay đổi');
   });
 
-  describe('hạn mức credit theo công cụ', () => {
+  describe('per-tool credit limits', () => {
     const mountWithSources = async (info: any) => {
       const f = fake({ settings_get: () => info, save_config: () => true, sources: () => SOURCES });
       await loadSources();
@@ -219,7 +219,7 @@ describe('cài đặt', () => {
     };
     const errOf = (name: string) => input(name).closest('.field')!.querySelector('.field-error')!.textContent;
 
-    it('chỉ công cụ tính credit có 2 ô; nhập hạn mức + ngày reset thì lưu vào tool_limits', async () => {
+    it('only credit-billed tools have 2 fields; entering a limit + reset day saves into tool_limits', async () => {
       const f = await mountWithSources(hookedInfo());
       expect(el.querySelector('[data-tool="kiro"] input[name="credits_limit_kiro"]')).not.toBeNull();
       expect(el.querySelector('[data-tool="claude_code"] input')).toBeNull();
@@ -232,7 +232,7 @@ describe('cài đặt', () => {
       expect(saves(f)[0].params.config.tool_limits).toEqual({ kiro: { monthly_credits: 1000, reset_day: 15 } });
     });
 
-    it('để trống hạn mức = không theo dõi (null), giữ hạn mức công cụ khác', async () => {
+    it('blank limit = not tracked (null), keeps other tools’ limits', async () => {
       const f = await mountWithSources(hookedInfo({ ...cfg, tool_limits: { kiro: { monthly_credits: 500, reset_day: 3 }, other: { monthly_credits: 9, reset_day: 2 } } }));
       expect(input('credits_limit_kiro').value).toBe('500');
       expect(input('credits_reset_kiro').value).toBe('3');
@@ -242,7 +242,7 @@ describe('cài đặt', () => {
       expect(saves(f)[0].params.config.tool_limits).toEqual({ kiro: { monthly_credits: null, reset_day: 3 }, other: { monthly_credits: 9, reset_day: 2 } });
     });
 
-    it('giá trị sai báo tại ô khi rời ô, không lưu', async () => {
+    it('an invalid value is flagged in the field when leaving it, not saved', async () => {
       const f = await mountWithSources(hookedInfo());
       for (const [name, v] of [['credits_limit_kiro', '-5'], ['credits_limit_kiro', 'abc'], ['credits_reset_kiro', '29'], ['credits_reset_kiro', '0'], ['credits_reset_kiro', '1.5'], ['credits_reset_kiro', '']]) {
         type(name, v);
@@ -258,7 +258,7 @@ describe('cài đặt', () => {
       expect(errOf('credits_reset_kiro')).toBe('');
     });
 
-    it('hiện số Kiro tự báo (chỉ đọc) và ô nhập thành dự phòng', async () => {
+    it('shows the number Kiro reports (read-only) and the input field as a fallback', async () => {
       await mountWithSources({ ...hookedInfo(), tool_quotas: { kiro: { used: 270.69, limit: 1000, resets_on: '2026-11-01', plan: 'KIRO PRO', fetched_at: 1 } } });
       const row = el.querySelector('[data-tool="kiro"]')!;
       expect(row.querySelector('.tool-quota')!.textContent).toBe('Kiro báo: 270.69/1000 credit · KIRO PRO · reset 01/11');

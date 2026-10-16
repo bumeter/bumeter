@@ -1,4 +1,4 @@
-// Biểu đồ vùng xếp chồng: thành phần context theo từng lượt gọi (spec mục 6.1).
+// Stacked area chart: context composition per API call (spec section 6.1).
 import { svg } from '../dom';
 import { t } from '../i18n';
 import type { Key } from '../i18n';
@@ -15,14 +15,14 @@ export interface SessionCall { request_id: string; ts: string; context: number; 
 
 export interface AreaLayout {
   xs: number[];
-  /** Chỉ số lượt gọi gốc của từng điểm (sau khi gộp). */
+  /** Original call index of each point (after merging). */
   index: number[];
-  /** y của đỉnh chồng tại từng điểm. */
+  /** y of the stacked top at each point. */
   top: number[];
   layers: { cat: Category; d: string }[];
 }
 
-/** Quá `maxPoints` lượt gọi thì mỗi nhóm lấy lượt có context lớn nhất. */
+/** With more than `maxPoints` calls, each group takes the call with the largest context. */
 export function areaLayout(calls: SessionCall[], width: number, height: number, maxPoints = 400): AreaLayout {
   if (!calls.length) return { xs: [], index: [], top: [], layers: [] };
   let index = calls.map((_, i) => i);

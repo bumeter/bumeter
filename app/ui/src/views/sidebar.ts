@@ -9,10 +9,10 @@ import { state, subscribe, update } from '../state';
 import type { View } from '../state';
 import { allSources, loadSources } from '../tools';
 
-/** Chu kỳ tính lại biểu cảm Bum ở thanh bên. */
+/** Period for recomputing Bum's expression in the sidebar. */
 const BUM_REFRESH_MS = 60_000;
 
-/** Phạm vi đã chọn lần trước (chỉ là tiện ích, lỗi storage thì bỏ qua). */
+/** Previously selected scope (just a convenience; storage errors are ignored). */
 export { rememberedScope, setScope } from '../components/toolTabs';
 
 let cleanup: (() => void) | null = null;
@@ -68,7 +68,7 @@ export async function mountSidebar(el: HTMLElement) {
   });
   const offData = await api.onDataChanged(() => void load());
   const offLimits = await api.onLimitsChanged((l) => { limits = l; render(); });
-  // Biểu cảm phụ thuộc thời gian (vừa bất thường, lâu không hỏi…): tính lại định kỳ dù không có dữ liệu mới.
+  // The expression depends on time (just had an anomaly, no questions for a while…): recompute periodically even with no new data.
   const tick = setInterval(() => { void loadBum().then(render); }, BUM_REFRESH_MS);
   cleanup = () => { clearInterval(tick); unsub(); offData(); offLimits(); };
   render();

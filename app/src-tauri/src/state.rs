@@ -10,7 +10,7 @@ pub struct AppState {
     pub cfg: Config,
     pub pricing: Pricing,
     pub paused_until: AtomicI64,
-    /// Ngôn ngữ hiện tại; đổi được khi đang chạy (Cài đặt), khác với `cfg` chỉ nạp lúc mở app.
+    /// Current language; can be changed at runtime (Settings), unlike `cfg` which is only loaded when the app starts.
     lang: std::sync::RwLock<bum_core::i18n::Lang>,
 }
 

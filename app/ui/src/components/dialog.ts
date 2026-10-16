@@ -1,4 +1,4 @@
-// Hộp thoại dạng sheet kiểu macOS, gắn vào body. Nội dung luôn là chữ.
+// macOS-style sheet dialog, attached to the body. Content is always text.
 import { h } from '../dom';
 import { t } from '../i18n';
 
@@ -27,7 +27,7 @@ export function openDialog(className: string, ...children: (HTMLElement | null)[
   return box;
 }
 
-/** Hiện mô tả plan và chờ người dùng đồng ý. */
+/** Show the plan description and wait for the user to agree. */
 export function confirmPlan(title: string, description: string, onConfirm: () => Promise<void>) {
   const box = openDialog('confirm',
     h('h3', {}, title),

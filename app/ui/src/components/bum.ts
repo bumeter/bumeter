@@ -1,35 +1,35 @@
-// Linh vật Bum: SVG 5 biểu cảm (từ docs/brand/bum/*.svg) và luật chọn biểu cảm (spec 3.4).
-// Màu dùng biến CSS (--bum-*) để tự đổi theo sáng/tối; hình là hằng số trong code,
-// không lấy từ dữ liệu người dùng.
+// Bum mascot: SVG for 5 expressions (from docs/brand/bum/*.svg) and the expression-choosing rules (spec 3.4).
+// Colors use CSS variables (--bum-*) so they switch with light/dark; the shapes are constants in code,
+// not taken from user data.
 import { svg } from '../dom';
 
 export type BumState = 'happy' | 'calm' | 'worry' | 'blaze' | 'sleep';
 
-/** Thứ tự khai báo dùng chung cho nơi cần liệt kê đủ 5 biểu cảm (vd. bảng chọn thử). */
+/** Declaration order shared by anything that needs to list all 5 expressions (e.g. a test picker). */
 export const BUM_STATES: readonly BumState[] = ['happy', 'calm', 'worry', 'blaze', 'sleep'];
 
-// Ngưỡng thời gian dùng trong bumStateFor (spec 3.4).
+// Time thresholds used in bumStateFor (spec 3.4).
 const STALE_NO_TURN_MINUTES = 30;
 const ANOMALY_RECENT_MINUTES = 10;
 
 export interface BumStateInput {
-  /** Dữ liệu quota đã cũ (không lấy được cập nhật mới). */
+  /** Quota data is stale (no newer update could be fetched). */
   stale: boolean;
-  /** Số phút kể từ lượt hội thoại gần nhất, null nếu chưa từng có lượt nào. */
+  /** Minutes since the most recent conversation turn, null if there has never been one. */
   minutesSinceLastTurn: number | null;
-  /** % quota 5 giờ đã dùng, null nếu không có quota (vd. phạm vi không hỗ trợ). */
+  /** 5-hour quota % used, null if there is no quota (e.g. the scope does not support it). */
   quotaPct: number | null;
-  /** [ngưỡng cảnh báo, ngưỡng nguy hiểm], vd. [70, 90]. */
+  /** [warning threshold, danger threshold], e.g. [70, 90]. */
   thresholds: [number, number];
-  /** Số phút kể từ lượt tốn bất thường gần nhất, null nếu không có. */
+  /** Minutes since the most recent unusually costly turn, null if none. */
   minutesSinceAnomaly: number | null;
-  /** Token dùng hôm nay. */
+  /** Tokens used today. */
   todayTokens: number;
-  /** Trung bình token mỗi ngày trong 30 ngày, null nếu chưa đủ dữ liệu. */
+  /** Average tokens per day over 30 days, null if there is not enough data yet. */
   avgDailyTokens: number | null;
 }
 
-/** Chọn biểu cảm Bum theo dữ liệu, đúng thứ tự ưu tiên spec 3.4:
+/** Choose Bum's expression from the data, in the exact priority order of spec 3.4:
  * sleep → blaze → worry → happy → calm. */
 export function bumStateFor(i: BumStateInput): BumState {
   const noTurnRecently = i.minutesSinceLastTurn === null || i.minutesSinceLastTurn >= STALE_NO_TURN_MINUTES;
@@ -48,9 +48,9 @@ export function bumStateFor(i: BumStateInput): BumState {
   return 'calm';
 }
 
-// --- Hình vẽ ---------------------------------------------------------------
-// Toạ độ port nguyên từ docs/brand/bum/bum-{state}.svg (viewBox 0 0 48 48).
-// Màu hard-code trong file gốc được thay bằng biến CSS --bum-*.
+// --- Shapes -----------------------------------------------------------------
+// Coordinates ported verbatim from docs/brand/bum/bum-{state}.svg (viewBox 0 0 48 48).
+// Hard-coded colors in the original file are replaced with CSS variables --bum-*.
 
 const BODY = 'M24 3c3.9 7.6 15 12.9 15 24.8C39 37.3 32.3 44 24 44S9 37.3 9 27.8c0-7 4-11 6.5-15 1 3.4 3 5.4 3 5.4C18.7 11.4 20.3 7 24 3z';
 const BLAZE_OUTER = 'M24 1c4.4 8 17 13.6 17 26.6C41 37.8 33.4 45 24 45S7 37.8 7 27.6c0-7.6 4.4-12 7.2-16.4 1.1 3.8 3.3 6 3.3 6C17.7 9.9 19.9 5.1 24 1z';
@@ -116,7 +116,7 @@ function blazeShapes(): SVGElement[] {
 
 function zLetter(x: number, y: number, fontSize: number): SVGElement {
   const el = svg('text', { x, y, 'font-family': 'Be Vietnam Pro', 'font-weight': 900, 'font-size': fontSize, fill: 'var(--ink3)' });
-  el.textContent = 'z'; // luôn qua textContent, không innerHTML
+  el.textContent = 'z'; // always through textContent, never innerHTML
   return el;
 }
 
@@ -138,9 +138,9 @@ const SHAPES: Record<BumState, () => SVGElement[]> = {
   sleep: sleepShapes,
 };
 
-/** Vẽ linh vật Bum theo biểu cảm và kích thước. Có label thì đọc được cho screen
- * reader (role="img" + aria-label); không có label thì ẩn với công cụ hỗ trợ
- * (aria-hidden) vì khi đó nó chỉ mang tính trang trí bên cạnh chữ đã có nghĩa. */
+/** Draw the Bum mascot with the given expression and size. With a label it is readable
+ * to a screen reader (role="img" + aria-label); without a label it is hidden from
+ * assistive tech (aria-hidden) since it is then purely decorative next to meaningful text. */
 export function bum(state: BumState, size: number, label?: string): SVGElement {
   const attrs: Record<string, string | number> = { viewBox: '0 0 48 48', width: size, height: size };
   if (label) {

@@ -1,4 +1,4 @@
-//! App làm host: nếu `bum daemon` đang chạy thì yêu cầu nó tắt rồi chiếm quyền (spec mục 3.2.1).
+//! The app acts as host: if `bum daemon` is running, ask it to shut down and take over (spec section 3.2.1).
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -33,7 +33,7 @@ impl TauriHandler {
         }
     }
 
-    /// Báo UI (nếu cửa sổ đang mở) có dữ liệu mới; gộp tối đa 1 lần / 250ms.
+    /// Tell the UI (if the window is open) that there's new data; coalesced to at most once per 250ms.
     fn emit_changes(&mut self) {
         if let Some(change) = self.changes.take(Instant::now()) {
             let _ = self.app.emit("data-changed", change);
@@ -77,16 +77,16 @@ impl HostHandler for TauriHandler {
         if let Ok(list) = self.alerts.on_tick(e.store_mut(), Instant::now(), chrono::Utc::now()) {
             self.notify(list);
         }
-        self.emit_changes(); // phần còn lại của một đợt dồn dập
+        self.emit_changes(); // the rest of a burst
         self.ticks += 1;
         if self.ticks % 30 == 0 {
-            self.refresh(e); // cập nhật "cũ" / giờ reset
+            self.refresh(e); // update "stale" / reset time
         }
     }
 }
 
-/// Chạy nền (không chặn main thread): chiếm quyền host; thất bại thì chạy ở chế độ client,
-/// tray vẫn cập nhật từ DB chỉ đọc (spec mục 3.2.1).
+/// Runs in the background (without blocking the main thread): take over as host; on failure, run in client mode,
+/// where the tray still updates from the read-only DB (spec section 3.2.1).
 pub fn start(app: &AppHandle) {
     poll_quotas(app);
     let app = app.clone();
@@ -107,7 +107,7 @@ pub fn start(app: &AppHandle) {
                 refresh_from_db(&app);
             }
             Err(e) => {
-                eprintln!("bumeter: không làm host được ({e}); chạy ở chế độ chỉ đọc");
+                eprintln!("bumeter: could not become host ({e}); running in read-only mode");
                 loop {
                     refresh_from_db(&app);
                     std::thread::sleep(Duration::from_secs(5));
@@ -117,7 +117,7 @@ pub fn start(app: &AppHandle) {
     });
 }
 
-/// Cập nhật tray từ DB chỉ đọc (lúc khởi động và ở chế độ client).
+/// Update the tray from the read-only DB (at startup and in client mode).
 fn refresh_from_db(app: &AppHandle) {
     let st = app.state::<AppState>();
     let Ok(store) = bum_core::store::Store::open_readonly(&st.paths.db()) else { return };
@@ -129,7 +129,7 @@ fn refresh_from_db(app: &AppHandle) {
     }
 }
 
-/// Hạn mức công cụ tự báo (Kiro `/usage`): lấy lúc khởi động rồi mỗi 15 phút, ở luồng riêng để không chặn tray.
+/// Tool self-reported quotas (Kiro `/usage`): fetched at startup and then every 15 minutes, on a separate thread so it doesn't block the tray.
 fn poll_quotas(app: &AppHandle) {
     const EVERY: Duration = Duration::from_secs(15 * 60);
     let app = app.clone();
