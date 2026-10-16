@@ -13,7 +13,7 @@ struct Env {
 
 fn skill(dir: &Path, name: &str) {
     std::fs::create_dir_all(dir).unwrap();
-    std::fs::write(dir.join("SKILL.md"), format!("---\nname: {name}\ndescription: mô tả {name}\n---\n")).unwrap();
+    std::fs::write(dir.join("SKILL.md"), format!("---\nname: {name}\ndescription: description of {name}\n---\n")).unwrap();
 }
 
 fn env() -> Env {
@@ -50,7 +50,7 @@ fn disable_moves_to_skills_disabled_and_undo_moves_back() {
     assert!(exists(e.root.join(".claude/skills-disabled/pj-debug/SKILL.md")));
     e.m.undo(&entry.id).unwrap();
     assert!(exists(e.root.join(".claude/skills/pj-debug/SKILL.md")));
-    assert!(e.m.undo(&entry.id).is_err(), "không hoàn tác hai lần");
+    assert!(e.m.undo(&entry.id).is_err(), "cannot undo twice");
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn symlinked_skill_only_the_link_moves_never_the_source() {
     let e = env();
     let entry = e.m.apply(&e.m.plan(&req("uninstall", &["pj-clarify"])).unwrap()).unwrap();
     assert!(!exists(e.root.join(".claude/skills/pj-clarify")));
-    assert!(exists(e.root.join("repo/pj-clarify/SKILL.md")), "thư mục gốc phải còn nguyên");
+    assert!(exists(e.root.join("repo/pj-clarify/SKILL.md")), "the source directory must remain intact");
     e.m.undo(&entry.id).unwrap();
     let link = e.root.join(".claude/skills/pj-clarify");
     assert!(std::fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
@@ -101,16 +101,16 @@ fn install_from_folder_links_it_and_validates() {
     assert!(e.m.plan(&OpRequest { op: "install_dir".into(), targets: vec![], source: Some(bad.to_string_lossy().into()), tool: None, skill: None }).is_err());
     let dup = e.root.join("new/dup");
     skill(&dup, "pj-review");
-    assert!(e.m.plan(&OpRequest { op: "install_dir".into(), targets: vec![], source: Some(dup.to_string_lossy().into()), tool: None, skill: None }).is_err(), "trùng tên");
+    assert!(e.m.plan(&OpRequest { op: "install_dir".into(), targets: vec![], source: Some(dup.to_string_lossy().into()), tool: None, skill: None }).is_err(), "duplicate name");
 }
 
 #[test]
 fn bulk_disable_rolls_back_everything_if_one_step_fails() {
     let e = env();
     let plan = e.m.plan(&req("disable", &["pj-review", "pj-debug"])).unwrap();
-    skill(&e.root.join(".claude/skills-disabled/pj-debug"), "pj-debug"); // xung đột xuất hiện sau khi plan
+    skill(&e.root.join(".claude/skills-disabled/pj-debug"), "pj-debug"); // conflict appears after planning
     assert!(e.m.apply(&plan).is_err());
-    assert!(exists(e.root.join(".claude/skills/pj-review/SKILL.md")), "bước đã làm phải được trả lại");
+    assert!(exists(e.root.join(".claude/skills/pj-review/SKILL.md")), "the completed step must be rolled back");
     assert!(exists(e.root.join(".claude/skills/pj-debug/SKILL.md")));
 }
 
@@ -183,7 +183,7 @@ fn install_from_git_clones_and_rejects_repos_without_skill_md() {
     git(&empty, &["commit", "-qm", "init"]);
     let plan = e.m.plan(&OpRequest { op: "install_git".into(), targets: vec![], source: Some(format!("file://{}", empty.display())), tool: None, skill: None }).unwrap();
     assert!(e.m.apply(&plan).is_err());
-    assert!(!exists(e.root.join(".claude/skills/not-a-skill")), "clone lỗi phải được dọn");
+    assert!(!exists(e.root.join(".claude/skills/not-a-skill")), "a failed clone must be cleaned up");
 }
 
 #[test]
@@ -205,23 +205,23 @@ fn install_rejects_names_that_escape_the_skills_dir() {
 fn partial_undo_restores_what_it_can_and_can_be_finished_later() {
     let e = env();
     let entry = e.m.apply(&e.m.plan(&req("disable", &["pj-review", "pj-debug"])).unwrap()).unwrap();
-    skill(&e.root.join(".claude/skills/pj-debug"), "pj-debug"); // người dùng tự tạo lại
+    skill(&e.root.join(".claude/skills/pj-debug"), "pj-debug"); // user recreates it
     let err = e.m.undo(&entry.id).unwrap_err().to_string();
     assert!(err.contains("pj-debug"), "{err}");
-    assert!(exists(e.root.join(".claude/skills/pj-review/SKILL.md")), "skill còn lại vẫn được trả về");
+    assert!(exists(e.root.join(".claude/skills/pj-review/SKILL.md")), "the remaining skill is still restored");
     std::fs::remove_dir_all(e.root.join(".claude/skills/pj-debug")).unwrap();
     e.m.undo(&entry.id).unwrap();
     assert!(exists(e.root.join(".claude/skills/pj-debug/SKILL.md")));
 }
 
-/// Repo giả kiểu GitHub: `<base>/acme/skills.git` chứa nhiều skill trong `skills/`.
+/// Fake GitHub-style repo: `<base>/acme/skills.git` containing several skills under `skills/`.
 fn market_repo(root: &Path) -> String {
     let git = |dir: &Path, args: &[&str]| {
         assert!(std::process::Command::new("git").args(args).current_dir(dir).env("GIT_AUTHOR_NAME", "t").env("GIT_AUTHOR_EMAIL", "t@t").env("GIT_COMMITTER_NAME", "t").env("GIT_COMMITTER_EMAIL", "t@t").output().unwrap().status.success());
     };
     let repo = root.join("gh/acme/skills.git");
     skill(&repo.join("skills/code-review"), "code-review");
-    std::fs::write(repo.join("skills/code-review/extra.md"), "tài liệu kèm").unwrap();
+    std::fs::write(repo.join("skills/code-review/extra.md"), "extra documentation").unwrap();
     skill(&repo.join("skills/other"), "other");
     std::fs::write(repo.join("README.md"), "repo").unwrap();
     git(&repo, &["init", "-q"]);
@@ -246,13 +246,13 @@ fn install_from_skills_sh_takes_only_that_skill_and_undo_trashes_it() {
     let entry = m.apply(&plan).unwrap();
     let dst = e.root.join(".claude/skills/code-review");
     assert!(exists(dst.join("SKILL.md")));
-    assert!(exists(dst.join("extra.md")), "lấy cả file kèm theo của skill");
-    assert!(!exists(dst.join("README.md")) && !exists(dst.join("skills")), "không cài cả repo");
+    assert!(exists(dst.join("extra.md")), "also take the skill's extra files");
+    assert!(!exists(dst.join("README.md")) && !exists(dst.join("skills")), "do not install the whole repo");
     assert!(!exists(e.root.join(".claude/skills/other")));
-    assert_eq!(std::fs::read_dir(e.root.join("data/tmp")).map(|d| d.count()).unwrap_or(0), 0, "dọn thư mục tạm");
+    assert_eq!(std::fs::read_dir(e.root.join("data/tmp")).map(|d| d.count()).unwrap_or(0), 0, "temp directory is cleaned up");
     m.undo(&entry.id).unwrap();
     assert!(!exists(dst.clone()));
-    assert!(std::fs::read_dir(e.root.join("data/trash")).unwrap().count() >= 1, "gỡ vào thùng rác");
+    assert!(std::fs::read_dir(e.root.join("data/trash")).unwrap().count() >= 1, "removed to trash");
 }
 
 #[test]
@@ -275,6 +275,6 @@ fn install_from_skills_sh_validates_before_touching_anything() {
         assert!(e.m.plan(&market(source, id)).is_err(), "{source} {id}");
     }
     let dup = e.m.plan(&market("acme/skills", "pj-review")).unwrap_err();
-    assert!(format!("{dup:#}").contains("pj-review"), "trùng tên skill đã có");
-    assert!(e.m.plan(&OpRequest { skill: None, ..market("acme/skills", "x") }).is_err(), "thiếu skill id");
+    assert!(format!("{dup:#}").contains("pj-review"), "duplicate existing skill name");
+    assert!(e.m.plan(&OpRequest { skill: None, ..market("acme/skills", "x") }).is_err(), "missing skill id");
 }

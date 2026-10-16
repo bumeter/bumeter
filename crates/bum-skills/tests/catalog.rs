@@ -11,12 +11,12 @@ fn skill(root: &Path, dir: &str, body: &str) {
 
 #[test]
 fn frontmatter_handles_quotes_folded_text_and_missing_fields() {
-    let f = parse("---\nname: pj-review\ndescription: \"Review code: đối chiếu yêu cầu\"\n---\n# Body");
+    let f = parse("---\nname: pj-review\ndescription: \"Review code: check against requirements\"\n---\n# Body");
     assert_eq!(f.name.as_deref(), Some("pj-review"));
-    assert_eq!(f.description.as_deref(), Some("Review code: đối chiếu yêu cầu"));
-    let folded = parse("---\nname: x\ndescription: >\n  dòng một\n  dòng hai\nother: 1\n---\n");
-    assert_eq!(folded.description.as_deref(), Some("dòng một dòng hai"));
-    let none = parse("# không có frontmatter");
+    assert_eq!(f.description.as_deref(), Some("Review code: check against requirements"));
+    let folded = parse("---\nname: x\ndescription: >\n  line one\n  line two\nother: 1\n---\n");
+    assert_eq!(folded.description.as_deref(), Some("line one line two"));
+    let none = parse("# no frontmatter");
     assert!(none.name.is_none() && none.description.is_none());
 }
 
@@ -24,12 +24,12 @@ fn frontmatter_handles_quotes_folded_text_and_missing_fields() {
 fn scans_enabled_disabled_synced_and_symlinks() {
     let home = tempfile::tempdir().unwrap();
     let claude = home.path().join(".claude");
-    skill(&claude.join("skills"), "pj-review", "---\nname: pj-review\ndescription: Review code theo khung chuẩn\n---\nnội dung dài");
-    skill(&claude.join("skills-disabled"), "pj-debug", "---\nname: pj-debug\ndescription: Debug có hệ thống\n---\n");
-    skill(&claude.join("skills/synced/abc-uuid"), "docs", "---\nname: docs\ndescription: tài liệu\n---\n");
+    skill(&claude.join("skills"), "pj-review", "---\nname: pj-review\ndescription: Review code against a standard framework\n---\nlong content");
+    skill(&claude.join("skills-disabled"), "pj-debug", "---\nname: pj-debug\ndescription: Systematic debugging\n---\n");
+    skill(&claude.join("skills/synced/abc-uuid"), "docs", "---\nname: docs\ndescription: documentation\n---\n");
     std::fs::create_dir_all(claude.join("skills/empty-dir")).unwrap();
     let external = home.path().join("repo/pj-clarify");
-    skill(&home.path().join("repo"), "pj-clarify", "---\nname: pj-clarify\ndescription: Sinh câu hỏi\n---\n");
+    skill(&home.path().join("repo"), "pj-clarify", "---\nname: pj-clarify\ndescription: Generate questions\n---\n");
     std::os::unix::fs::symlink(&external, claude.join("skills/pj-clarify")).unwrap();
 
     let mut all = scan_personal(&claude);

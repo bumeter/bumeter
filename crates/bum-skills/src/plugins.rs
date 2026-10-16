@@ -1,4 +1,4 @@
-//! Plugin của Claude Code, chỉ qua CLI chính thức `claude plugin` (spec mục 8).
+//! Claude Code plugins, only through the official `claude plugin` CLI (spec section 8).
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -22,7 +22,7 @@ impl ClaudeCli {
         Self { bin, timeout: DEFAULT_TIMEOUT }
     }
 
-    /// `claude` trong PATH.
+    /// `claude` in PATH.
     pub fn system() -> Self {
         Self::new(PathBuf::from(if cfg!(windows) { "claude.cmd" } else { "claude" }))
     }
@@ -32,7 +32,7 @@ impl ClaudeCli {
         self
     }
 
-    /// Chạy `claude <args>` có giới hạn thời gian; trả stdout.
+    /// Run `claude <args>` with a time limit; return stdout.
     pub fn run(&self, args: &[&str]) -> anyhow::Result<String> {
         let mut child = Command::new(&self.bin)
             .args(args)
@@ -40,8 +40,8 @@ impl ClaudeCli {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .with_context(|| format!("không chạy được {}", self.bin.display()))?;
-        // Đọc stdout/stderr trên thread riêng: output lớn sẽ không làm đầy pipe rồi treo.
+            .with_context(|| format!("could not run {}", self.bin.display()))?;
+        // Read stdout/stderr on separate threads: large output will not fill the pipe and hang.
         let drain = |pipe: Option<Box<dyn Read + Send>>| std::thread::spawn(move || {
             let mut s = String::new();
             if let Some(mut p) = pipe { let _ = p.read_to_string(&mut s); }
@@ -55,14 +55,14 @@ impl ClaudeCli {
                 let out = out_t.join().unwrap_or_default();
                 let err = err_t.join().unwrap_or_default();
                 if !status.success() {
-                    bail!("claude {} lỗi: {}", args.join(" "), err.trim());
+                    bail!("claude {} failed: {}", args.join(" "), err.trim());
                 }
                 return Ok(out);
             }
             if Instant::now() >= deadline {
                 let _ = child.kill();
                 let _ = child.wait();
-                bail!("claude {} quá {:?}", args.join(" "), self.timeout);
+                bail!("claude {} timed out after {:?}", args.join(" "), self.timeout);
             }
             std::thread::sleep(Duration::from_millis(20));
         }
@@ -98,7 +98,7 @@ pub fn parse_tokens(s: &str) -> Option<u64> {
     num.parse::<f64>().ok().map(|n| (n * mult).round() as u64)
 }
 
-/// Bảng "Per-component" của `claude plugin details`: (thành phần, always-on, on-invoke).
+/// The "Per-component" table of `claude plugin details`: (component, always-on, on-invoke).
 pub fn parse_details(text: &str) -> Vec<(String, Option<u64>, Option<u64>)> {
     let mut rows = Vec::new();
     let mut in_table = false;
@@ -124,33 +124,33 @@ pub fn parse_details(text: &str) -> Vec<(String, Option<u64>, Option<u64>)> {
 
 pub fn list_plugins(cli: &ClaudeCli) -> anyhow::Result<Vec<PluginInfo>> {
     let out = cli.run(&["plugin", "list", "--json"])?;
-    serde_json::from_str(&out).context("output của `claude plugin list --json` không đúng định dạng")
+    serde_json::from_str(&out).context("output of `claude plugin list --json` is malformed")
 }
 
-/// Skill của các plugin đã cài. Lỗi CLI trở thành cảnh báo để màn Skill vẫn hiện skill cá nhân.
+/// Skills of installed plugins. A CLI error becomes a warning so the Skills screen still shows personal skills.
 pub fn scan_plugins(cli: &ClaudeCli) -> (Vec<SkillEntry>, Vec<String>) {
     let mut warnings = Vec::new();
     let plugins = match list_plugins(cli) {
         Ok(p) => p,
-        Err(e) => return (Vec::new(), vec![format!("Không đọc được danh sách plugin: {e:#}")]),
+        Err(e) => return (Vec::new(), vec![format!("Could not read the plugin list: {e:#}")]),
     };
-    // Chạy `details` của các plugin song song để CLI chậm không cộng dồn thời gian chờ.
+    // Run `details` for the plugins in parallel so a slow CLI does not accumulate the wait time.
     let details: Vec<anyhow::Result<String>> = std::thread::scope(|s| {
         let handles: Vec<_> = plugins.iter().map(|p| s.spawn(move || cli.run(&["plugin", "details", p.short_name()]))).collect();
-        handles.into_iter().map(|h| h.join().unwrap_or_else(|_| Err(anyhow::anyhow!("lỗi luồng")))).collect()
+        handles.into_iter().map(|h| h.join().unwrap_or_else(|_| Err(anyhow::anyhow!("thread error")))).collect()
     });
     let mut out = Vec::new();
     for (p, res) in plugins.into_iter().zip(details) {
         let rows = match res {
             Ok(text) => parse_details(&text),
             Err(e) => {
-                warnings.push(format!("Không đọc được chi tiết plugin {}: {e:#}", p.id));
+                warnings.push(format!("Could not read details for plugin {}: {e:#}", p.id));
                 continue;
             }
         };
         for (component, always_on, on_invoke) in rows {
             let dir = p.install_path.as_ref().map(|i| i.join("skills").join(&component));
-            // Chỉ lấy thành phần là skill (có thư mục skills/<tên>) khi biết đường dẫn cài đặt.
+            // Only take components that are skills (with a skills/<name> directory) when the install path is known.
             if dir.as_ref().is_some_and(|d| p.install_path.as_ref().is_some_and(|i| i.join("skills").exists()) && !d.exists()) {
                 continue;
             }

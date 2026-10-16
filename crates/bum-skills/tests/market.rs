@@ -11,7 +11,7 @@ fn skill(dir: &Path, name: &str) {
 
 #[test]
 fn parses_the_real_search_response() {
-    // Rút gọn từ `GET https://skills.sh/api/search?q=review&limit=3` (2026-09-28).
+    // Trimmed from `GET https://skills.sh/api/search?q=review&limit=3` (2026-09-28).
     let v = json!({"query":"review","searchType":"fuzzy","skills":[
         {"id":"mattpocock/skills/code-review","source":"mattpocock/skills","skillId":"code-review","name":"code-review","installs":625917},
         {"id":"obra/superpowers/requesting-code-review","source":"obra/superpowers","skillId":"requesting-code-review","name":"requesting-code-review","installs":239630}
@@ -19,7 +19,7 @@ fn parses_the_real_search_response() {
     let hits = parse_search(&v);
     assert_eq!(hits[0], Hit { id: "mattpocock/skills/code-review".into(), source: "mattpocock/skills".into(), skill_id: "code-review".into(), name: "code-review".into(), installs: 625917 });
     assert_eq!(hits.len(), 2);
-    assert_eq!(parse_search(&json!([{"source":"a/b","skillId":"x","name":"x","installs":1}])).len(), 1, "cũng nhận dạng mảng");
+    assert_eq!(parse_search(&json!([{"source":"a/b","skillId":"x","name":"x","installs":1}])).len(), 1, "also recognizes the array form");
     assert!(parse_search(&json!({"error":"rate limited"})).is_empty());
 }
 
@@ -34,8 +34,8 @@ fn drops_entries_with_unsafe_source_or_id() {
     ]});
     let hits = parse_search(&v);
     assert_eq!(hits.iter().map(|h| h.skill_id.as_str()).collect::<Vec<_>>(), vec!["good_one.v2"]);
-    assert_eq!(hits[0].name, "<b>good</b>", "tên giữ nguyên, UI hiện dạng chữ");
-    assert_eq!(hits[0].id, "acme/skills/good_one.v2", "thiếu id thì ghép từ source + skillId");
+    assert_eq!(hits[0].name, "<b>good</b>", "name kept as-is, UI renders it as text");
+    assert_eq!(hits[0].id, "acme/skills/good_one.v2", "when id is missing, compose it from source + skillId");
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn source_and_query_validation() {
     for bad in ["a", "a/b/c", "/b", "a/", "-a/b", "a/-b", "a b/c", "a/b.git?x", "../x"] {
         assert!(!valid_source(bad), "{bad}");
     }
-    assert_eq!(encode_query("code review & tiến độ"), "code%20review%20%26%20ti%E1%BA%BFn%20%C4%91%E1%BB%99");
+    assert_eq!(encode_query("code review & progress"), "code%20review%20%26%20progress");
 }
 
 #[test]
@@ -60,9 +60,9 @@ fn finds_the_skill_directory_like_skills_manager() {
     skill(&r.join("cat/renamed-dir"), "by-name");
     assert_eq!(find_skill_dir(r, "direct").unwrap(), r.join("direct"));
     assert_eq!(find_skill_dir(r, "in-skills").unwrap(), r.join("skills/in-skills"));
-    assert_eq!(find_skill_dir(r, "agents").unwrap(), r.join(".agents/skills/agents"), "ưu tiên .agents/skills hơn bản riêng của từng công cụ");
+    assert_eq!(find_skill_dir(r, "agents").unwrap(), r.join(".agents/skills/agents"), "prefer .agents/skills over each tool's own copy");
     assert_eq!(find_skill_dir(r, "nested").unwrap(), r.join("cat/deep/nested"));
-    assert_eq!(find_skill_dir(r, "by-name").unwrap(), r.join("cat/renamed-dir"), "khớp theo name trong SKILL.md");
+    assert_eq!(find_skill_dir(r, "by-name").unwrap(), r.join("cat/renamed-dir"), "match by name in SKILL.md");
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn missing_skill_is_an_error_not_the_whole_repo() {
     fs::create_dir_all(t.path().join("skills/empty")).unwrap();
     let e = find_skill_dir(t.path(), "wanted").unwrap_err().to_string();
     assert!(e.contains("wanted"), "{e}");
-    assert!(find_skill_dir(t.path(), "empty").is_err(), "thư mục cùng tên nhưng không có SKILL.md");
+    assert!(find_skill_dir(t.path(), "empty").is_err(), "directory with the same name but no SKILL.md");
 }
 
 #[cfg(unix)]

@@ -58,7 +58,7 @@ fn plugin_skills_are_named_plugin_colon_skill_with_real_costs() {
     for s in ["brainstorming", "writing-plans", "requesting-code-review"] {
         std::fs::create_dir_all(install.join("skills").join(s)).unwrap();
     }
-    std::fs::write(install.join("skills/brainstorming/SKILL.md"), "---\nname: brainstorming\ndescription: Khám phá ý tưởng\n---\n").unwrap();
+    std::fs::write(install.join("skills/brainstorming/SKILL.md"), "---\nname: brainstorming\ndescription: Explore ideas\n---\n").unwrap();
     let cli = ClaudeCli::new(fake_claude(dir.path(), &install, false));
     let (skills, warnings) = scan_plugins(&cli);
     assert!(warnings.is_empty(), "{warnings:?}");
@@ -66,8 +66,8 @@ fn plugin_skills_are_named_plugin_colon_skill_with_real_costs() {
     assert_eq!(b.source, Source::Plugin { plugin: "superpowers@claude-plugins-official".into() });
     assert_eq!(b.state, SkillState::Disabled);
     assert_eq!((b.always_on_tokens, b.on_invoke_tokens, b.estimated), (Some(70), Some(6300), false));
-    assert_eq!(b.description, "Khám phá ý tưởng");
-    assert_eq!(skills.len(), 3, "agent `code-reviewer` không phải skill");
+    assert_eq!(b.description, "Explore ideas");
+    assert_eq!(skills.len(), 3, "agent `code-reviewer` is not a skill");
 }
 
 #[test]

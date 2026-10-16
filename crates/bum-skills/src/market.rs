@@ -112,7 +112,7 @@ fn skill_name(dir: &Path) -> Option<String> {
     frontmatter::parse(&body).name
 }
 
-/// Duyệt theo thứ tự tên (cố định giữa các máy), không đi theo symlink.
+/// Walk in name order (stable across machines), not following symlinks.
 fn walk(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
     if depth > MAX_DEPTH {
         return;
@@ -131,8 +131,8 @@ fn walk(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// Thư mục của skill `id` trong repo: `<id>`, `skills/<id>`, `.agents/skills/<id>`, rồi tìm theo
-/// tên thư mục, cuối cùng theo `name` trong SKILL.md. Không thấy thì lỗi — không bao giờ lấy cả repo.
+/// The directory of skill `id` in the repo: `<id>`, `skills/<id>`, `.agents/skills/<id>`, then search by
+/// directory name, and finally by `name` in SKILL.md. If not found it errors — never take the whole repo.
 pub fn find_skill_dir(repo: &Path, id: &str) -> anyhow::Result<PathBuf> {
     for c in [repo.join(id), repo.join("skills").join(id), repo.join(".agents").join("skills").join(id)] {
         if is_skill_dir(&c) {
@@ -147,5 +147,5 @@ pub fn find_skill_dir(repo: &Path, id: &str) -> anyhow::Result<PathBuf> {
     if let Some(d) = dirs.iter().find(|d| is_skill_dir(d) && skill_name(d).as_deref() == Some(id)) {
         return Ok(d.clone());
     }
-    bail!("không thấy skill '{id}' trong repo")
+    bail!("skill '{id}' not found in the repo")
 }
