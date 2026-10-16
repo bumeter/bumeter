@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "thongke",
+  "productName": "Bumeter",
   "version": "0.1.0",
-  "identifier": "dev.thongke.app",
+  "identifier": "dev.bumeter.app",
   "build": {
     "frontendDist": "../ui/dist"
   },
@@ -20,7 +20,7 @@
       "appimage"
     ],
     "category": "DeveloperTool",
-    "shortDescription": "Thống kê sử dụng AI (Claude Code, Kiro)",
+    "shortDescription": "Bumeter: thống kê sử dụng AI (Claude Code, Kiro)",
     "longDescription": "Theo dõi token, quota, skill và thành phần context của các công cụ AI lập trình, chạy nền trên tray.",
     "icon": [
       "icons/32x32.png",
@@ -29,7 +29,7 @@
       "icons/icon.png"
     ],
     "externalBin": [
-      "binaries/tk"
+      "binaries/bum"
     ]
   }
 }

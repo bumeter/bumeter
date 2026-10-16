@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { conv, convList, fake, flush, SOURCES } from './fake';
+import { conv, convList, fake, flush, row, SOURCES } from './fake';
 import { mountConversations } from '../src/views/conversations';
 import { setLang } from '../src/i18n';
 import { state, update } from '../src/state';
@@ -20,14 +20,23 @@ const handlers = (list = data) => ({
   list_conversations: list,
   project_stats: () => [{ project: 'TICKET-203' }, { project: 'TICKET-101' }],
   model_stats: () => [{ model: 'claude-opus-5', tool: 'claude_code' }, { model: 'kiro:claude-opus-4.6', tool: 'kiro' }],
+  conversation_turns: (p: any) => ({ title: titleOf(p.session_id), turns: [row('p1', '2026-09-25T02:52:00Z', 'câu hỏi', 1_000_000)] }),
+  conversation_transcript: () => [],
+  prompt_detail: () => ({ row: row('p1', '2026-09-25T02:52:00Z', 'câu hỏi', 1_000_000), calls: [], reread_share: 0.5, explanation: null, duration_secs: 1, note: null }),
 });
+let titleOf = (id: string) => (id === 's1' ? 'Sửa lỗi 404 khi gửi mail' : id);
+const clickRow = (id: string) => (document.querySelector(`[data-session="${id}"]`) as HTMLElement).click();
+const esc = (target: EventTarget = document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
 let el: HTMLElement;
+let detailEl: HTMLElement;
 beforeEach(async () => {
-  document.body.innerHTML = '<main id="list"></main>';
+  document.body.innerHTML = '<main id="list"></main><aside id="detail"></aside>';
   el = document.getElementById('list')!;
+  detailEl = document.getElementById('detail')!;
+  titleOf = (id: string) => (id === 's1' ? 'Sửa lỗi 404 khi gửi mail' : id);
   setLang('vi');
-  update({ view: 'conversations', scope: undefined, filter: {}, conversation: null, turn: null });
+  update({ view: 'conversations', scope: undefined, filter: {}, conversation: null, turn: null, layout: 'wide' });
   fake(handlers());
   await loadSources();
 });
@@ -40,27 +49,39 @@ describe('màn Hội thoại', () => {
     expect(headers[0]).toMatch(/^Hôm nay · /);
     expect(el.querySelectorAll('.conv-row').length).toBe(3);
     expect(state.conversation).toBe('s1');
-    expect(el.querySelector('[data-session="s1"] .meta')?.textContent).toContain('3 lượt');
-    expect(el.querySelector('.toolbar .count-pill')?.textContent).toBe('3');
+    expect(el.querySelector('[data-session="s1"] .turns')?.textContent).toBe('3');
+    expect(el.querySelector('[data-session="s1"] .sub')?.textContent).toContain('TICKET-101');
+    expect(el.querySelector('.toolbar .pill')?.textContent).toBe('3');
     expect(el.querySelector('.list-summary')?.textContent).toContain('Claude Code 2 · Kiro 1');
   });
 
   it('phạm vi Tất cả: mỗi hội thoại có tag công cụ; chọn một công cụ thì tag ẩn', async () => {
     const f = fake(handlers());
     await mountConversations(el);
-    expect(el.querySelector('[data-session="s1"] .ttag')?.textContent).toBe('Claude Code');
-    expect(el.querySelector('[data-session="k1"] .ttag img')?.getAttribute('src')).toBe('tool-icons/kiro.svg');
+    expect(el.querySelector('[data-session="s1"] .tool-logo')?.getAttribute('title')).toBe('Claude Code');
+    expect(el.querySelector('[data-session="k1"] .tool-logo img')?.getAttribute('src')).toBe('tool-icons/kiro.svg');
     update({ scope: 'kiro' });
     await flush(); await flush();
-    expect(el.querySelector('.ttag')).toBeNull();
+    expect(el.querySelector('.tool-logo')).toBeNull();
     expect(f.calls.filter((c) => c.method === 'list_conversations').pop()!.params.tool).toBe('kiro');
   });
 
   it('Kiro: số liệu là ước lượng (~) kèm credit; Claude Code: cờ tốn bất thường', async () => {
     fake(handlers());
     await mountConversations(el);
-    expect(el.querySelector('[data-session="k1"] .value')?.textContent).toBe('~210K0.9 credit');
-    expect(el.querySelector('[data-session="s1"] .value')?.textContent).toBe('32.6M⚠🔥');
+    expect(el.querySelector('[data-session="k1"] .fuel b')?.textContent).toBe('~210K');
+    expect(el.querySelector('[data-session="k1"] .sub')?.textContent).toContain('0.9 credit');
+    expect(el.querySelector('[data-session="s1"] .fuel b')?.textContent).toBe('32.6M');
+    expect(el.querySelector('[data-session="s1"] .flags')?.textContent).toBe('⚠🔥');
+  });
+
+  it('thanh nhiên liệu đỏ khi hội thoại tốn bất thường', async () => {
+    fake(handlers());
+    await mountConversations(el);
+    expect(el.querySelector('[data-session="s1"] .fuel .bar i')?.classList.contains('hot')).toBe(true);
+    expect(el.querySelector('[data-session="s1"] .fuel b')?.classList.contains('red')).toBe(true);
+    expect(el.querySelector('[data-session="s2"] .fuel .bar i')?.classList.contains('hot')).toBe(false);
+    expect(el.querySelector('[data-session="s2"] .fuel b')?.classList.contains('red')).toBe(false);
   });
 
   it('nội dung nguy hiểm hiện dạng chữ', async () => {
@@ -71,39 +92,42 @@ describe('màn Hội thoại', () => {
     expect(el.textContent).toContain('<img src=x');
   });
 
-  it('lọc theo project (select) và model (tag chọn nhiều)', async () => {
+  const chipByLabel = (label: string) => [...el.querySelectorAll('.filters .chip')].find((c) => c.textContent?.startsWith(label)) as HTMLElement;
+  const pickOpt = (text: string) => ([...document.querySelectorAll('.menu-opt')].find((o) => o.textContent === text) as HTMLElement).click();
+
+  it('lọc theo project (chipMenu) và model (chipMultiMenu)', async () => {
     const f = fake(handlers());
     await mountConversations(el);
     await flush();
-    const select = el.querySelector('select[name="project"]') as HTMLSelectElement;
-    expect([...select.options].map((o) => o.textContent)).toEqual(['Mọi project', 'TICKET-101', 'TICKET-203']);
-    select.value = 'TICKET-203';
-    select.dispatchEvent(new Event('change'));
+    chipByLabel('Project').click();
+    expect([...document.querySelectorAll('.menu-opt')].map((o) => o.textContent)).toEqual(['Mọi project', 'TICKET-101', 'TICKET-203']);
+    pickOpt('TICKET-203');
     await flush();
     expect(f.calls.filter((c) => c.method === 'list_conversations').pop()!.params.project).toBe('TICKET-203');
-    (el.querySelector('[data-model="claude-opus-5"]') as HTMLButtonElement).click();
-    (el.querySelector('[data-model="kiro:claude-opus-4.6"]') as HTMLButtonElement).click();
+    chipByLabel('Model').click();
+    pickOpt('opus-5');
+    pickOpt('opus-4.6');
     await flush();
     expect(state.filter.models).toEqual(['claude-opus-5', 'kiro:claude-opus-4.6']);
-    expect(el.querySelector('[data-model="claude-opus-5"]')?.getAttribute('aria-pressed')).toBe('true');
-    (el.querySelector('[data-model="claude-opus-5"]') as HTMLButtonElement).click();
+    pickOpt('opus-5');
     expect(state.filter.models).toEqual(['kiro:claude-opus-4.6']);
+    expect(document.querySelector('.menu-pop')).not.toBeNull(); // menu đa chọn vẫn mở sau khi chọn
   });
 
   it('phạm vi Kiro thì chỉ hiện model của Kiro', async () => {
     fake(handlers());
     update({ scope: 'kiro' });
     await mountConversations(el);
-    expect([...el.querySelectorAll('[data-model]')].map((b) => b.getAttribute('data-model'))).toEqual(['kiro:claude-opus-4.6']);
+    chipByLabel('Model').click();
+    expect([...document.querySelectorAll('.menu-opt')].map((o) => o.textContent)).toEqual(['opus-4.6']);
   });
 
   it('lọc nhanh và khoảng thời gian', async () => {
     const f = fake(handlers());
     await mountConversations(el);
     (el.querySelector('[data-quick="anomalous"]') as HTMLButtonElement).click();
-    const range = el.querySelector('select[name="range"]') as HTMLSelectElement;
-    range.value = '7';
-    range.dispatchEvent(new Event('change'));
+    chipByLabel('Khoảng thời gian').click();
+    pickOpt('7 ngày');
     await flush();
     const last = f.calls.filter((c) => c.method === 'list_conversations').pop()!.params;
     expect(last.quick).toBe('anomalous');
@@ -136,14 +160,131 @@ describe('màn Hội thoại', () => {
     expect(el.querySelectorAll('.conv-row').length).toBe(3);
     expect(state.conversation).toBe('k1');
     expect(el.querySelector('[data-session="k1"]')?.getAttribute('aria-selected')).toBe('true');
+    expect(el.querySelector('[data-session="k1"]')?.getAttribute('style') ?? '').not.toContain('tint');
   });
 
   it('rỗng có lời nhắn; tiếng Anh', async () => {
     fake(handlers(() => convList([])));
     setLang('en');
     await mountConversations(el);
-    expect(el.querySelector('.empty')?.textContent).toContain('No data yet');
+    expect(el.querySelector('.empty')?.textContent).toContain('No conversations yet');
+    expect(el.querySelector('.empty svg')).not.toBeNull(); // Bum sleep
+    (el.querySelector('.empty [data-action="empty"]') as HTMLButtonElement).click();
+    expect(state.view).toBe('settings');
     expect(el.querySelector('h1')?.textContent).toBe('Conversations');
     expect(state.conversation).toBeNull();
+  });
+});
+
+describe('bố cục theo độ rộng', () => {
+  const mountWith = async (layout: 'wide' | 'medium' | 'narrow') => {
+    update({ layout });
+    fake(handlers());
+    await mountConversations(el, detailEl);
+    await flush(); await flush();
+  };
+
+  it('wide: chi tiết nằm ở cột phải', async () => {
+    await mountWith('wide');
+    expect(detailEl.querySelector('h2')?.textContent).toBe('Sửa lỗi 404 khi gửi mail');
+    expect(document.querySelector('.drawer')).toBeNull();
+  });
+
+  it('medium: chọn hội thoại mở ngăn kéo có tiêu đề; Esc đóng mà vẫn giữ lựa chọn', async () => {
+    await mountWith('medium');
+    expect(document.querySelector('.drawer')).toBeNull(); // tự chọn hội thoại đầu không mở ngăn kéo
+    expect(detailEl.querySelector('h2')).toBeNull();
+    clickRow('s1');
+    await flush(); await flush();
+    const drawer = document.querySelector('.drawer')!;
+    expect(drawer.getAttribute('aria-label')).toBe('Sửa lỗi 404 khi gửi mail');
+    expect(drawer.querySelector('h2')?.textContent).toBe('Sửa lỗi 404 khi gửi mail');
+    esc();
+    expect(document.querySelector('.drawer')).toBeNull();
+    expect(state.conversation).toBe('s1');
+    expect(el.querySelector('[data-session="s1"]')?.getAttribute('aria-selected')).toBe('true');
+    clickRow('s2'); // mở lại được
+    await flush(); await flush();
+    expect(document.querySelector('.drawer')).not.toBeNull();
+  });
+
+  it('narrow: chi tiết thay danh sách, có nút "← Hội thoại" để quay lại', async () => {
+    await mountWith('narrow');
+    expect((el.querySelector('.conv-list') as HTMLElement).hidden).toBe(false);
+    clickRow('s1');
+    await flush(); await flush();
+    expect((el.querySelector('.conv-list') as HTMLElement).hidden).toBe(true);
+    expect(el.querySelector('.conv-narrow h2')?.textContent).toBe('Sửa lỗi 404 khi gửi mail');
+    const back = el.querySelector('[data-action="back"]') as HTMLButtonElement;
+    expect(back.textContent).toBe('← Hội thoại');
+    back.click();
+    expect((el.querySelector('.conv-list') as HTMLElement).hidden).toBe(false);
+    expect(el.querySelector('.conv-narrow')).toBeNull();
+    expect(state.conversation).toBe('s1');
+  });
+
+  it('Review 1: medium → wide khi ngăn kéo mở: ngăn kéo đóng, chi tiết ở cột phải, chỉ mount một lần', async () => {
+    const f = fake(handlers());
+    update({ layout: 'medium' });
+    await mountConversations(el, detailEl);
+    await flush();
+    clickRow('s1');
+    await flush(); await flush();
+    expect(document.querySelector('.drawer')).not.toBeNull();
+    update({ layout: 'wide' });
+    await flush(); await flush();
+    expect(document.querySelector('.drawer')).toBeNull();
+    expect(detailEl.querySelectorAll('h2').length).toBe(1);
+    expect(document.querySelectorAll('h2').length).toBe(1);
+    expect(state.conversation).toBe('s1');
+    // một lần tải khi mở ngăn kéo + một lần khi về wide, không nhân đôi
+    f.calls.length = 0;
+    f.emit('data-changed', { prompt_keys: [], session_ids: ['s1'] });
+    await flush(); await flush();
+    expect(f.calls.filter((c) => c.method === 'conversation_turns').length).toBe(1);
+  });
+
+  it('Review 2: Esc khi đang gõ ô tìm kiếm mà ngăn kéo mở: đóng ngăn kéo, giữ chữ đã gõ', async () => {
+    await mountWith('medium');
+    clickRow('s1');
+    await flush(); await flush();
+    const input = el.querySelector('input[type="search"]') as HTMLInputElement;
+    input.value = 'lỗi 404';
+    input.focus();
+    esc(input);
+    expect(document.querySelector('.drawer')).toBeNull();
+    expect(input.value).toBe('lỗi 404');
+  });
+
+  it('Review 3: data-changed khi ngăn kéo mở: nội dung cập nhật, ngăn kéo vẫn mở, giữ lượt đang mở', async () => {
+    const f = fake(handlers());
+    update({ layout: 'medium' });
+    await mountConversations(el, detailEl);
+    await flush();
+    clickRow('s1');
+    await flush(); await flush();
+    (document.querySelector('.drawer [data-key="p1"] .turn-head') as HTMLButtonElement).click();
+    await flush(); await flush();
+    expect(document.querySelector('.drawer [data-key="p1"].open')).not.toBeNull();
+    titleOf = () => 'Tiêu đề mới';
+    f.emit('data-changed', { prompt_keys: [], session_ids: ['s1'] });
+    await flush(); await flush(); await flush();
+    const drawer = document.querySelector('.drawer')!;
+    expect(drawer.querySelector('h2')?.textContent).toBe('Tiêu đề mới');
+    expect(drawer.querySelector('[data-key="p1"].open')).not.toBeNull();
+    expect(state.turn).toBe('p1');
+  });
+
+  it('đang ở view khác: đổi bố cục không đụng #detail và không mở ngăn kéo', async () => {
+    await mountWith('medium');
+    update({ view: 'skills' });
+    detailEl.replaceChildren(Object.assign(document.createElement('p'), { id: 'other', textContent: 'skill detail' }));
+    update({ layout: 'wide' });
+    await flush(); await flush();
+    expect(detailEl.innerHTML).toBe('<p id="other">skill detail</p>');
+    update({ layout: 'medium' });
+    await flush(); await flush();
+    expect(detailEl.innerHTML).toBe('<p id="other">skill detail</p>');
+    expect(document.querySelector('.drawer')).toBeNull();
   });
 });

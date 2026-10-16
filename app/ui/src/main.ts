@@ -1,34 +1,46 @@
-import '@fontsource-variable/inter';
+import '@fontsource/be-vietnam-pro/400.css';
+import '@fontsource/be-vietnam-pro/500.css';
+import '@fontsource/be-vietnam-pro/600.css';
+import '@fontsource/be-vietnam-pro/700.css';
+import '@fontsource/be-vietnam-pro/800.css';
+import '@fontsource/be-vietnam-pro/900.css';
 import './styles/tokens.css';
 import './styles/layout.css';
+import './styles/components.css';
 
 import { api } from './api';
+import { applyTheme } from './theme';
 import { setLang, t } from './i18n';
 import type { Lang } from './i18n';
+import { watchLayout } from './layout';
 import { state, subscribe, update } from './state';
 import type { View } from './state';
 
 const params = new URLSearchParams(location.search);
-// ?theme=light|dark, ?lang=vi|en, ?view=…, ?scope=… để xem thử / chụp ảnh.
+// ?theme=light|dark, ?lang=vi|en, ?view=…, ?scope=…, ?open=1 để xem thử / chụp ảnh.
 const forced = params.get('theme');
-if (forced === 'light' || forced === 'dark') document.documentElement.dataset.theme = forced;
+if (forced === 'light' || forced === 'dark') applyTheme(forced);
 const VIEWS: View[] = ['overview', 'conversations', 'skills', 'settings', 'session'];
 const skillView = params.get('skillView');
-if (skillView === 'cards' || skillView === 'table') { try { localStorage.setItem('thongke.skillView', skillView); } catch { /* bỏ qua */ } }
+if (skillView === 'cards' || skillView === 'table') { try { localStorage.setItem('bumeter.skillView', skillView); } catch { /* bỏ qua */ } }
 
 export async function boot() {
   const { mountSidebar, rememberedScope } = await import('./views/sidebar');
   const { mountConversations } = await import('./views/conversations');
-  const { mountConversation } = await import('./views/conversation');
   const { mountOverview } = await import('./views/overview');
   const { mountSettings } = await import('./views/settings');
   const { mountSkills } = await import('./views/skills');
   const { mountSession } = await import('./views/session');
   const { loadSources } = await import('./tools');
+  const { followTrayScope, scopeFromTray } = await import('./components/toolTabs');
 
   // Ngôn ngữ lưu trong config của app; ?lang= ghi đè để xem thử.
   let lang: Lang = 'vi';
-  try { lang = (await api.settings()).config.language ?? 'vi'; } catch { /* mặc định vi */ }
+  try {
+    const cfg = (await api.settings()).config;
+    lang = cfg.language ?? 'vi';
+    if (!forced) applyTheme(cfg.theme ?? 'system'); // ?theme= trên URL thắng config
+  } catch { /* mặc định vi, theo hệ thống */ }
   const q = params.get('lang');
   if (q === 'vi' || q === 'en') lang = q;
   setLang(lang);
@@ -38,12 +50,14 @@ export async function boot() {
   await loadSources();
 
   const view = params.get('view') as View | null;
-  const scope = params.get('scope') ?? rememberedScope();
+  // Mở từ dòng công cụ trong menu tray thì theo công cụ đó.
+  const scope = (scopeFromTray(params) ?? params.get('scope') ?? rememberedScope()) || undefined;
   update({ lang, scope, filter: { tool: scope }, view: view && VIEWS.includes(view) ? view : state.view,
     session: view === 'session' ? 'mock' : state.session,
     conversation: params.get('conversation'), turn: params.get('turn') });
 
   const app = document.getElementById('app')!;
+  watchLayout(app, (l) => { app.dataset.layout = l; update({ layout: l }); });
   const list = document.getElementById('list')!;
   const detail = document.getElementById('detail')!;
 
@@ -54,7 +68,7 @@ export async function boot() {
     else if (state.view === 'session' && state.session) await mountSession(list, state.session);
     else if (state.view === 'overview') await mountOverview(list);
     else if (state.view === 'skills') await mountSkills(list, detail);
-    else { await mountConversations(list); await mountConversation(detail); }
+    else await mountConversations(list, detail);
   };
   subscribe((_s, changed) => {
     if (changed.includes('lang')) { void mountSidebar(document.getElementById('sidebar')!); void show(); return; }
@@ -62,6 +76,17 @@ export async function boot() {
   });
   await mountSidebar(document.getElementById('sidebar')!);
   await show();
+  void followTrayScope();
+  // ?open=1: mở chi tiết của hội thoại đang chọn như khi bấm (ngăn kéo ở medium, toàn màn ở narrow) — để chụp ảnh.
+  if (params.get('open') === '1' && state.view === 'conversations') {
+    const started = Date.now();
+    const tryOpen = () => {
+      const row = document.querySelector<HTMLElement>('.conv-row[aria-selected="true"]');
+      if (row) row.click();
+      else if (Date.now() - started < 3000) setTimeout(tryOpen, 50);
+    };
+    tryOpen();
+  }
 }
 
 boot();

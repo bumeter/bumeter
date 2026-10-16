@@ -20,7 +20,7 @@
 
 ## Thao tác tắt/bật/gỡ/cài
 
-- Đã kiểm chứng bằng 11 test trên HOME tạm (`crates/tk-skills/tests/ops.rs`): tắt, bật, gỡ vào thùng rác, hoàn tác, không hoàn tác được hai lần, symlink chỉ di chuyển link (thư mục gốc còn nguyên), cài từ thư mục hoặc git (repo không có `SKILL.md` thì bị từ chối và dọn sạch), trả lại hết khi một bước lỗi, plugin chạy qua CLI (hoàn tác thì chạy lệnh ngược), dọn thùng rác sau 30 ngày.
+- Đã kiểm chứng bằng 11 test trên HOME tạm (`crates/bum-skills/tests/ops.rs`): tắt, bật, gỡ vào thùng rác, hoàn tác, không hoàn tác được hai lần, symlink chỉ di chuyển link (thư mục gốc còn nguyên), cài từ thư mục hoặc git (repo không có `SKILL.md` thì bị từ chối và dọn sạch), trả lại hết khi một bước lỗi, plugin chạy qua CLI (hoàn tác thì chạy lệnh ngược), dọn thùng rác sau 30 ngày.
 - **Chưa chạy trên `~/.claude` thật.** Thao tác có sửa file nên để bạn tự bấm trong app, và mọi thao tác đều có hộp xác nhận và nút hoàn tác.
 - Giới hạn: nếu thùng rác nằm khác phân vùng ổ đĩa với `~/.claude` thì thao tác chuyển thư mục sẽ báo lỗi (không tự sao chép).
 

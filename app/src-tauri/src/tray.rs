@@ -1,126 +1,308 @@
 //! Icon và menu tray (spec mục 7.2).
+use chrono::{DateTime, SecondsFormat, Utc};
 use tauri::image::Image;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+#[cfg(not(target_os = "linux"))]
+use tauri::menu::IconMenuItem;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Wry};
-use tk_core::handlers::TodaySummary;
-use tk_core::i18n::Lang;
-use tk_core::insight::fmt_tokens;
-use tk_core::limits::{Level, LimitState, Window};
+use bum_core::handlers::TodaySummary;
+use bum_core::i18n::Lang;
+use bum_core::meter::{self, RingTone, ToolQuota, TrayIcon, TrayText};
+use bum_core::source::SourceInfo;
+use bum_core::config::Config;
+use bum_core::face::{face_for, Face, FaceInput};
+use bum_core::handlers::local_day_bounds;
+use bum_core::limits::LimitState;
+#[cfg(test)]
+use bum_core::limits::Window;
+use bum_core::store::Store;
 
 pub struct TrayItems {
-    five: MenuItem<Wry>,
-    seven: MenuItem<Wry>,
+    sources: Vec<SourceInfo>,
+    /// Các dòng theo công cụ (tiêu đề + số liệu), `meter::tray_row_count` dòng mỗi công cụ.
+    rows: Vec<RowItem>,
+    /// Icon đang đặt của từng dòng: chỉ `set_icon` khi đổi.
+    row_icons: Mutex<Vec<RowIcon>>,
     today: MenuItem<Wry>,
     open: MenuItem<Wry>,
     pause: MenuItem<Wry>,
     quit: MenuItem<Wry>,
 }
 
-/// Chấm tròn 32×32 theo màu mức quota.
-pub fn dot_rgba(level: Level) -> Vec<u8> {
-    let (r, g, b) = match level {
-        Level::Green => (46, 160, 67),
-        Level::Yellow => (210, 153, 34),
-        Level::Red => (208, 69, 58),
-        Level::Grey => (142, 142, 147),
-    };
-    let n = 32usize;
-    let mut px = vec![0u8; n * n * 4];
-    for y in 0..n {
-        for x in 0..n {
-            let (dx, dy) = (x as f32 - 15.5, y as f32 - 15.5);
-            if dx * dx + dy * dy <= 196.0 {
-                let i = (y * n + x) * 4;
-                px[i..i + 4].copy_from_slice(&[r, g, b, 255]);
-            }
+const TRAY_PNGS: [(Face, &[u8]); 5] = [
+    (Face::Happy, include_bytes!("../icons/tray/bum-happy.png")),
+    (Face::Calm, include_bytes!("../icons/tray/bum-calm.png")),
+    (Face::Worry, include_bytes!("../icons/tray/bum-worry.png")),
+    (Face::Blaze, include_bytes!("../icons/tray/bum-blaze.png")),
+    (Face::Sleep, include_bytes!("../icons/tray/bum-sleep.png")),
+];
+
+/// Logo 32×32 theo tool id (tạo từ `app/ui/public/tool-icons/*.svg`).
+#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
+const TOOL_PNGS: [(&str, &[u8]); 2] = [
+    ("claude_code", include_bytes!("../icons/tools/claude_code.png")),
+    ("kiro", include_bytes!("../icons/tools/kiro.png")),
+];
+
+/// Logo công cụ cho dòng tiêu đề; công cụ lạ → không icon.
+#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
+pub fn tool_logo(tool: &str) -> Option<Image<'static>> {
+    TOOL_PNGS.iter().find(|(id, _)| *id == tool).and_then(|(_, b)| Image::from_bytes(b).ok())
+}
+
+/// Icon của một dòng menu ở dạng so sánh được (vòng đã lượng tử hoá).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum RowIcon {
+    Empty,
+    Logo,
+    Ring(u8, RingTone),
+}
+
+fn row_icon(icon: &TrayIcon, threshold: u8) -> RowIcon {
+    match *icon {
+        TrayIcon::None => RowIcon::Empty,
+        TrayIcon::Logo => RowIcon::Logo,
+        TrayIcon::Ring { pct, stale } => {
+            let (p, tone) = meter::ring_key(pct, stale, threshold);
+            RowIcon::Ring(p, tone)
         }
     }
-    px
 }
 
-fn ago(secs: i64, lang: Lang) -> String {
-    let (n, vi, en) = match secs.max(0) {
-        s if s < 60 => (s, "giây", "s"),
-        s if s < 3600 => (s / 60, "phút", "min"),
-        s if s < 86_400 => (s / 3600, "giờ", "h"),
-        s => (s / 86_400, "ngày", "d"),
+/// Ảnh vòng % theo (pct, màu), cache để không vẽ lại.
+#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
+fn ring_image(pct: u8, tone: RingTone) -> Image<'static> {
+    static CACHE: OnceLock<Mutex<HashMap<(u8, RingTone), Image<'static>>>> = OnceLock::new();
+    let mut cache = CACHE.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
+    cache
+        .entry((pct, tone))
+        .or_insert_with(|| {
+            let n = meter::RING_SIZE as u32;
+            Image::new_owned(meter::ring_rgba(pct, tone), n, n)
+        })
+        .clone()
+}
+
+#[cfg_attr(target_os = "linux", allow(dead_code))] // icon mục menu chỉ dùng ngoài Linux
+fn icon_image(icon: RowIcon, tool: &str) -> Option<Image<'static>> {
+    match icon {
+        RowIcon::Empty => None,
+        RowIcon::Logo => tool_logo(tool),
+        RowIcon::Ring(p, tone) => Some(ring_image(p, tone)),
+    }
+}
+
+/// Id mục menu của dòng thứ `i` thuộc công cụ `tool`.
+fn row_id(tool: &str, i: usize) -> String {
+    format!("tool:{tool}:{i}")
+}
+
+/// Công cụ của một mục menu dòng công cụ (`tool:<id>:<i>`), None với mục khác.
+pub fn tool_of_menu_id(id: &str) -> Option<&str> {
+    let rest = id.strip_prefix("tool:")?;
+    rest.rsplit_once(':').map(|(tool, _)| tool).filter(|t| !t.is_empty())
+}
+
+/// Ngưỡng cảnh báo 1 (đổi màu vòng sang đỏ).
+fn first_threshold(cfg: &Config) -> u8 {
+    cfg.quota_thresholds.first().copied().unwrap_or(70)
+}
+
+/// Hai ngưỡng quota người dùng đặt (mặc định 70/90).
+fn thresholds(cfg: &Config) -> [u8; 2] {
+    [first_threshold(cfg), cfg.quota_thresholds.get(1).copied().unwrap_or(90)]
+}
+
+/// Icon tray 32×32 của một biểu cảm Bum.
+pub fn face_image(face: Face) -> Image<'static> {
+    let bytes = TRAY_PNGS.iter().find(|(f, _)| *f == face).map(|(_, b)| *b).expect("đủ 5 biểu cảm");
+    Image::from_bytes(bytes).expect("PNG tray hợp lệ")
+}
+
+fn minutes_since(ts: Option<String>, now: DateTime<Utc>) -> Option<i64> {
+    let t = DateTime::parse_from_rfc3339(&ts?).ok()?;
+    Some((now - t.with_timezone(&Utc)).num_minutes().max(0))
+}
+
+/// Gom đầu vào chọn biểu cảm từ DB + trạng thái quota (spec 3.4). Lỗi truy vấn coi như "không có dữ liệu".
+pub fn face_input(store: &Store, cfg: &Config, limits: &LimitState, today_tokens: u64, now: DateTime<Utc>) -> FaceInput {
+    let thresholds = match cfg.quota_thresholds.as_slice() {
+        [a, b, ..] => (*a, *b),
+        _ => (70, 90),
     };
-    match lang {
-        Lang::Vi => format!("{n} {vi} trước"),
-        Lang::En => format!("{n}{en} ago"),
+    let offset = chrono::Local::now().offset().local_minus_utc();
+    let (today_from, _) = local_day_bounds(now);
+    let since = DateTime::parse_from_rfc3339(&today_from).map(|t| (t.with_timezone(&Utc) - chrono::Duration::days(30)).to_rfc3339_opts(SecondsFormat::Millis, true));
+    // Trung bình token/ngày trên các ngày có lượt hỏi, trong 30 ngày trước hôm nay.
+    let avg_daily_tokens = since.ok().and_then(|since| {
+        let days = store.active_days_between(&since, &today_from, offset).ok()?;
+        let total = store.model_usage_between(&since, &today_from).ok()?.iter().map(|(_, u)| u.total()).sum::<u64>();
+        (days > 0).then(|| total / days)
+    });
+    FaceInput {
+        stale: limits.stale,
+        minutes_since_last_turn: minutes_since(store.latest_prompt_ts().ok().flatten(), now),
+        quota_pct: limits.five_hour.map(|w| w.used_percentage),
+        thresholds,
+        minutes_since_anomaly: minutes_since(store.latest_anomaly_ts(None).ok().flatten(), now),
+        today_tokens,
+        avg_daily_tokens,
     }
 }
 
-fn window_label(name: &str, w: Option<Window>, limits: &LimitState, now: i64, lang: Lang) -> String {
-    match w {
-        Some(w) => {
-            let when = chrono::DateTime::from_timestamp(w.resets_at, 0)
-                .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
-                .unwrap_or_default();
-            let freshness = match (limits.stale, limits.updated_at) {
-                (true, Some(t)) => format!(" · {} {}", lang.pick("cập nhật", "updated"), ago(now - t, lang)),
-                _ => String::new(),
-            };
-            format!("{name}: {:.0}% · reset {when}{freshness}", w.used_percentage)
-        }
-        None => format!("{name}: {}", lang.pick("chưa có dữ liệu", "no data yet")),
-    }
+/// Dòng theo công cụ + dòng "Hôm nay" + title (bum_core::meter). Lỗi truy vấn → chỉ quota, không credit/hoạt động.
+pub fn menu_text(store: &Store, cfg: &Config, quotas: &std::collections::BTreeMap<String, ToolQuota>, sources: &[SourceInfo], limits: &LimitState, now: DateTime<Utc>, lang: Lang) -> TrayText {
+    let snap = meter::snapshot(store, cfg, quotas, sources, now).unwrap_or_default();
+    meter::render_tray(sources, limits, &snap, now.timestamp(), lang)
 }
 
-pub fn labels(limits: &LimitState, today: &TodaySummary, now: i64, lang: Lang) -> [String; 3] {
-    [
-        window_label(lang.pick("5 giờ", "5 hours"), limits.five_hour, limits, now, lang),
-        window_label(lang.pick("7 ngày", "7 days"), limits.seven_day, limits, now, lang),
-        format!("{}: {} token · {} {}", lang.pick("Hôm nay", "Today"), fmt_tokens(today.total), today.prompts, lang.pick("lượt", "turns")),
-    ]
-}
-
-/// Nhãn các mục cố định: mở dashboard, tạm dừng, thoát.
+/// Nhãn các mục cố định: mở Bumeter, tạm dừng, thoát.
 pub fn action_labels(lang: Lang) -> [&'static str; 3] {
-    [lang.pick("Mở dashboard", "Open dashboard"), lang.pick("Tạm dừng thông báo 1 giờ", "Pause notifications for 1 hour"), lang.pick("Thoát", "Quit")]
+    [lang.pick("Mở Bumeter", "Open Bumeter"), lang.pick("Tạm dừng thông báo 1 giờ", "Pause notifications for 1 hour"), lang.pick("Thoát", "Quit")]
+}
+
+/// Danh sách công cụ từ registry (thứ tự hiển thị).
+pub fn sources(cfg: &Config) -> Vec<SourceInfo> {
+    bum_adapters::registry(&bum_service::host::claude_root(cfg), &bum_service::host::kiro_root(cfg)).into_iter().map(|(i, _)| i).collect()
+}
+
+/// Linux (AppIndicator/dbusmenu): icon của mục menu không được xuất ra thanh GNOME và `IconMenuItem::set_text`
+/// không đổi được nhãn (muda dựng hộp ảnh + nhãn riêng) → dùng mục chữ thường, dòng số liệu thụt vào dưới tên công cụ.
+#[cfg(target_os = "linux")]
+type RowItem = MenuItem<Wry>;
+#[cfg(not(target_os = "linux"))]
+type RowItem = IconMenuItem<Wry>;
+
+#[cfg(target_os = "linux")]
+fn new_row(app: &AppHandle, id: String, text: &str, _icon: RowIcon, _tool: &str) -> tauri::Result<RowItem> {
+    MenuItem::with_id(app, id, text, true, None::<&str>)
+}
+#[cfg(not(target_os = "linux"))]
+fn new_row(app: &AppHandle, id: String, text: &str, icon: RowIcon, tool: &str) -> tauri::Result<RowItem> {
+    IconMenuItem::with_id(app, id, text, true, icon_image(icon, tool), None::<&str>)
+}
+
+/// Thanh % 10 ô hình bình hành ▰▱: đã dùng thì ít nhất 1 ô, chỉ đầy khi đạt 100%.
+fn block_bar(pct: Option<f64>) -> String {
+    const N: usize = 10;
+    let p = pct.unwrap_or(0.0).max(0.0);
+    let on = if p >= 100.0 { N } else if p > 0.0 { ((p / 100.0 * N as f64).round() as usize).clamp(1, N - 1) } else { 0 };
+    format!("{}{}", "▰".repeat(on), "▱".repeat(N - on))
+}
+
+/// Chấm màu theo mức dùng (chữ menu không tô màu được, emoji thì có): dưới ngưỡng 1 xanh, từ ngưỡng 1 cam,
+/// từ ngưỡng 2 đỏ; dữ liệu cũ hoặc chưa có thì trắng.
+fn level_dot(pct: Option<f64>, stale: bool, [t1, t2]: [u8; 2]) -> &'static str {
+    match pct {
+        Some(_) if stale => "⚪",
+        None => "⚪",
+        Some(p) if p >= f64::from(t2) => "🔴",
+        Some(p) if p >= f64::from(t1) => "🟠",
+        Some(_) => "🟢",
+    }
+}
+
+/// Nhãn hiển thị của một dòng. Linux không hiện icon mục menu: mọi dòng sát lề trái (không thụt),
+/// thanh % + chấm màu đặt đầu dòng để các thanh thẳng hàng (font menu là font tỉ lệ).
+fn row_label(text: &str, icon: &TrayIcon, thresholds: [u8; 2]) -> String {
+    if !cfg!(target_os = "linux") {
+        return text.to_string();
+    }
+    match icon {
+        TrayIcon::Logo | TrayIcon::None => text.to_string(),
+        TrayIcon::Ring { pct, stale } => format!("{} {}  {text}", block_bar(*pct), level_dot(*pct, *stale, thresholds)),
+    }
 }
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let five = MenuItem::with_id(app, "five", "5 giờ: …", false, None::<&str>)?;
-    let seven = MenuItem::with_id(app, "seven", "7 ngày: …", false, None::<&str>)?;
-    let today = MenuItem::with_id(app, "today", "Hôm nay: …", false, None::<&str>)?;
-    let [open_l, pause_l, quit_l] = action_labels(app.state::<crate::state::AppState>().lang());
+    let st = app.state::<crate::state::AppState>();
+    let sources = sources(&st.cfg);
+    // Số dòng theo công cụ cố định từ registry; nội dung đặt lại ở `refresh`. Để enabled: GNOME làm xám icon của mục disabled,
+    // bấm vào thì mở app ở phạm vi công cụ đó.
+    let mut rows = Vec::new();
+    let mut row_icons = Vec::new();
+    let mut seps = Vec::new();
+    for s in &sources {
+        for k in 0..meter::tray_row_count(s) {
+            let (text, icon) = if k == 0 { (s.label.as_str(), RowIcon::Logo) } else { ("…", RowIcon::Empty) };
+            rows.push(new_row(app, row_id(&s.id, rows.len()), text, icon, &s.id)?);
+            row_icons.push(icon);
+        }
+        seps.push(rows.len());
+    }
+    let today = MenuItem::with_id(app, "today", "…", false, None::<&str>)?;
+    let [open_l, pause_l, quit_l] = action_labels(st.lang());
     let open = MenuItem::with_id(app, "open", open_l, true, None::<&str>)?;
     let pause = MenuItem::with_id(app, "pause", pause_l, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", quit_l, true, None::<&str>)?;
-    let sep1 = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&five, &seven, &today, &sep1, &open, &pause, &quit])?;
+    let menu = Menu::new(app)?;
+    for (i, r) in rows.iter().enumerate() {
+        if i > 0 && seps.contains(&i) {
+            menu.append(&PredefinedMenuItem::separator(app)?)?;
+        }
+        menu.append(r)?;
+    }
+    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    menu.append(&today)?;
+    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    menu.append_items(&[&open, &pause, &quit])?;
     TrayIconBuilder::with_id("main")
-        .icon(Image::new_owned(dot_rgba(Level::Green), 32, 32))
-        .tooltip("thongke")
+        .icon(face_image(Face::Calm))
+        .tooltip("Bumeter")
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, ev| match ev.id.as_ref() {
             "open" => crate::window::open(app),
             "pause" => crate::state::pause_for(app, 3600),
             "quit" => app.exit(0),
-            _ => {}
+            id => {
+                if let Some(tool) = tool_of_menu_id(id) {
+                    crate::window::open_scope(app, tool);
+                }
+            }
         })
         .build(app)?;
-    app.manage(TrayItems { five, seven, today, open, pause, quit });
+    app.manage(TrayItems { sources, rows, row_icons: Mutex::new(row_icons), today, open, pause, quit });
     Ok(())
 }
 
-pub fn refresh(app: &AppHandle, limits: &LimitState, today: &TodaySummary) {
+pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &TodaySummary) {
     let items = app.state::<TrayItems>();
-    let lang = app.state::<crate::state::AppState>().lang();
-    let [five, seven, today_label] = labels(limits, today, chrono::Utc::now().timestamp(), lang);
+    let st = app.state::<crate::state::AppState>();
+    let lang = st.lang();
+    let now = Utc::now();
+    // Đọc lại config/hạn mức mỗi lần: người dùng sửa ở Cài đặt thì tray theo ngay.
+    let cfg = Config::load(&st.paths.config());
+    let quotas = meter::read_quotas(&st.paths.tool_quotas());
+    let text = menu_text(store, &cfg, &quotas, &items.sources, limits, now, lang);
+    let threshold = first_threshold(&cfg);
+    let mut shown = items.row_icons.lock().unwrap_or_else(|e| e.into_inner());
+    for ((item, row), cur) in items.rows.iter().zip(&text.rows).zip(shown.iter_mut()) {
+        let _ = item.set_text(row_label(&row.text, &row.icon, thresholds(&cfg)));
+        let icon = row_icon(&row.icon, threshold);
+        #[cfg(not(target_os = "linux"))]
+        if icon != *cur && item.set_icon(icon_image(icon, &row.tool)).is_ok() {
+            *cur = icon;
+        }
+        #[cfg(target_os = "linux")]
+        {
+            *cur = icon;
+        }
+    }
+    drop(shown);
+    let _ = items.today.set_text(&text.today);
     let [open_l, pause_l, quit_l] = action_labels(lang);
     let _ = items.open.set_text(open_l);
     let _ = items.pause.set_text(pause_l);
     let _ = items.quit.set_text(quit_l);
-    let _ = items.five.set_text(&five);
-    let _ = items.seven.set_text(&seven);
-    let _ = items.today.set_text(&today_label);
     if let Some(tray) = app.tray_by_id("main") {
-        let _ = tray.set_icon(Some(Image::new_owned(dot_rgba(limits.level()), 32, 32)));
-        let _ = tray.set_tooltip(Some(tk_core::limits::render_line(limits, Some(today.total), lang)));
+        let face = face_for(&face_input(store, &st.cfg, limits, today.total, now));
+        let _ = tray.set_icon(Some(face_image(face)));
+        let _ = tray.set_tooltip(Some(bum_core::limits::render_line(limits, Some(today.total), lang)));
+        let _ = tray.set_title(text.title.as_deref());
     }
 }
 
@@ -129,35 +311,101 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stale_dot_is_grey() {
-        let px = dot_rgba(Level::Grey);
-        let center = (16 * 32 + 16) * 4;
-        assert_eq!(&px[center..center + 3], &[142, 142, 147]);
+    fn linux_row_label_has_bar_first_so_bars_line_up() {
+        if !cfg!(target_os = "linux") {
+            return;
+        }
+        let ring = |p: f64| TrayIcon::Ring { pct: Some(p), stale: false };
+        let t = [70, 90];
+        assert_eq!(row_label("5 giờ · 42% · reset 13:10", &ring(42.0), t), "▰▰▰▰▱▱▱▱▱▱ 🟢  5 giờ · 42% · reset 13:10");
+        // Màu theo ngưỡng: < 70 xanh, 70–89 cam, ≥ 90 đỏ.
+        assert_eq!(row_label("x", &ring(69.9), t), "▰▰▰▰▰▰▰▱▱▱ 🟢  x");
+        assert_eq!(row_label("x", &ring(70.0), t), "▰▰▰▰▰▰▰▱▱▱ 🟠  x");
+        assert_eq!(row_label("x", &ring(89.0), t), "▰▰▰▰▰▰▰▰▰▱ 🟠  x");
+        assert_eq!(row_label("x", &ring(90.0), t), "▰▰▰▰▰▰▰▰▰▱ 🔴  x");
+        assert_eq!(row_label("x", &ring(130.0), t), "▰▰▰▰▰▰▰▰▰▰ 🔴  x");
+        // Ngưỡng người dùng đặt khác.
+        assert_eq!(row_label("x", &ring(60.0), [50, 80]), "▰▰▰▰▰▰▱▱▱▱ 🟠  x");
+        // Đã dùng thì ít nhất 1 ô; chỉ đầy khi đạt 100%.
+        assert_eq!(row_label("x", &ring(0.4), t), "▰▱▱▱▱▱▱▱▱▱ 🟢  x");
+        assert_eq!(row_label("x", &ring(99.6), t), "▰▰▰▰▰▰▰▰▰▱ 🔴  x");
+        // Dữ liệu cũ hoặc chưa có: chấm trắng.
+        assert_eq!(row_label("x", &TrayIcon::Ring { pct: Some(95.0), stale: true }, t), "▰▰▰▰▰▰▰▰▰▱ ⚪  x");
+        assert_eq!(row_label("x", &TrayIcon::Ring { pct: None, stale: false }, t), "▱▱▱▱▱▱▱▱▱▱ ⚪  x");
+        // Dòng không có % và tiêu đề công cụ: giữ nguyên.
+        assert_eq!(row_label("Kiro · hôm nay", &TrayIcon::None, t), "Kiro · hôm nay");
+        assert_eq!(row_label("Kiro", &TrayIcon::Logo, t), "Kiro");
     }
 
     #[test]
-    fn dot_is_colored_in_center_and_transparent_in_corner() {
-        let px = dot_rgba(Level::Red);
-        let center = (16 * 32 + 16) * 4;
-        assert_eq!(&px[center..center + 4], &[208, 69, 58, 255]);
-        assert_eq!(px[3], 0);
+    fn every_tray_png_decodes_to_32x32() {
+        for (face, _) in TRAY_PNGS {
+            let img = face_image(face);
+            assert_eq!((img.width(), img.height()), (32, 32), "{face:?}");
+        }
     }
 
     #[test]
-    fn labels_mark_stale_data_and_missing_windows() {
-        let st = tk_core::limits::state(
-            Some(tk_core::limits::LimitsFile { updated_at: 0, five_hour: Some(Window { used_percentage: 78.0, resets_at: 4_102_444_800 }), seven_day: None }),
+    fn tool_logos_decode_to_32x32_and_unknown_tool_has_none() {
+        for (id, _) in TOOL_PNGS {
+            let img = tool_logo(id).expect(id);
+            assert_eq!((img.width(), img.height()), (32, 32), "{id}");
+            assert_eq!(img.rgba()[3], 0, "{id}: góc trong suốt");
+        }
+        assert!(tool_logo("other").is_none());
+    }
+
+    #[test]
+    fn row_menu_ids_carry_tool_id() {
+        assert_eq!(tool_of_menu_id(&row_id("kiro", 3)), Some("kiro"));
+        assert_eq!(tool_of_menu_id(&row_id("claude_code", 0)), Some("claude_code"));
+        assert_eq!(tool_of_menu_id("open"), None);
+        assert_eq!(tool_of_menu_id("today"), None);
+    }
+
+    #[test]
+    fn row_icon_quantizes_ring_and_uses_first_threshold() {
+        let mut cfg = Config::default();
+        assert_eq!(first_threshold(&cfg), 70);
+        cfg.quota_thresholds = vec![80, 95];
+        assert_eq!(row_icon(&TrayIcon::Ring { pct: Some(75.2), stale: false }, first_threshold(&cfg)), RowIcon::Ring(75, RingTone::Normal));
+        assert_eq!(row_icon(&TrayIcon::Ring { pct: Some(75.2), stale: false }, 70), RowIcon::Ring(75, RingTone::Alert));
+        cfg.quota_thresholds.clear();
+        assert_eq!(first_threshold(&cfg), 70);
+        let img = ring_image(21, RingTone::Normal);
+        assert_eq!((img.width(), img.height()), (32, 32));
+    }
+
+    #[test]
+    fn menu_lines_follow_registry_and_match_item_count() {
+        let srcs = sources(&Config::default());
+        assert_eq!(srcs.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), vec!["claude_code", "kiro"]);
+        let store = Store::open_in_memory().unwrap();
+        let st = bum_core::limits::state(
+            Some(bum_core::limits::LimitsFile { updated_at: 0, five_hour: Some(Window { used_percentage: 47.0, resets_at: 4_102_444_800 }), seven_day: None }),
             None,
-            10_000,
+            0,
         );
-        let today = TodaySummary { prompts: 1, usage: Default::default(), total: 2_100_000, cost_usd: 3.2, unpriced_models: vec![] };
-        let [five, seven, t] = labels(&st, &today, 10_000, Lang::Vi);
-        assert!(five.contains("78%") && five.contains("cập nhật 2 giờ trước"), "{five}");
-        assert!(seven.contains("chưa có dữ liệu"), "{seven}");
-        assert_eq!(t, "Hôm nay: 2.1M token · 1 lượt");
-        let [five, seven, t] = labels(&st, &today, 10_000, Lang::En);
-        assert!(five.starts_with("5 hours: 78%") && five.contains("updated 2h ago"), "{five}");
-        assert!(seven.contains("no data yet"), "{seven}");
-        assert_eq!(t, "Today: 2.1M token · 1 turns");
+        let mut cfg = Config::default();
+        cfg.tool_limits.insert("kiro".into(), bum_core::config::ToolLimit { monthly_credits: Some(1000.0), reset_day: 1 });
+        let now = Utc::now();
+        let t = menu_text(&store, &cfg, &Default::default(), &srcs, &st, now, Lang::Vi);
+        assert_eq!(t.rows.len(), srcs.iter().map(meter::tray_row_count).sum::<usize>());
+        assert_eq!(t.rows[0].text, "Claude Code");
+        assert!(t.rows[1].text.starts_with("5 giờ · 47% · reset "), "{}", t.rows[1].text);
+        assert_eq!(t.rows[2].text, "7 ngày · chưa có dữ liệu");
+        assert_eq!(t.rows[3].text, "Kiro");
+        assert!(t.rows[4].text.starts_with("Tháng · 0% · 0/1000 credit · reset "), "{}", t.rows[4].text);
+        assert_eq!(t.today, "Hôm nay: chưa có hoạt động");
+        assert_eq!(t.title.as_deref(), Some("47%"));
+        // /usage còn mới thì thắng hạn mức người dùng nhập.
+        let mut q = std::collections::BTreeMap::new();
+        q.insert("kiro".to_string(), ToolQuota { used: 270.69, limit: 1000.0, resets_on: chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), plan: "KIRO PRO".into(), fetched_at: now.timestamp() });
+        let t = menu_text(&store, &cfg, &q, &srcs, &st, now, Lang::Vi);
+        assert_eq!(t.rows[4].text, "Tháng · 27% · 271/1000 credit · reset 01/11");
+        for r in &t.rows {
+            println!("{:?} {}", r.icon, r.text);
+        }
+        println!("{}", t.today);
     }
 }

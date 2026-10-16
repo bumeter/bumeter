@@ -18,6 +18,14 @@ fn main() {
         .manage(state::AppState::load())
         .manage(skills::PendingPlans::default())
         .setup(|app| {
+            // Máy đã bật theo dõi giới hạn bằng `tk`: trỏ hook sang `bum` (best effort).
+            if let Some(state) = app.try_state::<state::AppState>() {
+                match settings::setup(&state).migrate_legacy_hook() {
+                    Ok(true) => eprintln!("bumeter: đã chuyển hook statusline từ tk sang bum"),
+                    Ok(false) => {}
+                    Err(e) => eprintln!("bumeter: không chuyển được hook statusline: {e}"),
+                }
+            }
             tray::create(app.handle())?;
             runtime::start(app.handle());
             Ok(())

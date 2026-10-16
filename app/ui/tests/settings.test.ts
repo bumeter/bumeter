@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { fake, flush } from './fake';
-import { mountSettings } from '../src/views/settings';
+import { fake, flush, SOURCES } from './fake';
+import { mountSettings, SAVE_DEBOUNCE_MS } from '../src/views/settings';
+import { loadSources } from '../src/tools';
+import { setLang } from '../src/i18n';
+import { state, update } from '../src/state';
+import { applyTheme } from '../src/theme';
 
 const cfg = { anomaly_multiplier: 3, context_threshold: 300000, quota_thresholds: [70, 90], notify: { quota: true, blocked: true, anomaly: true, context: true }, claude_projects_dir: null };
 
@@ -8,13 +12,15 @@ let el: HTMLElement;
 beforeEach(() => {
   document.body.innerHTML = '<section id="s"></section>';
   el = document.getElementById('s')!;
+  setLang('vi');
+  applyTheme('system');
 });
 
 describe('cài đặt', () => {
   it('hiện trạng thái statusline và bật qua hộp xác nhận', async () => {
     let status: any = { kind: 'custom', command: 'bash ~/.claude/statusline-command.sh' };
     const f = fake({
-      settings_get: () => ({ config: cfg, statusline: status, data_dir: '/home/u/.local/share/thongke', parse_errors: 0 }),
+      settings_get: () => ({ config: cfg, statusline: status, data_dir: '/home/u/.local/share/bumeter', parse_errors: 0 }),
       statusline_plan: () => ({ description: 'Sẽ đổi statusLine.command <script>', noop: false }),
       statusline_apply: () => { status = { kind: 'hooked', command: 'x' }; return true; },
     });
@@ -31,20 +37,232 @@ describe('cài đặt', () => {
     expect(el.textContent).toContain('Đang bật');
   });
 
-  it('lưu ngưỡng và bật/tắt thông báo', async () => {
-    const f = fake({
-      settings_get: () => ({ config: cfg, statusline: { kind: 'hooked', command: 'x' }, data_dir: '/d', parse_errors: 2 }),
-      save_config: () => true,
-    });
+  const hookedInfo = (config: any = cfg, parse_errors = 0) => ({ config, statusline: { kind: 'hooked', command: 'x' }, data_dir: '/d', parse_errors });
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const input = (name: string) => el.querySelector(`input[name="${name}"]`) as HTMLInputElement;
+  const type = (name: string, v: string) => { const i = input(name); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); };
+  const saves = (f: { calls: { method: string; params: any }[] }) => f.calls.filter((c) => c.method === 'save_config');
+
+  it('đổi toggle: lưu ngay đúng 1 lần sau debounce, không có nút Lưu', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
-    (el.querySelector('input[name="context_threshold"]') as HTMLInputElement).value = '250';
-    (el.querySelector('input[name="notify_anomaly"]') as HTMLInputElement).checked = false;
-    (el.querySelector('[data-action="save"]') as HTMLButtonElement).click();
-    await flush();
-    const saved = f.calls.find((c) => c.method === 'save_config')!.params.config;
-    expect(saved.context_threshold).toBe(250000);
+    expect(el.querySelector('[data-action="save"]')).toBeNull();
+    const n = input('notify_anomaly');
+    n.checked = false; n.dispatchEvent(new Event('change', { bubbles: true }));
+    type('context_threshold', '250');
+    expect(saves(f)).toHaveLength(0);
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f)).toHaveLength(1);
+    const saved = saves(f)[0].params.config;
     expect(saved.notify.anomaly).toBe(false);
+    expect(saved.context_threshold).toBe(250000);
     expect(el.textContent).toContain('mở lại app');
-    expect(el.textContent).toContain('2 dòng');
+    expect(el.textContent).toContain('0 dòng');
+  });
+
+  it('quota "abc": không lưu, lỗi chỉ hiện khi rời ô', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('quota_thresholds', '70,');
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f)).toHaveLength(0);
+    expect(input('quota_thresholds').closest('.field')!.querySelector('.field-error')!.textContent).toBe('');
+    expect(input('quota_thresholds').getAttribute('aria-invalid')).not.toBe('true');
+    type('quota_thresholds', 'abc');
+    input('quota_thresholds').dispatchEvent(new Event('blur'));
+    expect(saves(f)).toHaveLength(0);
+    const err = input('quota_thresholds').closest('.field')!.querySelector('.field-error')!;
+    expect(err.textContent).not.toBe('');
+    expect(input('quota_thresholds').getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('hệ số ≤ 0 không được lưu; sửa lại đúng thì lưu và xoá lỗi', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('anomaly_multiplier', '0');
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f)).toHaveLength(0);
+    expect(input('anomaly_multiplier').closest('.field')!.querySelector('.field-error')!.textContent).toBe('');
+    input('anomaly_multiplier').dispatchEvent(new Event('blur'));
+    expect(input('anomaly_multiplier').closest('.field')!.querySelector('.field-error')!.textContent).not.toBe('');
+    type('anomaly_multiplier', '4');
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f)).toHaveLength(1);
+    expect(saves(f)[0].params.config.anomaly_multiplier).toBe(4);
+    expect(input('anomaly_multiplier').closest('.field')!.querySelector('.field-error')!.textContent).toBe('');
+  });
+
+  it('gõ dở "7" trong "70": không lưu giá trị giữa chừng', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('quota_thresholds', '7');
+    await wait(SAVE_DEBOUNCE_MS / 2);
+    type('quota_thresholds', '70');
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f)).toHaveLength(1);
+    expect(saves(f)[0].params.config.quota_thresholds).toEqual([70]);
+  });
+
+  it('chọn Tối: áp dụng data-theme ngay và lưu theme; Theo hệ thống gỡ data-theme', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    (el.querySelector('[data-theme-value="dark"]') as HTMLButtonElement).click();
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect((el.querySelector('[data-theme-value="dark"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true');
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f)).toHaveLength(1);
+    expect(saves(f)[0].params.config.theme).toBe('dark');
+    (el.querySelector('[data-theme-value="system"]') as HTMLButtonElement).click();
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+  });
+
+  it('Công cụ liệt kê đủ 2 công cụ, thư mục không có thì báo rõ', async () => {
+    fake({
+      settings_get: () => hookedInfo(),
+      sources: () => [SOURCES[0], { ...SOURCES[1], found: false, root: '/home/u/.kiro/sessions/cli', prompts: 0 }],
+    });
+    await loadSources();
+    await mountSettings(el);
+    const rows = el.querySelectorAll('.tool-row');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toContain('Claude Code');
+    expect(rows[0].textContent).toContain('/c');
+    expect(rows[0].textContent).toContain('380');
+    expect(rows[0].textContent).toContain('Đang theo dõi');
+    expect(rows[1].textContent).toContain('Kiro');
+    expect(rows[1].textContent).toContain('Không thấy thư mục');
+    expect(rows[1].textContent).not.toContain('Đang theo dõi');
+  });
+
+  it('đổi ngôn ngữ/giao diện khi layout medium: giữ data-layout, không mở ngăn kéo rỗng', async () => {
+    document.body.innerHTML = '<div id="app" data-layout="medium"><section id="s"></section></div>';
+    el = document.getElementById('s')!;
+    update({ layout: 'medium', lang: 'vi' });
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    (el.querySelector('[data-theme-value="light"]') as HTMLButtonElement).click();
+    const sel = el.querySelector('select[name="language"]') as HTMLSelectElement;
+    sel.value = 'en';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush(); await flush();
+    expect(saves(f).length).toBeGreaterThanOrEqual(1);
+    expect(saves(f).at(-1)!.params.config.language).toBe('en');
+    expect(document.getElementById('app')!.dataset.layout).toBe('medium');
+    expect(state.layout).toBe('medium');
+    expect(document.querySelector('.drawer, .scrim, [role="dialog"]')).toBeNull();
+    setLang('vi'); update({ lang: 'vi' });
+  });
+
+  it('đổi theme rồi rời màn: lưu chờ được flush, không mất', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('context_threshold', '123');
+    await mountSettings(el);
+    expect(saves(f)).toHaveLength(1);
+    expect(saves(f)[0].params.config.context_threshold).toBe(123000);
+  });
+  it('ngôn ngữ lưu độc lập khi ô số khác đang sai: chỉ đổi language trên cấu hình đã lưu', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('quota_thresholds', 'abc');
+    const sel = el.querySelector('select[name="language"]') as HTMLSelectElement;
+    sel.value = 'en';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush(); await flush();
+    expect(saves(f)).toHaveLength(1);
+    expect(saves(f)[0].params.config.language).toBe('en');
+    expect(saves(f)[0].params.config.quota_thresholds).toEqual([70, 90]);
+    expect(state.lang).toBe('en');
+    setLang('vi'); update({ lang: 'vi' });
+  });
+
+  it('theme lưu ngay, độc lập với ô số đang sai', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('anomaly_multiplier', '-1');
+    (el.querySelector('[data-theme-value="dark"]') as HTMLButtonElement).click();
+    await flush(); await flush();
+    expect(saves(f).some((c) => c.params.config.theme === 'dark' && c.params.config.anomaly_multiplier === 3)).toBe(true);
+  });
+
+  it('lưu lỗi: select ngôn ngữ và theme quay về giá trị cũ', async () => {
+    fake({ settings_get: () => hookedInfo({ ...cfg, theme: 'light' }), save_config: () => { throw new Error('đĩa đầy'); } });
+    applyTheme('light');
+    await mountSettings(el);
+    const sel = el.querySelector('select[name="language"]') as HTMLSelectElement;
+    sel.value = 'en';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush(); await flush();
+    expect(sel.value).toBe('vi');
+    expect(state.lang).toBe('vi');
+    (el.querySelector('[data-theme-value="dark"]') as HTMLButtonElement).click();
+    await flush(); await flush();
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect((el.querySelector('[data-theme-value="light"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true');
+    expect((el.querySelector('[data-theme-value="dark"]') as HTMLElement).getAttribute('aria-pressed')).toBe('false');
+    expect(el.querySelector('.message')?.classList.contains('error')).toBe(true);
+  });
+
+  it('chưa lưu gì thì không hiện "Đã lưu", chỉ gợi ý tự lưu', async () => {
+    fake({ settings_get: () => hookedInfo() });
+    await mountSettings(el);
+    expect(el.textContent).not.toContain('Đã lưu');
+    expect(el.textContent).toContain('Tự lưu khi bạn thay đổi');
+  });
+
+  describe('hạn mức credit theo công cụ', () => {
+    const mountWithSources = async (info: any) => {
+      const f = fake({ settings_get: () => info, save_config: () => true, sources: () => SOURCES });
+      await loadSources();
+      await mountSettings(el);
+      return f;
+    };
+    const errOf = (name: string) => input(name).closest('.field')!.querySelector('.field-error')!.textContent;
+
+    it('chỉ công cụ tính credit có 2 ô; nhập hạn mức + ngày reset thì lưu vào tool_limits', async () => {
+      const f = await mountWithSources(hookedInfo());
+      expect(el.querySelector('[data-tool="kiro"] input[name="credits_limit_kiro"]')).not.toBeNull();
+      expect(el.querySelector('[data-tool="claude_code"] input')).toBeNull();
+      expect(input('credits_limit_kiro').value).toBe('');
+      expect(input('credits_reset_kiro').value).toBe('1');
+      type('credits_limit_kiro', '1000');
+      type('credits_reset_kiro', '15');
+      await wait(SAVE_DEBOUNCE_MS + 100);
+      expect(saves(f)).toHaveLength(1);
+      expect(saves(f)[0].params.config.tool_limits).toEqual({ kiro: { monthly_credits: 1000, reset_day: 15 } });
+    });
+
+    it('để trống hạn mức = không theo dõi (null), giữ hạn mức công cụ khác', async () => {
+      const f = await mountWithSources(hookedInfo({ ...cfg, tool_limits: { kiro: { monthly_credits: 500, reset_day: 3 }, other: { monthly_credits: 9, reset_day: 2 } } }));
+      expect(input('credits_limit_kiro').value).toBe('500');
+      expect(input('credits_reset_kiro').value).toBe('3');
+      type('credits_limit_kiro', '  ');
+      await wait(SAVE_DEBOUNCE_MS + 100);
+      expect(saves(f)).toHaveLength(1);
+      expect(saves(f)[0].params.config.tool_limits).toEqual({ kiro: { monthly_credits: null, reset_day: 3 }, other: { monthly_credits: 9, reset_day: 2 } });
+    });
+
+    it('giá trị sai báo tại ô khi rời ô, không lưu', async () => {
+      const f = await mountWithSources(hookedInfo());
+      for (const [name, v] of [['credits_limit_kiro', '-5'], ['credits_limit_kiro', 'abc'], ['credits_reset_kiro', '29'], ['credits_reset_kiro', '0'], ['credits_reset_kiro', '1.5'], ['credits_reset_kiro', '']]) {
+        type(name, v);
+        await wait(SAVE_DEBOUNCE_MS + 100);
+        expect(saves(f), `${name}=${v}`).toHaveLength(0);
+        input(name).dispatchEvent(new Event('blur'));
+        expect(errOf(name), `${name}=${v}`).not.toBe('');
+        expect(input(name).getAttribute('aria-invalid')).toBe('true');
+        type(name, name === 'credits_reset_kiro' ? '1' : '');
+        input(name).dispatchEvent(new Event('blur'));
+        expect(errOf(name)).toBe('');
+      }
+      expect(errOf('credits_reset_kiro')).toBe('');
+    });
+
+    it('hiện số Kiro tự báo (chỉ đọc) và ô nhập thành dự phòng', async () => {
+      await mountWithSources({ ...hookedInfo(), tool_quotas: { kiro: { used: 270.69, limit: 1000, resets_on: '2026-11-01', plan: 'KIRO PRO', fetched_at: 1 } } });
+      const row = el.querySelector('[data-tool="kiro"]')!;
+      expect(row.querySelector('.tool-quota')!.textContent).toBe('Kiro báo: 270.69/1000 credit · KIRO PRO · reset 01/11');
+      expect(row.textContent!.toLowerCase()).toContain('dự phòng');
+    });
   });
 });

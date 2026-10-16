@@ -102,6 +102,7 @@ export const transport = {
       case 'sidebar_counts': return { prompts: 595, skills: 16, projects: 23, anomalous: 59, big_context: 41, interrupted: 21, starred: 3, by_tool: { claude_code: 380, kiro: 215 } };
       case 'today_summary': return { prompts: 45, usage: u(38_000_000, 0, 600_000), total: 38_620_966, cost_usd: 27.27, unpriced_models: [] };
       case 'limit_state': return { five_hour: { used_percentage: 78, resets_at: Date.now() / 1000 + 5400 }, seven_day: { used_percentage: 41, resets_at: Date.now() / 1000 + 86400 * 3 }, updated_at: Date.now() / 1000 - 12, stale: false, blocked: null };
+      case 'latest_anomaly_ts': return new Date(Date.now() - 25 * 60_000).toISOString();
       case 'set_note': return true;
       case 'skills:list': return mockSkills();
       case 'session_analysis': return mockSession();
@@ -117,7 +118,7 @@ export const transport = {
         { project: 'TICKET-102', sessions: 2, prompts: 88, tokens: 98_000_000, cost_usd: 61.2, top_skills: ['pj-spec', 'pj-clarify'], priciest: { key: 'x', text: 'liệt kê câu hỏi cho khách hàng', total: 8_700_000 }, last_used: '2026-08-28T09:00:00Z' },
         { project: 'TICKET-103', sessions: 2, prompts: 64, tokens: 61_000_000, cost_usd: 38.9, top_skills: ['pj-investigate'], priciest: { key: 'y', text: 'hãy review lại toàn bộ file điều tra', total: 4_100_000 }, last_used: '2026-09-21T09:00:00Z' },
         { project: 'PROJECT-SUMMARY', sessions: 1, prompts: 52, tokens: 54_000_000, cost_usd: 33.0, top_skills: ['pj-review'], priciest: { key: 'z', text: 'docs/pages/… hãy lấy đúng', total: 15_400_000 }, last_used: '2026-08-29T09:00:00Z' },
-        { project: 'thongke', sessions: 1, prompts: 60, tokens: 12_000_000, cost_usd: 7.1, top_skills: ['superpowers:brainstorming'], priciest: { key: 'w', text: 'ngoài ra thống kê được tất cả skill', total: 420_000 }, last_used: '2026-09-24T09:00:00Z' },
+        { project: 'bumeter', sessions: 1, prompts: 60, tokens: 12_000_000, cost_usd: 7.1, top_skills: ['superpowers:brainstorming'], priciest: { key: 'w', text: 'ngoài ra thống kê được tất cả skill', total: 420_000 }, last_used: '2026-09-24T09:00:00Z' },
       ];
       case 'day_stats': return Array.from({ length: 40 }, (_, i) => {
         const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (39 - i));
@@ -148,7 +149,7 @@ export const transport = {
       case 'skills:plan': return { id: 'mock', description: '• chuyển ~/.claude/skills/pj-debug → ~/.claude/skills-disabled/pj-debug\nCó hiệu lực từ phiên Claude Code mới.' };
       case 'skills:apply': return { id: 'op', ts: new Date().toISOString(), op: 'disable', description: '', undone: false };
       case 'skills:undo': return true;
-      case 'settings:get': return { config: { anomaly_multiplier: 3, context_threshold: 300000, quota_thresholds: [70, 90], notify: { quota: true, blocked: true, anomaly: true, context: true }, claude_projects_dir: null }, statusline: { kind: 'custom', command: 'bash ~/.claude/statusline-command.sh' }, data_dir: '~/.local/share/thongke', parse_errors: 0 };
+      case 'settings:get': return { config: { anomaly_multiplier: 3, context_threshold: 300000, quota_thresholds: [70, 90], notify: { quota: true, blocked: true, anomaly: true, context: true }, claude_projects_dir: null }, statusline: { kind: 'custom', command: 'bash ~/.claude/statusline-command.sh' }, data_dir: '~/.local/share/bumeter', parse_errors: 0 };
       case 'settings:statusline_plan': return { description: 'Sẽ đổi statusLine.command trong ~/.claude/settings.json', noop: false };
       case 'settings:statusline_apply': case 'settings:statusline_undo': case 'settings:save_config': return true;
       default: throw new Error(`mock: không có lệnh ${method}`);

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Bumeter
+Comment=Token, quota and skill usage for AI coding tools (Claude Code, Kiro)
+Exec=bumeter
+Icon=${SNAP}/meta/gui/bumeter.png
+StartupWMClass=bumeter
+Categories=Development;
+Terminal=false
+Type=Application

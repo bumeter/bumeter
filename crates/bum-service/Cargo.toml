@@ -1,0 +1,18 @@
+[package]
+name = "bum-service"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bum-core = { path = "../bum-core" }
+bum-adapters = { path = "../bum-adapters" }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+interprocess.workspace = true
+notify.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -25,11 +25,16 @@ export interface Change { prompt_keys: string[]; session_ids: string[] }
 
 export interface Config {
   language?: 'vi' | 'en';
+  theme?: 'system' | 'light' | 'dark';
   anomaly_multiplier: number; context_threshold: number; quota_thresholds: number[];
   notify: { quota: boolean; blocked: boolean; anomaly: boolean; context: boolean }; claude_projects_dir: string | null;
+  /** Hạn mức người dùng nhập theo công cụ (id → hạn mức); `monthly_credits` null = không theo dõi. */
+  tool_limits?: Record<string, { monthly_credits: number | null; reset_day: number }>;
 }
+/** Hạn mức công cụ tự báo (vd Kiro `/usage`), lần lấy gần nhất. */
+export interface ToolQuota { used: number; limit: number; resets_on: string; plan: string; fetched_at: number }
 export type StatuslineStatus = { kind: 'not_configured' } | { kind: 'custom'; command: string } | { kind: 'hooked'; command: string };
-export interface SettingsInfo { config: Config; statusline: StatuslineStatus; data_dir: string; parse_errors: number }
+export interface SettingsInfo { config: Config; statusline: StatuslineStatus; data_dir: string; parse_errors: number; tool_quotas?: Record<string, ToolQuota> }
 
 export type SkillSource = { kind: 'personal' } | { kind: 'plugin'; plugin: string } | { kind: 'synced' } | { kind: 'command' };
 export interface SkillEntry {
@@ -125,6 +130,8 @@ export const api = {
   saveConfig: (config: Config) => call<boolean>('settings:save_config', { config }),
   modelStats: () => call<ModelStat[]>('model_stats'),
   projectStats: (tool?: string) => call<ProjectStat[]>('project_stats', { tool }),
+  /** Mốc bất thường mới nhất (cùng nguồn với mặt Bum ở tray), null nếu chưa có. */
+  latestAnomalyTs: (tool?: string) => call<string | null>('latest_anomaly_ts', { tool }),
   dayStats: (tool?: string) => call<DayStat[]>('day_stats', { tool }),
   sessionAnalysis: (session_id: string) => call<SessionAnalysis>('session_analysis', { session_id }),
   callDetail: (session_id: string, request_id: string) => call<CallDetail>('call_detail', { session_id, request_id }),
@@ -135,5 +142,7 @@ export const api = {
   skillSearch: (q: string, limit = 20) => call<SkillHit[]>('skills:search', { q, limit }),
   skillLog: () => call<SkillJournalEntry[]>('skills:log'),
   onDataChanged: async (cb: (c: Change) => void) => (await getTransport()).listen('data-changed', (p) => cb(p as Change)),
+  /** Bấm dòng một công cụ trong menu tray: payload là tool id. */
+  onTrayScope: async (cb: (tool: unknown) => void) => (await getTransport()).listen('tray-scope', cb),
   onLimitsChanged: async (cb: (l: LimitState) => void) => (await getTransport()).listen('limits-changed', (p) => cb(p as LimitState)),
 };

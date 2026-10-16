@@ -1,0 +1,44 @@
+name: bumeter
+title: Bumeter
+base: core24
+version: '0.1.0'
+summary: Token, quota and skill usage for AI coding tools
+description: |
+  Bumeter reads the local logs of AI coding assistants (Claude Code, Kiro) and shows
+  where your tokens go: per conversation and per turn, which skills cost tokens in
+  every session, and how close you are to your 5-hour, 7-day and monthly limits.
+
+  - Tray icon with a quota bar per tool and a mascot (Bum) whose face follows your usage
+  - Conversations grouped by day, with the turns that cost the most
+  - Skills: install, disable, remove (with undo), search skills.sh
+  - Context analysis for long sessions
+  - Command line: `bumeter.bum status`
+
+  Everything stays on your machine; nothing is uploaded.
+  Requires a desktop with WebKitGTK 4.1 (Ubuntu 24.04 or newer).
+website: https://github.com/chieund/bumeter
+source-code: https://github.com/chieund/bumeter
+issues: https://github.com/chieund/bumeter/issues
+icon: snap/gui/bumeter.png
+grade: stable
+# Classic: đọc log trong ~/.claude, ~/.kiro, ghi hook statusline vào ~/.claude/settings.json, gọi kiro-cli trên máy.
+confinement: classic
+platforms:
+  amd64:
+
+apps:
+  bumeter:
+    command: usr/bin/bumeter
+  bum:
+    command: usr/bin/bum
+
+parts:
+  bumeter:
+    # Dựng từ gói .deb do `tauri build --bundles deb` tạo (xem docs/build-ubuntu.md).
+    plugin: dump
+    source: target/release/bundle/deb/Bumeter_0.1.0_amd64.deb
+    source-type: deb
+    prime:
+      - usr/bin/bumeter
+      - usr/bin/bum
+      - usr/share/icons

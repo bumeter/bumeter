@@ -28,7 +28,7 @@ beforeEach(() => {
   document.body.innerHTML = '<main id="l"></main><aside id="d"></aside>';
   list = document.getElementById('l')!;
   detail = document.getElementById('d')!;
-  update({ view: 'skills', filter: {}, scope: undefined, conversation: null, turn: null });
+  update({ view: 'skills', filter: {}, scope: undefined, conversation: null, turn: null, layout: 'wide' });
 });
 
 const click = (root: ParentNode, sel: string) => (root.querySelector(sel) as HTMLElement).click();
@@ -197,7 +197,7 @@ describe('tải nhanh và số liệu nhất quán', () => {
   it('tiêu đề có số đếm; nhãn cảnh báo "tốn nền mà không dùng" bấm vào thì lọc ra đúng các skill đó', async () => {
     fake({ skills_list: report });
     await mountSkills(list, detail);
-    expect(list.querySelector('.toolbar .count-pill')?.textContent).toBe('7');
+    expect(list.querySelector('.toolbar .pill')?.textContent).toBe('7');
     const badge = list.querySelector('[data-action="costly-unused"]')!;
     expect(badge.textContent).toContain('2');
     expect(badge.textContent).toContain('~180');
@@ -225,7 +225,7 @@ describe('tải nhanh và số liệu nhất quán', () => {
 
   it('chuyển sang dạng thẻ (nhớ lựa chọn); thẻ có chi phí nền, số lần dùng, logo công cụ', async () => {
     fake({ skills_list: report });
-    try { localStorage.removeItem('thongke.skillView'); } catch { /* bỏ qua */ }
+    try { localStorage.removeItem('bumeter.skillView'); } catch { /* bỏ qua */ }
     await mountSkills(list, detail);
     expect(list.querySelector('.skill-cards')).toBeNull();
     click(list, '[data-view-mode="cards"]');
@@ -234,15 +234,15 @@ describe('tải nhanh và số liệu nhất quán', () => {
     expect(card.textContent).toContain('~90');
     expect(card.textContent).toContain('5');
     expect(card.querySelector('.card-foot .glyph')).not.toBeNull();
-    expect(localStorage.getItem('thongke.skillView')).toBe('cards');
+    expect(localStorage.getItem('bumeter.skillView')).toBe('cards');
     await mountSkills(list, detail);
     expect(list.querySelector('.skill-cards')).not.toBeNull();
-    localStorage.removeItem('thongke.skillView');
+    localStorage.removeItem('bumeter.skillView');
   });
 
   it('công tắc trên thẻ: tắt qua hộp xác nhận; skill không quản lý được thì không có công tắc', async () => {
     const f = fake({ skills_list: report, skills_plan: () => ({ id: 'p-t', description: 'chuyển pj-review' }) });
-    localStorage.setItem('thongke.skillView', 'cards');
+    localStorage.setItem('bumeter.skillView', 'cards');
     await mountSkills(list, detail);
     const sw = list.querySelector('.skill-card[data-skill="pj-review"] [role="switch"]') as HTMLButtonElement;
     expect(sw.getAttribute('aria-checked')).toBe('true');
@@ -253,7 +253,7 @@ describe('tải nhanh và số liệu nhất quán', () => {
     expect(list.querySelector('.skill-card[data-skill="old-skill"] [role="switch"]')?.getAttribute('aria-checked')).toBe('false');
     expect(list.querySelector('.skill-card[data-skill="/model"] [role="switch"]')).toBeNull();
     expect(detail.textContent).not.toContain('pj-review'); // bấm công tắc không mở chi tiết
-    localStorage.removeItem('thongke.skillView');
+    localStorage.removeItem('bumeter.skillView');
   });
 
   it('kết quả skills.sh dạng thẻ: "✓ Đã cài", chip lọc theo repo nguồn', async () => {
@@ -280,5 +280,107 @@ describe('tải nhanh và số liệu nhất quán', () => {
     expect([...document.querySelectorAll('.market-row')].map((r) => r.getAttribute('data-skill-id'))).toEqual(['two']);
     click(document, '.install [data-source=""]');
     expect(document.querySelectorAll('.market-row').length).toBe(3);
+  });
+});
+
+describe('giao diện Bumeter: chip Tất cả, thẻ costly, trạng thái rỗng', () => {
+  it('chip "Tất cả" bật khi chưa lọc, bấm thì bỏ mọi bộ lọc', async () => {
+    fake({ skills_list: report });
+    await mountSkills(list, detail);
+    expect(list.querySelector('[data-filter="all"]')?.getAttribute('aria-pressed')).toBe('true');
+    click(list, '[data-filter="disabled"]');
+    click(list, '[data-filter="src-personal"]');
+    click(list, '[data-filter="costly"]');
+    expect(list.querySelector('[data-filter="all"]')?.getAttribute('aria-pressed')).toBe('false');
+    click(list, '[data-filter="all"]');
+    expect(list.querySelector('[data-filter="all"]')?.getAttribute('aria-pressed')).toBe('true');
+    for (const f of ['disabled', 'src-personal', 'costly']) expect(list.querySelector(`[data-filter="${f}"]`)?.getAttribute('aria-pressed')).toBe('false');
+    expect(list.querySelectorAll('[data-skill]').length).toBe(7);
+  });
+
+  it('thẻ costly có class costly, không có chấm trạng thái; skill không có công tắc mà đã tắt thì ghi chữ', async () => {
+    const rep = report();
+    rep.rows.push(r('manual-off', { state: 'disabled', managed: false }));
+    fake({ skills_list: () => rep });
+    localStorage.setItem('bumeter.skillView', 'cards');
+    await mountSkills(list, detail);
+    expect(list.querySelector('.skill-card[data-skill="pj-debug"]')?.classList.contains('costly')).toBe(true);
+    expect(list.querySelector('.skill-card[data-skill="pj-review"]')?.classList.contains('costly')).toBe(false);
+    expect(list.querySelector('.skill-card .state')).toBeNull();
+    expect(list.querySelector('.skill-card[data-skill="manual-off"]')?.textContent).toContain('đã tắt');
+    expect(list.querySelector('.skill-card[data-skill="pj-review"]')?.textContent).not.toContain('đã tắt');
+    localStorage.removeItem('bumeter.skillView');
+  });
+
+  it('không có skill nào: Bum ngủ + nút mở hộp Cài skill', async () => {
+    fake({ skills_list: () => ({ rows: [], commands: [], total_always_on: 0, unused: [], unused_always_on: 0, warnings: [] }) });
+    await mountSkills(list, detail);
+    expect(list.querySelector('.empty svg')).not.toBeNull();
+    click(list, '.empty [data-action="empty"]');
+    expect(document.querySelector('.install')).not.toBeNull();
+  });
+
+  it('không khớp bộ lọc: Bum + nút Xoá bộ lọc', async () => {
+    fake({ skills_list: report });
+    await mountSkills(list, detail);
+    click(list, '[data-filter="disabled"]');
+    click(list, '[data-filter="src-plugin"]');
+    expect(list.querySelector('.empty svg')).not.toBeNull();
+    click(list, '.empty [data-action="empty"]');
+    expect(list.querySelectorAll('[data-skill]').length).toBe(7);
+    expect(list.querySelector('[data-filter="all"]')?.getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+describe('bố cục theo độ rộng', () => {
+  const esc = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  const mountWith = async (layout: 'wide' | 'medium' | 'narrow') => {
+    update({ layout });
+    fake({ skills_list: report, list_prompts: () => listOf([row('p9', '2026-09-16T09:45:00Z', 'review lại tài liệu', 4_400_000)]) });
+    await mountSkills(list, detail);
+  };
+
+  it('medium: chọn skill mở ngăn kéo có tên skill + "dùng ở đâu"; Esc đóng', async () => {
+    await mountWith('medium');
+    click(list, '[data-skill="pj-review"]');
+    await flush(); await flush();
+    const drawer = document.querySelector('.drawer')!;
+    expect(drawer.getAttribute('aria-label')).toBe('pj-review');
+    expect(drawer.textContent).toContain('review lại tài liệu');
+    expect(detail.textContent).not.toContain('review lại tài liệu');
+    esc();
+    expect(document.querySelector('.drawer')).toBeNull();
+    expect(list.querySelector('[data-skill="pj-review"]')?.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('medium → wide: ngăn kéo đóng, chi tiết ở cột phải', async () => {
+    await mountWith('medium');
+    click(list, '[data-skill="pj-review"]');
+    await flush(); await flush();
+    update({ layout: 'wide' });
+    await flush(); await flush();
+    expect(document.querySelector('.drawer')).toBeNull();
+    expect(detail.textContent).toContain('review lại tài liệu');
+  });
+
+  it('rời view Skill thì đóng ngăn kéo', async () => {
+    await mountWith('medium');
+    click(list, '[data-skill="pj-review"]');
+    await flush(); await flush();
+    update({ view: 'overview' });
+    expect(document.querySelector('.drawer')).toBeNull();
+  });
+
+  it('narrow: chi tiết thay danh sách, nút "← Skill" quay lại', async () => {
+    await mountWith('narrow');
+    click(list, '[data-skill="pj-review"]');
+    await flush(); await flush();
+    expect((list.querySelector('.sk-list') as HTMLElement).hidden).toBe(true);
+    expect(list.querySelector('.sk-narrow')?.textContent).toContain('review lại tài liệu');
+    const back = list.querySelector('[data-action="back"]') as HTMLButtonElement;
+    expect(back.textContent).toBe('← Skill');
+    back.click();
+    expect((list.querySelector('.sk-list') as HTMLElement).hidden).toBe(false);
+    expect(list.querySelector('.sk-narrow')).toBeNull();
   });
 });

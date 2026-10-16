@@ -1,0 +1,54 @@
+{
+ "session_id": "k1-k3",
+ "cwd": "/home/u/work/TICKET-203",
+ "created_at": "2026-09-12T01:00:00Z",
+ "updated_at": "2026-09-12T01:10:00Z",
+ "title": "đọc dự án",
+ "session_state": {
+  "rts_model_state": {
+   "model_info": {
+    "model_id": "claude-opus-4.6",
+    "context_window_tokens": 1000000
+   },
+   "context_usage_percentage": 50.0
+  },
+  "conversation_metadata": {
+   "user_turn_metadatas": [
+    {
+     "turn_duration": {
+      "secs": 7,
+      "nanos": 0
+     },
+     "end_reason": "UserTurnEnd",
+     "end_timestamp": "2026-09-12T01:00:07.000Z",
+     "context_usage_percentage": 12.5,
+     "metering_usage": [
+      {
+       "value": 0.13,
+       "unit": "credit"
+      }
+     ],
+     "total_request_count": 2,
+     "builtin_tool_uses": 2,
+     "input_token_count": 0,
+     "output_token_count": 0
+    },
+    {
+     "turn_duration": {
+      "secs": 3,
+      "nanos": 0
+     },
+     "end_reason": "Cancelled",
+     "end_timestamp": "2026-09-12T01:05:03.000Z",
+     "context_usage_percentage": 50.0,
+     "metering_usage": [],
+     "total_request_count": 1,
+     "builtin_tool_uses": 0,
+     "input_token_count": 0,
+     "output_token_count": 0
+    }
+   ]
+  }
+ },
+ "session_created_reason": "subagent"
+}
