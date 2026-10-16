@@ -1,102 +1,102 @@
-# So sánh với skills-manager và những phần có thể áp dụng (2026-09-28)
+# Comparison with skills-manager and applicable parts (2026-09-28)
 
-- Dự án tham khảo: `~/outsource/skills-manager` (github.com/xingkongliang/skills-manager), bản v1.40.0.
-- Giấy phép **MIT** (Tianliang Zhang): được dùng lại code/dữ liệu, chỉ cần ghi nguồn.
-- Stack: Tauri 2, React 19, Tailwind, Rust, SQLite (rusqlite), react-i18next. Khoảng 42.600 dòng Rust, 526 test.
+- Reference project: `~/outsource/skills-manager` (github.com/xingkongliang/skills-manager), version v1.40.0.
+- **MIT** license (Tianliang Zhang): code/data may be reused, just attribute the source.
+- Stack: Tauri 2, React 19, Tailwind, Rust, SQLite (rusqlite), react-i18next. About 42,600 lines of Rust, 526 tests.
 
-## 1. Khác nhau ở mục đích
+## 1. Difference in purpose
 
 | | skills-manager | thongke |
 |---|---|---|
-| Câu hỏi trả lời | Skill nào đang được cài cho agent nào? | Dùng AI tốn bao nhiêu, tốn vào đâu, có hiệu quả không? |
-| Dữ liệu | Thư mục skill của 54 agent | Log hội thoại (Claude Code, Kiro) và quota |
-| Skill | Thư viện trung tâm (`~/.skills-manager`); triển khai sang từng agent bằng symlink/copy; preset, cập nhật từ git, backup lên GitHub, marketplace skills.sh | Liệt kê skill, **chi phí nền (tok/phiên), số lần dùng, dùng ở đâu**; tắt/bật/gỡ có hoàn tác |
-| Phân tích token, quota | Không có | Là phần chính |
+| Question answered | Which skills are installed for which agent? | How much does AI use cost, where does it go, is it effective? |
+| Data | Skill directories of 54 agents | Conversation logs (Claude Code, Kiro) and quota |
+| Skills | Central library (`~/.skills-manager`); deploy to each agent via symlink/copy; presets, updates from git, backup to GitHub, skills.sh marketplace | List skills, **baseline cost (tok/session), usage count, where used**; disable/enable/remove with undo |
+| Token, quota analysis | None | The main part |
 
-Hai app **bổ sung cho nhau**: thongke biết skill nào *đáng giữ*, skills-manager biết skill *nằm ở đâu* và phân phối nó ra sao.
+The two apps **complement each other**: thongke knows which skills are *worth keeping*, skills-manager knows where a skill *lives* and how it is distributed.
 
-## 2. Cảnh báo: có thể xung đột trên máy này
+## 2. Warning: possible conflict on this machine
 
-- Máy đang có `~/.skills-manager` (thư viện hiện chỉ có `frontend-design`).
-- Skill trong `~/.claude/skills` hiện **không** phải symlink từ đó, nên chưa xung đột.
-- Rủi ro: thongke tắt skill bằng cách chuyển thư mục sang `~/.claude/skills-disabled` (`crates/tk-skills/src/ops.rs`). Nếu skill do skills-manager triển khai, nó sẽ thấy trạng thái lệch và có thể triển khai lại.
+- The machine has `~/.skills-manager` (the library currently only has `frontend-design`).
+- Skills in `~/.claude/skills` are currently **not** symlinks from there, so there is no conflict yet.
+- Risk: thongke disables a skill by moving the directory to `~/.claude/skills-disabled` (`crates/tk-skills/src/ops.rs`). If a skill was deployed by skills-manager, it will see an inconsistent state and may redeploy it.
 
-## 3. Nên áp dụng (theo mức lợi ích)
+## 3. Worth adopting (by order of benefit)
 
-| # | Việc | Tham khảo bên skills-manager | Áp dụng vào thongke |
+| # | Work | Reference in skills-manager | Apply to thongke |
 |---|---|---|---|
-| 1 | **Nhường thao tác cho skills-manager** khi skill là symlink vào `~/.skills-manager` | CLI `skills-manager-cli skills undeploy/deploy/status … --json`; bản CLI được publish ở `~/.skills-manager/bin/skills-manager-cli` (kèm file `.version`) | `tk-skills`: nhận diện nguồn "Skills Manager", gọi CLI của nó thay vì tự chuyển thư mục; UI ghi "quản lý bởi Skills Manager". Không có CLI hợp lệ (`.version` thiếu) thì chỉ đọc |
-| 2 | **CI build bộ cài** | `.github/workflows/release.yml`: matrix macOS arm64/x64, **ubuntu-22.04** x64, ubuntu-24.04-arm, Windows x64; `test.yml` chạy `cargo test` | Build Linux trên ubuntu-22.04 để gỡ giới hạn glibc 2.39 (bộ cài hiện chỉ chạy trên Ubuntu 24.04+). Cùng matrix đó thêm Windows/macOS (phần M6 còn thiếu) |
-| 3 | **Bảng đường dẫn skill của 54 agent** | `src-tauri/src/core/tool_adapters.rs` (`default_tool_adapters`: key, `relative_skills_dir`, `relative_detect_dir`, `additional_scan_dirs`, project path riêng; ưu tiên `~/.config/...` hoặc `dirs::config_dir()`) | Chỉ lấy **dữ liệu đường dẫn** để màn Skill liệt kê skill theo từng công cụ. Code đọc log vẫn phải viết riêng cho từng công cụ (adapter trong `tk-adapters`). Ghi nguồn MIT |
-| 4 | **Chống lỗi khi thao tác file** | `core/path_guard.rs` (`sanitize_name`, `is_path_safe`: canonicalize, kiểm tra đích nằm trong base); `core/sync_engine.rs` chặn nguồn/đích lồng nhau (issue #61 lồng vô hạn, #199 xoá mất nguồn) | Bổ sung vào `tk-skills/src/ops.rs` cho `install_dir`, `uninstall`, `undo`, kèm test |
-| 5 | **Chẩn đoán cho app chạy nền** | `core/panic_log.rs` (hook ghi lần crash), `core/timing.rs` (chỉ log lần gọi đầu và các lần chậm), Settings → Export Logs, `core/log_sanitize.rs` (lọc thông tin nhạy cảm) | Hook ghi crash cho app tray; đo thời gian RPC theo kiểu first-or-slow; nút "Xuất log" trong Cài đặt (zip, đã lọc) |
-| 6 | **CLI cho agent + skill kèm theo** | `core/cli_bridge.rs`, `skills/manage-skills/SKILL.md`; lỗi dạng `{"ok": false, "code": …, "message": …}` | Hợp với M7: `tk … --json` có mã lỗi, cùng một skill để Claude tự hỏi "hôm nay tốn bao nhiêu, hội thoại nào đắt nhất" |
-| 7 | **Tiện ích UI nhỏ** | `components/CommandPalette.tsx` (Ctrl+K), `SkillMarkdown.tsx` (xem SKILL.md), cài đặt `show_tray_icon` / `close_action`, `tauri-plugin-updater`, cỡ chữ | Bảng lệnh Ctrl+K; xem trước SKILL.md trong màn Skill; tuỳ chọn tray (ẩn icon, đóng cửa sổ thì thu vào tray hay thoát); tự cập nhật app |
+| 1 | **Yield operations to skills-manager** when a skill is a symlink into `~/.skills-manager` | CLI `skills-manager-cli skills undeploy/deploy/status … --json`; the CLI is published at `~/.skills-manager/bin/skills-manager-cli` (with a `.version` file) | `tk-skills`: recognize the "Skills Manager" source, call its CLI instead of moving the directory itself; the UI shows "managed by Skills Manager". If there is no valid CLI (`.version` missing), read-only |
+| 2 | **CI installer build** | `.github/workflows/release.yml`: matrix macOS arm64/x64, **ubuntu-22.04** x64, ubuntu-24.04-arm, Windows x64; `test.yml` runs `cargo test` | Build Linux on ubuntu-22.04 to lift the glibc 2.39 limitation (the installer currently only runs on Ubuntu 24.04+). Add Windows/macOS with the same matrix (the missing part of M6) |
+| 3 | **Skill path table for 54 agents** | `src-tauri/src/core/tool_adapters.rs` (`default_tool_adapters`: key, `relative_skills_dir`, `relative_detect_dir`, `additional_scan_dirs`, per-project path; prefer `~/.config/...` or `dirs::config_dir()`) | Take only the **path data** so the Skill screen can list skills by tool. The log-reading code still has to be written separately for each tool (adapter in `tk-adapters`). Attribute the MIT source |
+| 4 | **Guard against file-operation errors** | `core/path_guard.rs` (`sanitize_name`, `is_path_safe`: canonicalize, check the target is inside the base); `core/sync_engine.rs` blocks nested source/target (issue #61 infinite nesting, #199 deleting the source) | Add to `tk-skills/src/ops.rs` for `install_dir`, `uninstall`, `undo`, with tests |
+| 5 | **Diagnostics for a background app** | `core/panic_log.rs` (hook that records crashes), `core/timing.rs` (log only the first call and slow calls), Settings → Export Logs, `core/log_sanitize.rs` (filter sensitive info) | Crash-recording hook for the tray app; time RPCs first-or-slow style; an "Export logs" button in Settings (zip, already filtered) |
+| 6 | **CLI for agents + a bundled skill** | `core/cli_bridge.rs`, `skills/manage-skills/SKILL.md`; errors of the form `{"ok": false, "code": …, "message": …}` | Fits M7: `tk … --json` with error codes, plus a skill so Claude can ask itself "how much did I cost today, which conversation was the most expensive" |
+| 7 | **Small UI conveniences** | `components/CommandPalette.tsx` (Ctrl+K), `SkillMarkdown.tsx` (view SKILL.md), settings `show_tray_icon` / `close_action`, `tauri-plugin-updater`, font size | Ctrl+K command palette; SKILL.md preview in the Skill screen; tray options (hide icon, close window to tray or quit); app auto-update |
 
-## 4. Không nên lấy
+## 4. Not worth taking
 
-- **Backup/đồng bộ qua Git, marketplace, preset**: ngoài mục đích của thongke. Nếu cần thì dùng thẳng skills-manager.
-- **Bộ logo agent** (`public/agent-icons/`): logo thương hiệu, không nằm trong giấy phép MIT. thongke giữ ô chữ cái màu (`SourceInfo.letter`/`color`).
-- **Code UI React**: thongke dùng TypeScript thuần + `h()`; chỉ lấy ý tưởng.
+- **Backup/sync over Git, marketplace, presets**: outside thongke's purpose. If needed, just use skills-manager.
+- **Agent logo set** (`public/agent-icons/`): brand logos, not covered by the MIT license. thongke keeps the colored letter box (`SourceInfo.letter`/`color`).
+- **React UI code**: thongke uses plain TypeScript + `h()`; take only the ideas.
 
-## 5. Đề xuất thứ tự làm
+## 5. Suggested order of work
 
-1. Mục 1 (tránh xung đột thật trên máy này) và mục 2 (giải quyết phần lớn M6).
-2. Mục 4 (an toàn file) đi cùng mục 1, vì cùng sửa `tk-skills/ops.rs`.
-3. Mục 5 và 7 khi làm M6.
-4. Mục 3 khi mở rộng sang công cụ mới (OpenCode…); mục 6 khi làm M7.
+1. Item 1 (avoid a real conflict on this machine) and item 2 (resolves most of M6).
+2. Item 4 (file safety) goes with item 1, since both change `tk-skills/ops.rs`.
+3. Items 5 and 7 when doing M6.
+4. Item 3 when expanding to new tools (OpenCode…); item 6 when doing M7.
 
-## 6. Ý tưởng tính năng có thể mang sang (kết hợp với dữ liệu thongke)
+## 6. Feature ideas worth bringing over (combined with thongke data)
 
-Phần 3 ở trên là kỹ thuật. Phần này là **tính năng người dùng thấy được**. Điểm mạnh riêng của thongke là số liệu sử dụng, nên mỗi ý tưởng đều được gắn thêm số liệu đó.
+Section 3 above is technical. This section is **user-visible features**. thongke's unique strength is usage data, so each idea is augmented with that data.
 
-| # | Bên skills-manager | Mang sang thongke | Giá trị |
+| # | In skills-manager | Bring to thongke | Value |
 |---|---|---|---|
-| A | **Preset**: nhóm skill, bấm một lần để bật/tắt cả nhóm cho một agent | **Bộ skill theo ngữ cảnh kèm chi phí**: mỗi bộ hiện tổng chi phí nền (tok/phiên). Tự **đề xuất bộ theo project** từ log: "project X 30 ngày chỉ dùng pj-review, pj-estimate → bộ này tiết kiệm ~2K tok/phiên" | Cao: giảm chi phí nền, đúng mục tiêu tối ưu |
-| B | **Theo dõi cập nhật + so sánh với bản upstream** | **Đo tác động khi skill thay đổi**: ghi lại lúc SKILL.md đổi (hash nội dung), so sánh TB token/lần dùng trước và sau. Ví dụ: "sau khi sửa pj-review ngày 20/09, TB giảm từ 5.7M xuống 3.1M" | Cao: công cụ khác không có |
-| C | **Nhật ký hoạt động** | **Đánh dấu sự kiện trên biểu đồ ngày**: tắt/bật skill, đổi model, bật statusline. Nhìn được ngay thay đổi đó có làm giảm token không | Cao, làm nhanh (đã có `skill_ops`) |
-| D | **Project Workspace** (skill riêng trong repo `.claude/skills`) | Tự quét skill cấp project từ `cwd` đã có trong log, không cần người dùng tự thêm project. Hiện chi phí nền **thật** của từng project (skill toàn cục + skill project) | Trung bình–cao |
-| E | **Huy hiệu agent trên thẻ skill** (skill đang có ở agent nào) | Mỗi skill hiện huy hiệu công cụ **kèm số lần dùng theo từng công cụ** | Trung bình |
-| F | **Tag + lọc "chưa gắn tag"** | Gắn tag cho **hội thoại** (bug, tài liệu, review…), thống kê token theo tag trong Tổng quan: "việc review tốn 40% token" | Trung bình–cao |
-| G | **Bảng lệnh ⌘K** | Nhảy nhanh tới hội thoại, project, skill, model, cài đặt; lệnh "lọc tốn bất thường", "đổi phạm vi Kiro" | Trung bình, làm nhanh |
-| H | **Cho agent tự quản lý** (skill `manage-skills` + CLI) | Skill **`thongke`** cho Claude: "hôm nay tôi tốn bao nhiêu", "quota còn bao nhiêu trước khi chạy việc dài", "hội thoại này đang ở context bao nhiêu, có nên /compact" | Cao, gắn với M7 |
-| I | **Lần mở đầu** (bắt đầu mới hay khôi phục; tự nhận ngôn ngữ từ OS) | Onboarding: nhận diện công cụ có trên máy, chọn ngôn ngữ (mặc định theo OS), bật statusline quota trong một bước | Trung bình (đang nằm trong việc dang dở) |
-| J | **Hỏi khi đóng cửa sổ**: thu vào tray hay thoát, nhớ lựa chọn | Làm giống vậy; hiện tại đóng cửa sổ là luôn chạy nền, người mới dễ tưởng app đã tắt | Thấp, làm rất nhanh |
-| K | **Chọn nhiều + thao tác hàng loạt** | Chọn nhiều hội thoại để gắn tag hoặc ⭐; chọn nhiều skill để tắt/bật | Thấp–trung bình |
-| L | **Hướng dẫn nhanh** | Hộp "cách đọc số liệu": token thật và ước lượng, chi phí nền, vì sao đọc lại context tốn | Thấp |
+| A | **Presets**: group skills, one click to enable/disable a whole group for an agent | **Context-based skill sets with cost**: each set shows its total baseline cost (tok/session). Auto-**suggest sets by project** from logs: "project X only used pj-review, pj-estimate in 30 days → this set saves ~2K tok/session" | High: reduces baseline cost, right on the optimization goal |
+| B | **Track updates + compare with upstream** | **Measure the impact when a skill changes**: record when SKILL.md changes (content hash), compare average tokens per use before and after. Example: "after editing pj-review on 20/09, the average dropped from 5.7M to 3.1M" | High: no other tool has it |
+| C | **Activity journal** | **Mark events on the daily chart**: disable/enable a skill, change model, enable statusline. See immediately whether that change reduced tokens | High, quick to build (`skill_ops` already exists) |
+| D | **Project Workspace** (a repo-local skill in `.claude/skills`) | Auto-scan project-level skills from the `cwd` already present in logs, no need for the user to add projects. Shows the **real** baseline cost of each project (global skills + project skills) | Medium–high |
+| E | **Agent badges on skill cards** (which agents have the skill) | Each skill shows tool badges **with usage count per tool** | Medium |
+| F | **Tag + "untagged" filter** | Tag **conversations** (bug, docs, review…), aggregate tokens by tag in the Overview: "review work costs 40% of tokens" | Medium–high |
+| G | **⌘K command palette** | Jump quickly to a conversation, project, skill, model, settings; commands "filter anomalous cost", "switch Kiro scope" | Medium, quick to build |
+| H | **Let agents self-manage** (a `manage-skills` skill + CLI) | A **`thongke`** skill for Claude: "how much did I cost today", "how much quota is left before a long task", "what context is this conversation at, should I /compact" | High, tied to M7 |
+| I | **First launch** (start fresh or restore; auto-detect language from the OS) | Onboarding: detect tools present on the machine, choose language (default per OS), enable the quota statusline in one step | Medium (already in progress) |
+| J | **Prompt on window close**: minimize to tray or quit, remember the choice | Do the same; currently closing the window always keeps it running in the background, so newcomers easily think the app has quit | Low, very quick to build |
+| K | **Multi-select + batch operations** | Select multiple conversations to tag or ⭐; select multiple skills to disable/enable | Low–medium |
+| L | **Quick guide** | A "how to read the numbers" box: real vs estimated tokens, baseline cost, why re-reading context is costly | Low |
 
-**Nên làm trước:** C (nhanh, thấy hiệu quả ngay), A (đúng mục tiêu giảm chi phí), B (điểm khác biệt), H (khi làm M7).
+**Do first:** C (quick, immediate payoff), A (right on the cost-reduction goal), B (the differentiator), H (when doing M7).
 
-## 7. Cách quản lý skill (cài, tắt, gỡ): có nên làm theo không?
+## 7. How skill management (install, disable, remove): should we follow it?
 
 | | thongke (`tk-skills`) | skills-manager |
 |---|---|---|
-| Nơi chứa skill | Ngay trong thư mục của từng công cụ (`~/.claude/skills`, …) | **Thư viện trung tâm** `~/.skills-manager/skills`; *triển khai* sang từng agent bằng symlink hoặc copy |
-| Cài | Từ thư mục (symlink) hoặc từ git | Git (có URL thư mục con `…/tree/main/skills/x`), thư mục, `.zip`/`.skill`, marketplace, `owner/repo@skill` |
-| Tắt | Chuyển sang `skills-disabled`, có hoàn tác | Không có. Chỉ "undeploy" (gỡ khỏi agent), thư viện vẫn giữ |
-| Gỡ | Thùng rác 30 ngày, có hoàn tác | Xoá khỏi thư viện và mọi agent (hỏi xác nhận) |
-| Cập nhật | Không có | Hash nội dung so với upstream, xem diff, báo file sẽ mất (`removals.rs`) |
-| An toàn | Kế hoạch → xác nhận → thực hiện → nhật ký → hoàn tác; symlink chỉ đụng link | `TargetState` (Absent / LinkToSource / ForeignLink / RealDir / RealFile, đọc bằng `symlink_metadata`) + `ReplacePolicy` (NoClobber / Recorded / UserConfirmed); `preflight_replace` kiểm tra cả loạt trước (issue #363) |
+| Where skills live | Right in each tool's directory (`~/.claude/skills`, …) | **Central library** `~/.skills-manager/skills`; *deployed* to each agent via symlink or copy |
+| Install | From a directory (symlink) or from git | Git (with subdirectory URL `…/tree/main/skills/x`), directory, `.zip`/`.skill`, marketplace, `owner/repo@skill` |
+| Disable | Move to `skills-disabled`, with undo | None. Only "undeploy" (remove from the agent); the library still keeps it |
+| Remove | 30-day trash, with undo | Delete from the library and every agent (asks for confirmation) |
+| Update | None | Content hash vs upstream, view diff, report files that will be lost (`removals.rs`) |
+| Safety | Plan → confirm → execute → journal → undo; a symlink only touches the link | `TargetState` (Absent / LinkToSource / ForeignLink / RealDir / RealFile, read via `symlink_metadata`) + `ReplacePolicy` (NoClobber / Recorded / UserConfirmed); `preflight_replace` checks the whole batch first (issue #363) |
 
-**Kết luận:** **không** chép mô hình thư viện trung tâm. Đó là lõi của skills-manager và rất nặng (`commands/skills.rs` ~4.200 dòng, `git_fetcher.rs` ~2.700 dòng). Làm lại chẳng khác gì viết lại app của họ, và dễ xung đột trên máy dùng cả hai app. Giữ cách tắt/gỡ có hoàn tác hiện tại của thongke.
+**Conclusion:** **do not** copy the central-library model. That is the core of skills-manager and very heavy (`commands/skills.rs` ~4,200 lines, `git_fetcher.rs` ~2,700 lines). Rebuilding it would be like rewriting their app, and it easily conflicts on a machine using both apps. Keep thongke's current disable/remove with undo.
 
-**Lấy từng phần:**
+**Take in parts:**
 
-1. Skill do skills-manager triển khai → nhường thao tác cho CLI của nó (xem mục 3.1). Cài cho nhiều agent thì dùng skills-manager.
-2. Phân loại đích + mặc định không ghi đè (`TargetState`/`ReplacePolicy`) cho `tk-skills/ops.rs`: nhận ra link lạ, link hỏng; từ chối khi không chắc thứ đó là của mình.
-3. Kiểm tra trước cả loạt cho "tắt hàng loạt": có một skill không làm được thì dừng hết trước khi đụng vào bất kỳ skill nào.
-4. Thêm nguồn cài: URL GitHub trỏ tới thư mục con, `owner/repo@skill`, `.zip`.
-5. Kiểm tra cập nhật cho skill cài từ git bằng hash nội dung (đi cùng ý tưởng 6B: token trước và sau khi skill đổi).
-6. Báo trước những file sẽ mất khi cập nhật skill.
+1. A skill deployed by skills-manager → yield operations to its CLI (see item 3.1). To install for many agents, use skills-manager.
+2. Target classification + default not to overwrite (`TargetState`/`ReplacePolicy`) for `tk-skills/ops.rs`: recognize foreign links and broken links; refuse when unsure the thing is ours.
+3. Preflight the whole batch for "batch disable": if one skill can't be handled, stop everything before touching any skill.
+4. Add install sources: a GitHub URL pointing to a subdirectory, `owner/repo@skill`, `.zip`.
+5. Check for updates to git-installed skills via content hash (goes with idea 6B: tokens before and after the skill changes).
+6. Report in advance which files will be lost when updating a skill.
 
-**Không lấy:** thư viện trung tâm, preset đồng bộ, backup Git, marketplace.
+**Not taking:** central library, synced presets, Git backup, marketplace.
 
-## 8. Giao diện: đã mang sang (2026-09-28)
+## 8. UI: already brought over (2026-09-28)
 
 Plan: `docs/superpowers/plans/2026-09-28-ui-from-skills-manager.md`.
 
-- **Logo công cụ** Claude Code, Kiro (`app/ui/public/tool-icons/`, ghi chú nhãn hiệu trong `NOTICE.md`); thiếu hoặc lỗi thì quay về ô chữ cái. Màu nhận diện theo thương hiệu: Claude `#d77655`, Kiro `#9046ff`.
-- **Màn Skill**: số đếm dạng viên, nhãn cảnh báo "tốn nền mà không dùng" (bấm để lọc), chip lọc trạng thái/nguồn, chip viền đứt; chuyển **Bảng / Thẻ**; thẻ có công tắc bật/tắt (vẫn qua xác nhận + hoàn tác).
-- **Tìm trên skills.sh**: kết quả dạng thẻ, "✓ Đã cài", chip lọc theo repo nguồn.
-- **Hội thoại**: số đếm dạng viên, số hội thoại theo từng công cụ. **Tổng quan**: 3 gợi ý thành thẻ có nút hành động.
-- Không làm: hàng logo mọi agent trên thẻ, lưới thẻ cho Hội thoại, đổi màu nhấn chính, sidebar thu gọn (sidebar hiện chỉ có một nhóm).
+- **Tool logos** Claude Code, Kiro (`app/ui/public/tool-icons/`, brand notice in `NOTICE.md`); if missing or broken, fall back to the letter box. Brand identity colors: Claude `#d77655`, Kiro `#9046ff`.
+- **Skill screen**: pill-style counts, the "costly but unused" warning label (click to filter), status/source filter chips, dashed-border chip; switch **Table / Cards**; cards have an enable/disable toggle (still with confirmation + undo).
+- **Search on skills.sh**: card-style results, "✓ Installed", a filter chip by source repo.
+- **Conversations**: pill-style counts, conversation count per tool. **Overview**: 3 suggestions as cards with action buttons.
+- Not doing: a row of logos for every agent on the card, a card grid for Conversations, changing the primary accent color, a collapsible sidebar (the sidebar currently has only one group).

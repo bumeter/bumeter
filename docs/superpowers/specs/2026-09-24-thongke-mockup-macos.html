@@ -105,32 +105,32 @@ html[data-theme="dark"] .caption{color:#ccc}
 </head>
 <body>
 <div class="hint">
-  <span><b>Mockup macOS</b> · dữ liệu thật từ máy bạn (đã bỏ trùng)</span>
-  <span class="seg" id="theme"><button class="on" data-t="light">Sáng</button><button data-t="dark">Tối</button></span>
+  <span><b>Mockup macOS</b> · real data from your machine (deduplicated)</span>
+  <span class="seg" id="theme"><button class="on" data-t="light">Light</button><button data-t="dark">Dark</button></span>
 </div>
 
 <div class="window">
   <!-- SIDEBAR -->
   <aside class="side">
     <div class="lights"><i></i><i></i><i></i></div>
-    <div class="sec">Xem theo</div>
-    <div class="item on"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.5V8l2.4 1.6"/></svg>Lần hỏi<span class="n">595</span></div>
+    <div class="sec">View by</div>
+    <div class="item on"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.5V8l2.4 1.6"/></svg>Prompts<span class="n">595</span></div>
     <div class="item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z"/></svg>Skill<span class="n">16</span></div>
     <div class="item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4.5h4l1.2 1.5H14v6.5H2z"/></svg>Project<span class="n">23</span></div>
-    <div class="item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4"/></svg>Ngày</div>
-    <div class="sec">Lọc nhanh</div>
-    <div class="item"><span class="dot" style="background:var(--red)"></span>&nbsp;Tốn bất thường<span class="n">59</span></div>
+    <div class="item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4"/></svg>Day</div>
+    <div class="sec">Quick filters</div>
+    <div class="item"><span class="dot" style="background:var(--red)"></span>&nbsp;Unusually costly<span class="n">59</span></div>
     <div class="item"><span class="dot" style="background:var(--yellow)"></span>&nbsp;Context &gt; 300K<span class="n">41</span></div>
-    <div class="item"><span class="dot" style="background:var(--label3)"></span>&nbsp;Bị ngắt ngang<span class="n">21</span></div>
-    <div class="item"><span class="dot" style="background:var(--accent)"></span>&nbsp;Cần xem lại<span class="n">3</span></div>
+    <div class="item"><span class="dot" style="background:var(--label3)"></span>&nbsp;Interrupted<span class="n">21</span></div>
+    <div class="item"><span class="dot" style="background:var(--accent)"></span>&nbsp;Needs review<span class="n">3</span></div>
 
     <div class="today">
-      Hôm nay
-      <b>38.6M token</b>
-      45 lần hỏi · $27.27
+      Today
+      <b>38.6M tokens</b>
+      45 prompts · $27.27
       <div class="ring">
-        <div>5 giờ · 78%<div class="bar"><span style="width:78%;background:var(--yellow)"></span></div></div>
-        <div>7 ngày · 41%<div class="bar"><span style="width:41%;background:var(--green)"></span></div></div>
+        <div>5 hours · 78%<div class="bar"><span style="width:78%;background:var(--yellow)"></span></div></div>
+        <div>7 days · 41%<div class="bar"><span style="width:41%;background:var(--green)"></span></div></div>
       </div>
     </div>
   </aside>
@@ -138,63 +138,63 @@ html[data-theme="dark"] .caption{color:#ccc}
   <!-- LIST -->
   <section class="main">
     <div class="toolbar">
-      <h1>Lần hỏi</h1>
-      <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>Tìm trong câu hỏi</div>
-      <span class="seg"><button>Hôm nay</button><button class="on">7 ngày</button><button>30 ngày</button></span>
+      <h1>Prompts</h1>
+      <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>Search prompts</div>
+      <span class="seg"><button>Today</button><button class="on">7 days</button><button>30 days</button></span>
     </div>
-    <div class="chips"><span class="chip on">TICKET-101 ✕</span><span class="chip">Mọi skill</span><span class="chip">Sắp xếp: Thời gian</span></div>
+    <div class="chips"><span class="chip on">TICKET-101 ✕</span><span class="chip">All skills</span><span class="chip">Sort: Time</span></div>
     <div class="list">
-      <div class="group"><span>THỨ NĂM 11/09 · 09:10 – 12:40</span><span>64 lần hỏi · 71M</span></div>
-      <div class="row"><div><div class="t">ok giờ tôi cần test chạy e2e với lambda ở local để kiểm tra</div><div class="m">09:52 · 23 lượt gọi <span class="tag skill">run</span></div></div><div class="v">14.9M<small>$9.84</small></div></div>
-      <div class="row"><div><div class="t">tức là ntn ?</div><div class="m">11:02 · 1 lượt gọi <span class="tag cont">run</span></div></div><div class="v">620K<small>$0.31</small></div></div>
-      <div class="row"><div><div class="t">bạn cứ lấy đúng format mail tôi gửi trong file .md</div><div class="m">11:15 · 8 lượt gọi</div></div><div class="v">6.8M<small>$3.52</small></div></div>
-      <div class="row sel"><div><div class="t">giờ bạn cập nhật tiến độ nhé, và tôi cần tài liệu cuối cùng của task này</div><div class="m">11:28 · 11 lượt gọi <span class="tag">context 841K</span></div></div><div class="v">9.4M<small>$4.76</small></div></div>
-      <div class="row"><div><div class="t">ok</div><div class="m">11:40 · 1 lượt gọi</div></div><div class="v">870K<small>$0.44</small></div></div>
-      <div class="group"><span>THỨ TƯ 10/09 · 14:05 – 17:30</span><span>48 lần hỏi · 52M</span></div>
-      <div class="row"><div><div class="t">tôi nghĩ bạn code trước đi</div><div class="m">14:27 · 17 lượt gọi</div></div><div class="v">7.9M<small>$4.05</small></div></div>
-      <div class="row"><div><div class="t">giờ bạn review lại xem đúng ko nhé</div><div class="m">14:38 · 25 lượt gọi <span class="tag skill">pj-review</span></div></div><div class="v">5.6M<small>$2.93</small></div></div>
-      <div class="row"><div><div class="t">có, hãy cập nhật, sau đó hãy review lại tài liệu trên</div><div class="m">15:02 · 14 lượt gọi <span class="tag skill">pj-estimate</span></div></div><div class="v">1.3M<small>$0.71</small></div></div>
+      <div class="group"><span>THURSDAY 11/09 · 09:10 – 12:40</span><span>64 prompts · 71M</span></div>
+      <div class="row"><div><div class="t">ok now I need to run the e2e test with lambda locally to check</div><div class="m">09:52 · 23 calls <span class="tag skill">run</span></div></div><div class="v">14.9M<small>$9.84</small></div></div>
+      <div class="row"><div><div class="t">what does that mean?</div><div class="m">11:02 · 1 call <span class="tag cont">run</span></div></div><div class="v">620K<small>$0.31</small></div></div>
+      <div class="row"><div><div class="t">just use exactly the mail format I sent in the .md file</div><div class="m">11:15 · 8 calls</div></div><div class="v">6.8M<small>$3.52</small></div></div>
+      <div class="row sel"><div><div class="t">now please update the progress, and I need the final document for this task</div><div class="m">11:28 · 11 calls <span class="tag">context 841K</span></div></div><div class="v">9.4M<small>$4.76</small></div></div>
+      <div class="row"><div><div class="t">ok</div><div class="m">11:40 · 1 call</div></div><div class="v">870K<small>$0.44</small></div></div>
+      <div class="group"><span>WEDNESDAY 10/09 · 14:05 – 17:30</span><span>48 prompts · 52M</span></div>
+      <div class="row"><div><div class="t">I think you should code first</div><div class="m">14:27 · 17 calls</div></div><div class="v">7.9M<small>$4.05</small></div></div>
+      <div class="row"><div><div class="t">now please review it again to make sure it's right</div><div class="m">14:38 · 25 calls <span class="tag skill">pj-review</span></div></div><div class="v">5.6M<small>$2.93</small></div></div>
+      <div class="row"><div><div class="t">yes, please update, then review the document above again</div><div class="m">15:02 · 14 calls <span class="tag skill">pj-estimate</span></div></div><div class="v">1.3M<small>$0.71</small></div></div>
     </div>
   </section>
 
   <!-- INSPECTOR -->
   <aside class="insp">
-    <div class="toolbar"><span class="btn">☆ Xem lại</span><span class="btn">Ghi chú</span></div>
+    <div class="toolbar"><span class="btn">☆ Review</span><span class="btn">Note</span></div>
     <div class="pad">
-      <p class="q">“giờ bạn cập nhật tiến độ nhé, và tôi cần tài liệu cuối cùng của task này”</p>
-      <div class="sub">TICKET-101 · 11/09 11:28 · 4 phút 40 giây</div>
+      <p class="q">“now please update the progress, and I need the final document for this task”</p>
+      <div class="sub">TICKET-101 · 11/09 11:28 · 4 minutes 40 seconds</div>
 
-      <div class="big"><b>9.4M</b><span>14× trung bình</span></div>
-      <div class="sub">token · ước tính $4.76</div>
+      <div class="big"><b>9.4M</b><span>14× average</span></div>
+      <div class="sub">tokens · estimated $4.76</div>
 
       <div class="grid">
-        <div class="cell"><small>Lượt gọi API</small><b>11</b></div>
-        <div class="cell"><small>Context lúc hỏi</small><b style="color:var(--red)">841K</b></div>
-        <div class="cell"><small>Đọc lại context</small><b>99.8%</b></div>
-        <div class="cell"><small>Output thật</small><b style="color:var(--green)">17K</b></div>
+        <div class="cell"><small>API calls</small><b>11</b></div>
+        <div class="cell"><small>Context at request</small><b style="color:var(--red)">841K</b></div>
+        <div class="cell"><small>Context re-reads</small><b>99.8%</b></div>
+        <div class="cell"><small>Actual output</small><b style="color:var(--green)">17K</b></div>
       </div>
 
-      <div class="h"><span>Từng lượt gọi</span><span>Bash × 10</span></div>
-      <svg viewBox="0 0 300 70" width="100%" height="70" aria-label="Token từng lượt gọi">
+      <div class="h"><span>Per call</span><span>Bash × 10</span></div>
+      <svg viewBox="0 0 300 70" width="100%" height="70" aria-label="Tokens per call">
         <g fill="var(--accent)" opacity=".85">
           <rect x="2" y="6" width="22" height="62" rx="3"/><rect x="29" y="6" width="22" height="62" rx="3"/><rect x="56" y="5" width="22" height="63" rx="3"/><rect x="83" y="5" width="22" height="63" rx="3"/><rect x="110" y="5" width="22" height="63" rx="3"/><rect x="137" y="4" width="22" height="64" rx="3"/><rect x="164" y="4" width="22" height="64" rx="3"/><rect x="191" y="4" width="22" height="64" rx="3"/><rect x="218" y="3" width="22" height="65" rx="3"/><rect x="245" y="3" width="22" height="65" rx="3"/><rect x="272" y="2" width="22" height="66" rx="3"/>
         </g>
         <g fill="var(--green)"><rect x="2" y="66" width="22" height="2"/><rect x="110" y="66" width="22" height="2"/><rect x="272" y="66" width="22" height="2"/></g>
       </svg>
-      <div class="legend"><span><i style="background:var(--accent)"></i>Đọc context</span><span><i style="background:var(--green)"></i>Output</span></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Context reads</span><span><i style="background:var(--green)"></i>Output</span></div>
 
       <div class="callout">
-        <b>Vì sao tốn?</b> 99.8% token là đọc lại 841K context cũ — mỗi lệnh Bash nhỏ lại đọc lại toàn bộ lịch sử.
-        <div class="go">→ Chạy /compact hoặc mở phiên mới trước bước tổng kết.</div>
+        <b>Why so costly?</b> 99.8% of tokens are re-reading the old 841K context — every small Bash command re-reads the entire history.
+        <div class="go">→ Run /compact or start a new session before the wrap-up step.</div>
       </div>
 
-      <div class="actions"><span class="btn primary">Phân tích phiên</span><span class="btn">Mở file log</span></div>
+      <div class="actions"><span class="btn primary">Analyze session</span><span class="btn">Open log file</span></div>
     </div>
   </aside>
 </div>
 
 <div class="caption">
-Điểm chính của phong cách: sidebar trong mờ kiểu Finder, nhãn nhóm nhỏ màu xám, hàng chọn tô xanh hệ thống, số dùng font chữ số đều, đường kẻ mảnh 0.5px, nút bấm bo nhẹ có viền mảnh, thẻ số liệu nền xám nhạt, không có đường viền đậm hay màu gắt. Bấm <b>Sáng / Tối</b> ở trên để xem cả hai chế độ.
+Key points of the style: a Finder-style translucent sidebar, small gray group labels, the selected row filled with the system blue, numbers in tabular figures, thin 0.5px rules, buttons with slight rounding and thin borders, metric cards on a light gray background, and no heavy borders or harsh colors. Click <b>Light / Dark</b> above to see both modes.
 </div>
 
 <script>

@@ -127,15 +127,6 @@ app/ui                the interface (TypeScript, no framework)
 docs/brand            Bum, the mascot, in five moods
 ```
 
-## Tiếng Việt
-
-Bumeter là app desktop cho Linux, đọc log của Claude Code và Kiro ngay trên máy để cho thấy
-token tốn vào hội thoại, lượt hỏi và skill nào, cùng mức quota 5 giờ, 7 ngày và credit tháng còn lại.
-Không gửi dữ liệu đi đâu. Giao diện có tiếng Việt và tiếng Anh (đổi trong Cài đặt).
-
-Cài: `sudo apt install ./Bumeter_1.0.1_amd64.deb`, hoặc chạy thẳng file `.AppImage`.
-Hướng dẫn build chi tiết: [docs/build-ubuntu.md](docs/build-ubuntu.md).
-
 ## Credits
 
 Tool logos in `app/ui/public/tool-icons/` belong to their owners; see the

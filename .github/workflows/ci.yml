@@ -1,4 +1,4 @@
-# Kiểm thử mỗi lần push/PR trên cả 3 hệ điều hành: bắt sớm lỗi riêng của Windows/macOS.
+# Test on every push/PR across all 3 operating systems: catch Windows/macOS-specific bugs early.
 name: CI
 
 on:
@@ -20,11 +20,11 @@ jobs:
         os: [ubuntu-22.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      # Fixture JSONL phải giữ LF trên Windows.
+      # Fixture JSONL must keep LF on Windows.
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
 
-      - name: Thư viện hệ thống (Linux)
+      - name: System libraries (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -33,8 +33,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
-      # tauri-build cần frontendDist và sidecar externalBin tồn tại lúc biên dịch app/src-tauri.
-      - name: UI và sidecar giả cho tauri-build
+      # tauri-build needs frontendDist and the sidecar externalBin to exist when compiling app/src-tauri.
+      - name: Fake UI and sidecar for tauri-build
         shell: bash
         run: |
           mkdir -p app/ui/dist app/src-tauri/binaries

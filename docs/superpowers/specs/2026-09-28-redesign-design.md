@@ -1,125 +1,125 @@
-# Bumeter — Thiết kế lại giao diện + đổi tên (Spec, 2026-09-28)
+# Bumeter — UI redesign + rename (Spec, 2026-09-28)
 
-> **Mockup chuẩn:** `2026-09-28-redesign-mockups/bumeter-ui-mascot.html` (đã duyệt). Thương hiệu: `docs/brand/README.md` + `docs/brand/bum/`. Các mockup khác trong thư mục `2026-09-28-redesign-mockups/` là các vòng thử trước đó: **chỉ tham khảo bố cục; chỗ nào khác bản chuẩn thì theo bản chuẩn.**
+> **Standard mockup:** `2026-09-28-redesign-mockups/bumeter-ui-mascot.html` (approved). Brand: `docs/brand/README.md` + `docs/brand/bum/`. The other mockups in the `2026-09-28-redesign-mockups/` directory are earlier trial rounds: **reference the layout only; wherever they differ from the standard version, follow the standard version.**
 
-## 1. Mục tiêu
+## 1. Goals
 
-Người dùng thấy giao diện cũ **chật/rối** và **chưa hiện đại**, và muốn một thương hiệu riêng. Đợt này:
+The user finds the old UI **cramped/cluttered** and **not modern**, and wants its own brand. This round:
 
-- Đổi tên dự án **thongke → Bumeter** (Bum = biệt danh tác giả, meter = đồng hồ đo), linh vật **Bum** làm logo và đèn báo trạng thái.
-- Làm lại lớp giao diện theo mockup chuẩn: cam chủ đạo, thân thiện, hiện đại, nút phẳng; dùng tốt ở cửa sổ rộng lẫn nửa màn hình.
-- Không đổi chức năng, không đổi cách lấy dữ liệu; app vẫn nhẹ (TypeScript thuần + `h()`, không framework).
+- Rename the project **thongke → Bumeter** (Bum = the author's nickname, meter = a measuring gauge), with the **Bum** mascot as the logo and a status indicator.
+- Redo the UI layer per the standard mockup: primary orange, friendly, modern, flat buttons; usable well in wide windows and split-screen.
+- No functional changes, no changes to how data is fetched; the app stays light (plain TypeScript + `h()`, no framework).
 
-Thành công khi: mọi màn khớp mockup chuẩn ở sáng/tối, vi/en; ở ~1000px không còn 3 cột bị bóp; tray và thông báo dùng biểu cảm Bum; lệnh `bum` và thư mục dữ liệu mới hoạt động, dữ liệu cũ được chuyển sang; toàn bộ test qua.
+Success when: every screen matches the standard mockup in light/dark, vi/en; at ~1000px the 3 columns are no longer squeezed; the tray and notifications use Bum expressions; the `bum` command and the new data directory work and old data is migrated; all tests pass.
 
-## 2. Quyết định đã chốt
+## 2. Decided decisions
 
-| Chủ đề | Chốt |
+| Topic | Decision |
 |---|---|
-| Tên | **Bumeter**; logo chữ viết thường `bumeter`; CLI **`bum`** (thay `tk`); thư mục dữ liệu **`<data_dir>/bumeter`** (thay `thongke`), tự chuyển dữ liệu cũ |
-| Logo | Linh vật **Bum** (ngọn lửa tròn có mặt), 5 biểu cảm: `happy`, `calm`, `worry`, `blaze`, `sleep` (SVG trong `docs/brand/bum/`) |
-| Màu | Cam chủ đạo `#FF7A1A` (tối: `#FF8A33`); cam đậm cho chữ `#E8640A`; nền nhạt cam `#FFF0E3`; đỏ cam `#FF4B2B` cho cực tốn; xanh `#22A05A` cho giảm/tiết kiệm. Nền sáng ấm `#FAF7F4`, mặt khối `#FFFFFF`; nền tối than nâu `#15120F`, mặt khối `#1F1A16`. **Không gradient ở đâu cả** |
-| Chữ | **Be Vietnam Pro** (nhúng qua `@fontsource/be-vietnam-pro`, chạy offline), số dạng tabular; tiêu đề 800, logo chữ 900 |
-| Bo góc theo cấp | Khung lớn (panel, danh sách) 16px; ô số/khung phụ 12px; nút, chip, ô tìm 9–10px; tag nhỏ 5px |
-| Nút | Phẳng: nút chính nền cam chữ trắng; nút phụ nền `sunk`; không bóng đổ, không gradient. Bóng chỉ cho lớp nổi (ngăn kéo, hộp thoại, menu) |
-| Nhận diện công cụ | Logo công cụ (Claude Code, Kiro) — màu cam dành cho "tiêu hao" và hành động chính |
-| Bố cục theo độ rộng | `wide` ≥ 1200px: 3 cột. `medium` 700–1199px: sidebar thành cột icon, chi tiết là **ngăn kéo trượt từ phải** (~60%, Esc/✕/bấm nền để đóng). `narrow` < 700px: một cột, chi tiết là trang riêng có "← quay lại" |
-| Tinh thần | "macOS-inspired, thân thiện, hiện đại": giữ thanh tiêu đề gốc, bố cục sidebar → danh sách → chi tiết, segmented control, phím tắt (Ctrl/⌘+K tìm, ↑↓, Esc); không bắt chước vibrancy/Aqua |
+| Name | **Bumeter**; wordmark logo lowercase `bumeter`; CLI **`bum`** (replacing `tk`); data directory **`<data_dir>/bumeter`** (replacing `thongke`), with automatic migration of old data |
+| Logo | Mascot **Bum** (a round flame with a face), 5 expressions: `happy`, `calm`, `worry`, `blaze`, `sleep` (SVG in `docs/brand/bum/`) |
+| Colors | Primary orange `#FF7A1A` (dark: `#FF8A33`); dark orange for text `#E8640A`; light orange background `#FFF0E3`; red-orange `#FF4B2B` for extreme cost; green `#22A05A` for reduction/savings. Light background warm `#FAF7F4`, block surface `#FFFFFF`; dark background charcoal-brown `#15120F`, block surface `#1F1A16`. **No gradients anywhere** |
+| Font | **Be Vietnam Pro** (embedded via `@fontsource/be-vietnam-pro`, runs offline), tabular numbers; titles 800, wordmark 900 |
+| Corner radii by level | Large frames (panel, list) 16px; number boxes/sub-frames 12px; buttons, chips, search box 9–10px; small tags 5px |
+| Buttons | Flat: primary button orange background with white text; secondary button `sunk` background; no drop shadow, no gradient. Shadows only for floating layers (drawer, dialogs, menus) |
+| Tool identity | Tool logos (Claude Code, Kiro) — the orange color is reserved for "consumption" and primary actions |
+| Width-responsive layout | `wide` ≥ 1200px: 3 columns. `medium` 700–1199px: the sidebar becomes an icon column, and the detail is a **drawer sliding in from the right** (~60%, closed with Esc/✕/backdrop click). `narrow` < 700px: a single column, the detail is a separate page with "← back" |
+| Spirit | "macOS-inspired, friendly, modern": keep the native title bar, sidebar → list → detail layout, segmented control, keyboard shortcuts (Ctrl/⌘+K search, ↑↓, Esc); do not imitate vibrancy/Aqua |
 
-## 3. Nền tảng chung
+## 3. Common foundation
 
-### 3.1 Token (`app/ui/src/styles/tokens.css`)
+### 3.1 Tokens (`app/ui/src/styles/tokens.css`)
 
-Biến: `--bg`, `--surf`, `--sunk`, `--line`, `--ink`, `--ink2`, `--ink3`, `--acc`, `--acc2`, `--tint`, `--red`, `--grn` (giá trị sáng/tối như mục 2 và mockup chuẩn), `--r-panel: 16px`, `--r-box: 12px`, `--r-ctl: 10px`, `--r-tag: 5px`, khoảng cách bậc 4px. Chế độ: theo hệ thống, hoặc `data-theme="light|dark"` (Cài đặt).
+Variables: `--bg`, `--surf`, `--sunk`, `--line`, `--ink`, `--ink2`, `--ink3`, `--acc`, `--acc2`, `--tint`, `--red`, `--grn` (light/dark values as in section 2 and the standard mockup), `--r-panel: 16px`, `--r-box: 12px`, `--r-ctl: 10px`, `--r-tag: 5px`, spacing in 4px steps. Modes: follow the system, or `data-theme="light|dark"` (Settings).
 
-### 3.2 Component (`app/ui/src/components/`)
+### 3.2 Components (`app/ui/src/components/`)
 
-| Component | Việc |
+| Component | Job |
 |---|---|
-| `bum.ts` | `bum(state, size)` trả SVG linh vật (5 biểu cảm, màu theo token); `bumStateFor(...)` chọn biểu cảm từ dữ liệu (mục 3.4) |
-| `drawer.ts` | Ngăn kéo phải: mở/đóng, Esc, bấm nền mờ, ✕; focus vào trong, trả focus khi đóng; `role="dialog"` |
-| `chipMenu.ts` | Chip có menu thả xuống (một giá trị) và `chipMultiMenu` (nhiều giá trị, chip hiện số đang chọn); bàn phím ↑↓/Enter/Esc |
-| `ui.ts` | `countPill`, `kpi` (nhãn, số lớn, dòng phụ), `insightRow` (icon theo mức độ, tiêu đề, mô tả, nút hành động) |
+| `bum.ts` | `bum(state, size)` returns the mascot SVG (5 expressions, colors per token); `bumStateFor(...)` selects the expression from data (section 3.4) |
+| `drawer.ts` | Right drawer: open/close, Esc, backdrop click, ✕; focus moves inside, focus is restored on close; `role="dialog"` |
+| `chipMenu.ts` | A chip with a dropdown menu (single value) and `chipMultiMenu` (multiple values, the chip shows the selected count); keyboard ↑↓/Enter/Esc |
+| `ui.ts` | `countPill`, `kpi` (label, big number, sub-line), `insightRow` (severity-based icon, title, description, action button) |
 
-### 3.3 Khung app
+### 3.3 App frame
 
-- `main.ts` theo dõi độ rộng (ResizeObserver) và đặt `#app[data-layout]`; CSS đổi grid.
-- **Sidebar:** logo Bum + chữ `bumeter`; bộ chọn phạm vi công cụ; nav có icon (Tổng quan, Hội thoại, Skill, Cài đặt); **thẻ Bum** ở đáy: Bum theo trạng thái + "Quota 5 giờ X%" + giờ reset + thanh quota (chỉ khi phạm vi có quota; không có thì Bum + trạng thái chung).
-- Tìm nhanh: ô tìm kiếm có gợi ý phím `Ctrl K` (mở tìm hội thoại; bảng lệnh đầy đủ để sau).
+- `main.ts` watches the width (ResizeObserver) and sets `#app[data-layout]`; CSS switches the grid.
+- **Sidebar:** Bum logo + `bumeter` text; tool-scope picker; nav with icons (Overview, Conversations, Skill, Settings); a **Bum card** at the bottom: Bum by state + "5-hour quota X%" + reset time + quota bar (only when the scope has quota; if not, Bum + a general status).
+- Quick search: a search box with a `Ctrl K` shortcut hint (opens conversation search; a full command palette is deferred).
 
-### 3.4 Biểu cảm Bum theo trạng thái
+### 3.4 Bum expression by state
 
-Ưu tiên từ trên xuống:
+Priority from top to bottom:
 
-1. `sleep`: dữ liệu quota đã cũ (`stale`) **và** không có lượt mới trong 30 phút, hoặc chưa có dữ liệu nào.
-2. `blaze`: quota 5 giờ ≥ ngưỡng thứ hai (`quota_thresholds[1]`, mặc định 90%), hoặc có lượt tốn bất thường trong 10 phút gần nhất.
-3. `worry`: quota 5 giờ ≥ ngưỡng thứ nhất (mặc định 70%).
-4. `happy`: token hôm nay < trung bình mỗi ngày dùng của 30 ngày.
-5. `calm`: còn lại.
+1. `sleep`: quota data is stale **and** there is no new turn for 30 minutes, or there is no data at all.
+2. `blaze`: 5-hour quota ≥ the second threshold (`quota_thresholds[1]`, default 90%), or an anomalous-cost turn in the last 10 minutes.
+3. `worry`: 5-hour quota ≥ the first threshold (default 70%).
+4. `happy`: today's tokens < the 30-day average daily usage.
+5. `calm`: otherwise.
 
-Dùng ở: sidebar, Tổng quan (cạnh số token chính), tray (icon), thông báo (icon), màn trống (`sleep`), lời giải thích "vì sao tốn" (`worry`).
+Used in: sidebar, Overview (next to the main token number), tray (icon), notifications (icon), empty screens (`sleep`), and the "why it's costly" explanation (`worry`).
 
-## 4. Từng màn (theo mockup chuẩn)
+## 4. Each screen (per the standard mockup)
 
-### 4.1 Tổng quan
+### 4.1 Overview
 
-- Chọn khoảng: Hôm nay / 7 ngày / 30 ngày / 90 ngày.
-- Hàng 3 thẻ: **Token** (Bum + số lớn + "Ít/Nhiều hơn X% so với kỳ trước", màu xanh/đỏ), **Lượt** (TB mỗi ngày dùng), **Hội thoại** (số theo từng công cụ khi phạm vi Tất cả).
-- Thẻ **Token theo ngày** (cột bo đầu, cột tốn nhất cam đậm, bấm cột để lọc Hội thoại) cạnh thẻ **Bum gợi ý** (tối đa 3 dòng: lượt tốn bất thường → đỏ; skill tốn nền mà không dùng → cam, lấy từ `api.skills(false)`, lỗi thì ẩn; project chiếm nhiều token → xám). Mỗi dòng có nút hành động.
-- Project và Model: thẻ riêng bên dưới (danh sách có thanh ngang), xếp chồng khi hẹp.
-- "Kỳ trước" = đúng số ngày liền trước; kỳ trước bằng 0 thì không hiện phần so sánh.
+- Range selection: Today / 7 days / 30 days / 90 days.
+- A row of 3 cards: **Tokens** (Bum + big number + "Less/More by X% than the previous period", green/red), **Turns** (average per day of use), **Conversations** (count by tool when the scope is All).
+- A **Tokens by day** card (bars with rounded tops, the costliest bar in dark orange, clicking a bar filters Conversations) next to a **Bum suggests** card (at most 3 lines: an anomalous-cost turn → red; a skill costly but unused → orange, from `api.skills(false)`, hidden on error; a project taking many tokens → gray). Each line has an action button.
+- Project and Model: separate cards below (lists with horizontal bars), stacked when narrow.
+- "Previous period" = exactly the preceding number of days; if the previous period is 0, the comparison part is hidden.
 
-### 4.2 Hội thoại
+### 4.2 Conversations
 
-- Tiêu đề + số đếm + ô tìm; **một hàng lọc**: chip menu Project, chip menu thời gian, chip menu Model (nhiều), chip lọc nhanh (Tốn bất thường, Context lớn, Ngắt ngang, ⭐).
-- Danh sách trên một khung trắng bo 16px: nhóm theo ngày (tiêu đề đậm, chữ thường), mỗi dòng: logo công cụ (khi phạm vi Tất cả) + tiêu đề, dòng phụ (project, giờ hoặc credit), cột số lượt, **thanh nhiên liệu** (cam; đỏ khi lượt/hội thoại cực tốn) + số token. Dòng đang chọn nền `--tint`.
-- Chi tiết: tiêu đề, meta (project, model, khoảng giờ — không lặp token/lượt), 3 ô số (Token cam, Lượt, Context lớn nhất), nút "Phân tích context" (chính) và "Đánh dấu"; các lượt: giờ, câu hỏi, xem nhanh câu trả lời, token; lượt mở rộng giữ đầy đủ hỏi/đáp/tool call; "vì sao tốn" trong khung `--tint` có Bum `worry`.
+- Title + count + search box; **one filter row**: Project chip menu, time chip menu, Model chip menu (multiple), quick-filter chips (Anomalous cost, Large context, Interrupted, ⭐).
+- A list on a white 16px-rounded frame: grouped by day (bold title, normal text), each row: tool logo (when the scope is All) + title, sub-line (project, time or credits), a turn-count column, a **fuel bar** (orange; red when the turn/conversation is extremely costly) + token count. The selected row has a `--tint` background.
+- Detail: title, meta (project, model, time range — no repeated token/turn), 3 number boxes (Token orange, Turns, Largest context), a "Analyze context" button (primary) and "Mark"; the turns: time, question, quick view of the answer, tokens; an expanded turn keeps the full question/answer/tool call; "why it's costly" in a `--tint` frame with a `worry` Bum.
 
 ### 4.3 Skill
 
-Giữ tính năng hiện có (bảng/thẻ, công tắc, chip lọc, nhãn cảnh báo, tìm trên skills.sh); đổi sang token/component mới; thêm chip "Tất cả"; thẻ skill tốn nền mà không dùng có viền cam; bỏ chấm trạng thái trên thẻ (công tắc thể hiện bật/tắt).
+Keep the existing features (table/cards, toggle, filter chips, warning label, search on skills.sh); switch to the new tokens/components; add an "All" chip; a skill card that is costly but unused gets an orange border; drop the status dot on the card (the toggle shows on/off).
 
-### 4.4 Cài đặt
+### 4.4 Settings
 
-Nhóm thành khung: **Chung** (ngôn ngữ, giao diện Sáng/Tối/Theo hệ thống — `Config.theme`), **Công cụ** (logo, thư mục log, số lượt, trạng thái từ `sources`), **Giới hạn & thông báo**, **Chẩn đoán**. **Lưu ngay** khi đổi (debounce 400ms; giá trị không hợp lệ thì báo lỗi tại chỗ, không lưu); ngưỡng cần mở lại app thì vẫn ghi rõ.
+Group into frames: **General** (language, UI Light/Dark/System — `Config.theme`), **Tools** (logo, log directory, usage count, status from `sources`), **Limits & notifications**, **Diagnostics**. **Save immediately** on change (debounce 400ms; an invalid value is reported inline and not saved); thresholds that need an app restart are still stated clearly.
 
-### 4.5 Phân tích context
+### 4.5 Context analysis
 
-Biểu đồ, thành phần lượt gọi, gợi ý là các khung riêng theo token mới; gợi ý dùng `insightRow`.
+The chart, the call composition, and the suggestions are separate frames using the new tokens; suggestions use `insightRow`.
 
-### 4.6 Màn trống và lỗi
+### 4.6 Empty and error screens
 
-Bum `sleep` + một câu nói rõ việc cần làm + nút hành động (ví dụ "Bum đang chờ hội thoại đầu tiên").
+A `sleep` Bum + a sentence stating clearly what to do + an action button (for example "Bum is waiting for the first conversation").
 
-## 5. Tray, icon app, thông báo
+## 5. Tray, app icon, notifications
 
-- Icon app (1024 → các cỡ Tauri, `.icns`, `.ico`): Bum `calm` trên nền trắng (theo `docs/brand/bum/`). PNG xuất bằng Chrome headless từ SVG (máy không có rsvg/inkscape), commit vào `app/src-tauri/icons/`.
-- Tray: thay chấm màu bằng **Bum theo trạng thái** (mục 3.4) ở cỡ 32px (PNG nhúng sẵn cho 5 biểu cảm); tooltip giữ dòng trạng thái hiện tại.
-- Thông báo: tiêu đề "Bumeter · …"; icon theo loại (quota → `worry`/`blaze`, tốn bất thường → `blaze`).
+- App icon (1024 → the Tauri sizes, `.icns`, `.ico`): a `calm` Bum on a white background (per `docs/brand/bum/`). The PNG is exported with Chrome headless from the SVG (the machine has no rsvg/inkscape), committed to `app/src-tauri/icons/`.
+- Tray: replace the colored dot with a **Bum by state** (section 3.4) at 32px (PNG embedded for the 5 expressions); the tooltip keeps the current status line.
+- Notifications: title "Bumeter · …"; icon by type (quota → `worry`/`blaze`, anomalous cost → `blaze`).
 
-## 6. Đổi tên
+## 6. Rename
 
-| Hạng mục | Cũ | Mới |
+| Item | Old | New |
 |---|---|---|
-| Tên hiển thị, cửa sổ, bộ cài | thongke | Bumeter |
+| Display name, window, installer | thongke | Bumeter |
 | Tauri `productName` / `identifier` | `thongke` / `dev.thongke.app` | `Bumeter` / `dev.bumeter.app` |
-| Binary app | `thongke-app` | `bumeter` |
+| App binary | `thongke-app` | `bumeter` |
 | CLI | `tk` | `bum` (sidecar `binaries/bum-<triple>`) |
-| Thư mục dữ liệu | `<data_dir>/thongke`, `thongke.db`, socket `thongke-*.sock` | `<data_dir>/bumeter`, `bumeter.db`, `bumeter-*.sock` |
-| Biến môi trường | `TK_DATA_DIR`, `TK_CLAUDE_DIR`, `TK_KIRO_DIR` | giữ nguyên (tương thích), thêm tên mới `BUM_*` được ưu tiên |
+| Data directory | `<data_dir>/thongke`, `thongke.db`, socket `thongke-*.sock` | `<data_dir>/bumeter`, `bumeter.db`, `bumeter-*.sock` |
+| Environment variables | `TK_DATA_DIR`, `TK_CLAUDE_DIR`, `TK_KIRO_DIR` | kept as they are (compatibility), plus new `BUM_*` names that take priority |
 
-- **Chuyển dữ liệu:** khi mở app/CLI lần đầu, nếu `<data_dir>/bumeter` chưa có mà `<data_dir>/thongke` có: đổi tên thư mục và file DB (`thongke.db*` → `bumeter.db*`) trong một bước; lỗi thì giữ nguyên thư mục cũ và dùng nó, ghi log.
-- **Hook statusline:** nếu `~/.claude/settings.json` có lệnh statusline trỏ tới binary `tk` cũ, app viết lại sang `bum` (sao lưu trước, như thao tác statusline hiện có).
-- Tên crate nội bộ (`tk-core`, `tk-adapters`…) **giữ nguyên** để giảm xáo trộn; chỉ đổi thứ người dùng nhìn thấy.
-- Tài liệu: README, PROGRESS, build-ubuntu cập nhật tên mới.
+- **Data migration:** when the app/CLI opens for the first time, if `<data_dir>/bumeter` does not exist but `<data_dir>/thongke` does: rename the directory and the DB files (`thongke.db*` → `bumeter.db*`) in one step; on failure, keep the old directory and use it, and log it.
+- **Statusline hook:** if `~/.claude/settings.json` has a statusline command pointing to the old `tk` binary, the app rewrites it to `bum` (backing up first, like the existing statusline operation).
+- Internal crate names (`tk-core`, `tk-adapters`…) **stay as they are** to reduce churn; only change what the user sees.
+- Documentation: README, PROGRESS, build-ubuntu updated with the new name.
 
-## 7. Ngoài phạm vi
+## 7. Out of scope
 
-Tính năng dữ liệu mới (tag hội thoại, preset skill, đo tác động khi sửa skill, bảng lệnh Ctrl+K đầy đủ); đổi màu công cụ; bản Windows/macOS và CI.
+New data features (conversation tags, skill presets, measuring the impact when a skill is edited, the full Ctrl+K command palette); changing tool colors; the Windows/macOS build and CI.
 
-## 8. Kiểm thử
+## 8. Testing
 
-- Rust: chuyển dữ liệu thư mục cũ → mới (có/không có thư mục mới, lỗi giữ cũ), `Config.theme`, viết lại hook `tk` → `bum`, chọn biểu cảm tray.
-- Vitest: `bum.ts` (`bumStateFor` theo từng điều kiện và thứ tự ưu tiên), `drawer`, `chipMenu`/`chipMultiMenu`, `data-layout`, lưu ngay ở Cài đặt, so sánh kỳ trước; cập nhật selector các test hiện có; giữ kiểm tra XSS.
-- Ảnh Chrome headless (dữ liệu giả) ở 1360/1000/640px × vi/en × sáng/tối, so với mockup chuẩn.
-- Chạy app thật: IPC, ngăn kéo khi thu nhỏ cửa sổ, tray đổi Bum theo quota, lệnh `bum status`, dữ liệu cũ vẫn còn sau khi đổi tên. Build bộ cài `.deb`/`.AppImage` tên Bumeter.
+- Rust: migrating the old data directory → new (with/without the new directory, error keeps the old), `Config.theme`, rewriting the hook `tk` → `bum`, selecting the tray expression.
+- Vitest: `bum.ts` (`bumStateFor` for each condition and priority order), `drawer`, `chipMenu`/`chipMultiMenu`, `data-layout`, saving immediately in Settings, comparing with the previous period; update the selectors of existing tests; keep the XSS checks.
+- Chrome headless screenshots (fake data) at 1360/1000/640px × vi/en × light/dark, compared with the standard mockup.
+- Run the real app: IPC, the drawer when the window is shrunk, the tray switching Bum by quota, the `bum status` command, old data still present after the rename. Build the `.deb`/`.AppImage` installer named Bumeter.

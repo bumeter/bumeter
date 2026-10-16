@@ -1,5 +1,5 @@
-<h2>Cửa sổ cỡ vừa (~1000px): bấm một hội thoại thì chi tiết hiện ra sao?</h2>
-<p class="subtitle">Phong cách B (thẻ hiện đại). Sidebar thu thành cột icon. Bấm để chọn, rồi trả lời trong terminal.</p>
+<h2>Medium window (~1000px): what happens when you click a conversation?</h2>
+<p class="subtitle">Style B (modern cards). The sidebar collapses into an icon rail. Click to choose, then answer in the terminal.</p>
 
 <style>
   .m { font: 11px/1.35 -apple-system, "Inter", system-ui, sans-serif; height: 270px; border-radius: 10px; overflow: hidden; background: #f6f7f9; color: #111827; display: grid; position: relative; border: 1px solid #e5e7eb; }
@@ -28,22 +28,22 @@
       <div class="m" style="grid-template-columns: 44px 1fr">
         <div class="rail"><div>▦</div><div class="on">💬</div><div>◇</div><div>⚙</div></div>
         <div class="list">
-          <h5>Hội thoại</h5>
-          <div class="cardx sel"><div><span class="tag">Claude</span><b>Sửa lỗi 404</b><small>64 lượt</small></div><div class="hot">32.6M</div></div>
-          <div class="cardx"><div><b>Đọc dự án voice</b><small>12 lượt</small></div><div>~210K</div></div>
-          <div class="cardx"><div><b>Review tài liệu</b><small>25 lượt</small></div><div>5.6M</div></div>
+          <h5>Conversations</h5>
+          <div class="cardx sel"><div><span class="tag">Claude</span><b>Fix 404</b><small>64 turns</small></div><div class="hot">32.6M</div></div>
+          <div class="cardx"><div><b>Read the voice project</b><small>12 turns</small></div><div>~210K</div></div>
+          <div class="cardx"><div><b>Review the document</b><small>25 turns</small></div><div>5.6M</div></div>
         </div>
         <div class="shade"></div>
         <div class="det drawer">
-          <h5>Sửa lỗi 404 khi gửi mail <span style="float:right;color:#9ca3af">✕</span></h5>
-          <div class="meta">TICKET-101 · 64 lượt · 71M token</div>
-          <div class="turn"><span>09:52 test e2e với lambda</span><b class="hot">14.9M</b></div>
-          <div class="turn"><span>11:02 tức là ntn ?</span><b>620K</b></div>
-          <div class="turn"><span>11:28 cập nhật tiến độ</span><b class="hot">9.4M</b></div>
+          <h5>Fix 404 when sending mail <span style="float:right;color:#9ca3af">✕</span></h5>
+          <div class="meta">TICKET-101 · 64 turns · 71M tokens</div>
+          <div class="turn"><span>09:52 e2e test with lambda</span><b class="hot">14.9M</b></div>
+          <div class="turn"><span>11:02 what does that mean?</span><b>620K</b></div>
+          <div class="turn"><span>11:28 update the progress</span><b class="hot">9.4M</b></div>
         </div>
       </div>
     </div>
-    <div class="card-body"><h3>1. Ngăn kéo trượt từ phải</h3><p>Chi tiết đè lên ~60% bên phải, danh sách mờ phía sau. Esc hoặc ✕ để đóng. Vẫn thấy mình đang ở đâu trong danh sách.</p></div>
+    <div class="card-body"><h3>1. Drawer sliding in from the right</h3><p>Details cover ~60% of the right side, with the list dimmed behind. Esc or ✕ to close. You can still see where you are in the list.</p></div>
   </div>
 
   <div class="card" data-choice="push" onclick="toggleSelect(this)">
@@ -51,17 +51,17 @@
       <div class="m" style="grid-template-columns: 44px 1fr">
         <div class="rail"><div>▦</div><div class="on">💬</div><div>◇</div><div>⚙</div></div>
         <div class="det">
-          <div class="back">← Hội thoại</div>
-          <h5>Sửa lỗi 404 khi gửi mail</h5>
-          <div class="meta">TICKET-101 · 64 lượt · 71M token</div>
-          <div class="turn"><span>09:52 test chạy e2e với lambda ở local</span><b class="hot">14.9M</b></div>
-          <div class="turn"><span>11:02 tức là ntn ?</span><b>620K</b></div>
-          <div class="turn"><span>11:28 giờ bạn cập nhật tiến độ nhé</span><b class="hot">9.4M</b></div>
+          <div class="back">← Conversations</div>
+          <h5>Fix 404 when sending mail</h5>
+          <div class="meta">TICKET-101 · 64 turns · 71M tokens</div>
+          <div class="turn"><span>09:52 run the e2e test with lambda locally</span><b class="hot">14.9M</b></div>
+          <div class="turn"><span>11:02 what does that mean?</span><b>620K</b></div>
+          <div class="turn"><span>11:28 now please update the progress</span><b class="hot">9.4M</b></div>
           <div class="turn"><span>11:40 ok</span><b>870K</b></div>
         </div>
       </div>
     </div>
-    <div class="card-body"><h3>2. Chuyển hẳn sang trang chi tiết</h3><p>Chi tiết chiếm toàn bộ vùng, có nút "← Hội thoại" để quay lại. Rộng rãi nhất để đọc hỏi/đáp, nhưng mất danh sách khi đang xem.</p></div>
+    <div class="card-body"><h3>2. Switch entirely to a detail page</h3><p>The details take the full area, with a "← Conversations" button to go back. The most spacious for reading Q&A, but you lose the list while viewing.</p></div>
   </div>
 
   <div class="card" data-choice="narrow" onclick="toggleSelect(this)">
@@ -69,21 +69,21 @@
       <div class="m" style="grid-template-columns: 44px 210px 1fr">
         <div class="rail"><div>▦</div><div class="on">💬</div><div>◇</div><div>⚙</div></div>
         <div class="list" style="padding:8px">
-          <h5>Hội thoại</h5>
-          <div class="cardx sel" style="padding:5px 7px"><div><b>Sửa lỗi 404</b><small>64 lượt</small></div><div class="hot">32.6M</div></div>
-          <div class="cardx" style="padding:5px 7px"><div><b>Đọc dự án voice</b></div><div>~210K</div></div>
-          <div class="cardx" style="padding:5px 7px"><div><b>Review tài liệu</b></div><div>5.6M</div></div>
-          <div class="cardx" style="padding:5px 7px"><div><b>Tool thống kê</b></div><div>12.1M</div></div>
+          <h5>Conversations</h5>
+          <div class="cardx sel" style="padding:5px 7px"><div><b>Fix 404</b><small>64 turns</small></div><div class="hot">32.6M</div></div>
+          <div class="cardx" style="padding:5px 7px"><div><b>Read the voice project</b></div><div>~210K</div></div>
+          <div class="cardx" style="padding:5px 7px"><div><b>Review the document</b></div><div>5.6M</div></div>
+          <div class="cardx" style="padding:5px 7px"><div><b>Statistics tool</b></div><div>12.1M</div></div>
         </div>
         <div class="det">
-          <h5>Sửa lỗi 404 khi gửi mail</h5>
-          <div class="meta">TICKET-101 · 64 lượt · 71M token</div>
-          <div class="turn"><span>09:52 test e2e với lambda</span><b class="hot">14.9M</b></div>
-          <div class="turn"><span>11:02 tức là ntn ?</span><b>620K</b></div>
-          <div class="turn"><span>11:28 cập nhật tiến độ</span><b class="hot">9.4M</b></div>
+          <h5>Fix 404 when sending mail</h5>
+          <div class="meta">TICKET-101 · 64 turns · 71M tokens</div>
+          <div class="turn"><span>09:52 e2e test with lambda</span><b class="hot">14.9M</b></div>
+          <div class="turn"><span>11:02 what does that mean?</span><b>620K</b></div>
+          <div class="turn"><span>11:28 update the progress</span><b class="hot">9.4M</b></div>
         </div>
       </div>
     </div>
-    <div class="card-body"><h3>3. Danh sách thu hẹp + chi tiết</h3><p>Giữ 2 cột: danh sách thu gọn (chỉ tiêu đề + token), chi tiết bên phải. Gần với hiện tại nhất, nhưng cả hai cột đều hẹp.</p></div>
+    <div class="card-body"><h3>3. Narrowed list + details</h3><p>Keep 2 columns: a compact list (title + tokens only) and details on the right. Closest to the current version, but both columns are narrow.</p></div>
   </div>
 </div>

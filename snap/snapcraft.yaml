@@ -21,7 +21,7 @@ source-code: https://github.com/chieund/bumeter
 issues: https://github.com/chieund/bumeter/issues
 icon: snap/gui/bumeter.png
 grade: stable
-# Classic: đọc log trong ~/.claude, ~/.kiro, ghi hook statusline vào ~/.claude/settings.json, gọi kiro-cli trên máy.
+# Classic: reads logs in ~/.claude, ~/.kiro, writes the statusline hook into ~/.claude/settings.json, calls kiro-cli on the machine.
 confinement: classic
 platforms:
   amd64:
@@ -34,7 +34,7 @@ apps:
 
 parts:
   bumeter:
-    # Dựng từ gói .deb do `tauri build --bundles deb` tạo (xem docs/build-ubuntu.md).
+    # Built from the .deb produced by `tauri build --bundles deb` (see docs/build-ubuntu.md).
     plugin: dump
     source: target/release/bundle/deb/Bumeter_1.0.1_amd64.deb
     source-type: deb

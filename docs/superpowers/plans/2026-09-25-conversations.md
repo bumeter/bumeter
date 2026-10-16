@@ -1,17 +1,17 @@
-# Hội thoại + đa ngôn ngữ + registry công cụ — Kế hoạch (bản gọn)
+# Conversations + multi-language + tool registry — Plan (condensed)
 
-- Mockup đã duyệt: `docs/superpowers/specs/2026-09-25-conversations-mockup.html`. Bộ lọc dùng phương án **B**: nút "Bộ lọc (n)" mở bảng chọn, các bộ lọc đang bật hiện thành chip có ✕.
-- Thuật ngữ: **Hội thoại** (một session/thread) → **Lượt** (một câu hỏi và câu trả lời) → **Lượt gọi** (một request tới model). Hai ngôn ngữ: **vi** (mặc định) và **en**.
-- Nhánh `feat/conversations` (tách từ `feat/kiro`).
-- **Trạng thái: xong cả 8 task** — xem `docs/conversations-verification.md` (có ghi các điểm khác plan).
+- Approved mockup: `docs/superpowers/specs/2026-09-25-conversations-mockup.html`. Filters use option **B**: the "Filters (n)" button opens a picker, and active filters appear as chips with ✕.
+- Terminology: **Conversation** (one session/thread) → **Turn** (one question and answer) → **Call** (one request to the model). Two languages: **vi** (default) and **en**.
+- Branch `feat/conversations` (branched off `feat/kiro`).
+- **Status: all 8 tasks done** — see `docs/conversations-verification.md` (which notes the differences from the plan).
 
 | # | Task | Test |
 |---|---|---|
-| 1 | Tiêu đề hội thoại: `RawEvent::Title` (Claude lấy từ `ai-title`, Kiro lấy từ `title`), `sessions.title` (schema v4) | Parser/store |
-| 2 | Registry công cụ ở backend: `LogSource::info()` trả nhãn, ký hiệu, màu, khả năng. RPC `sources` gồm trạng thái (thư mục, số phiên, lần cập nhật cuối) | tk-core/adapters |
-| 3 | RPC `list_conversations(filter)`: nhóm theo ngày giờ máy. Bộ lọc gồm q, project, `models[]`, tool, khoảng thời gian, lọc nhanh, ⭐. Mỗi hội thoại có tiêu đề, tool, project, model, số lượt, token, credit, cờ bất thường. `conversation_turns(session_id)` | tk-core |
-| 4 | Transcript đọc thẳng từ log: `claude_code::transcript`, `kiro::transcript` trả các lượt gồm câu hỏi, câu trả lời (text), tool call (có cắt bớt). Lệnh app `conversation_transcript` | adapters |
-| 5 | i18n cho UI: `i18n.ts` (`t()`, định dạng ngày/số theo `Intl`), `locales/vi.ts`, `locales/en.ts`, chọn ngôn ngữ trong Cài đặt (lưu vào config). Backend trả **mã + tham số** thay cho câu viết sẵn (lời giải thích, gợi ý). Thông báo và tray dịch theo `Config.language` | Vitest + Rust |
-| 6 | UI: bộ chọn phạm vi công cụ ở sidebar (thay mục "Công cụ"), màn **Hội thoại** (nhóm theo ngày, tag tool ở phạm vi "Tất cả", nút Bộ lọc gồm Project/Model/lọc nhanh), panel chi tiết gồm danh sách lượt và mở rộng một lượt để xem transcript | Vitest |
-| 7 | Bỏ $ trên toàn bộ UI. Gộp Project/Ngày/Model thành **Tổng quan** (biểu đồ ngày, top project, model theo tool, 3 gợi ý). Sidebar còn: Tổng quan, Hội thoại, Skill, Cài đặt | Vitest |
-| 8 | Kiểm chứng trên dữ liệu thật, chụp ảnh vi/en, build bộ cài | — |
+| 1 | Conversation titles: `RawEvent::Title` (Claude from `ai-title`, Kiro from `title`), `sessions.title` (schema v4) | Parser/store |
+| 2 | Tool registry in the backend: `LogSource::info()` returns label, symbol, color, capabilities. The `sources` RPC includes status (directory, session count, last update) | tk-core/adapters |
+| 3 | `list_conversations(filter)` RPC: group by local date-time. The filter includes q, project, `models[]`, tool, time range, quick filters, ⭐. Each conversation has a title, tool, project, model, turn count, tokens, credits, an anomaly flag. `conversation_turns(session_id)` | tk-core |
+| 4 | Transcripts read straight from the log: `claude_code::transcript`, `kiro::transcript` return turns with the question, answer (text), tool calls (truncated). App command `conversation_transcript` | adapters |
+| 5 | i18n for the UI: `i18n.ts` (`t()`, date/number formatting via `Intl`), `locales/vi.ts`, `locales/en.ts`, language selection in Settings (saved to config). The backend returns **codes + parameters** instead of ready-made sentences (explanations, suggestions). Notifications and the tray translate per `Config.language` | Vitest + Rust |
+| 6 | UI: a tool-scope picker in the sidebar (replacing the "Tools" item), a **Conversations** screen (grouped by day, tool tags in the "All" scope, a Filters button with Project/Model/quick filters), a detail panel with the turn list and one turn expandable to see the transcript | Vitest |
+| 7 | Drop $ across the whole UI. Merge Project/Day/Model into **Overview** (day chart, top projects, model by tool, 3 suggestions). The sidebar keeps: Overview, Conversations, Skill, Settings | Vitest |
+| 8 | Verify on real data, screenshot vi/en, build the installer | — |

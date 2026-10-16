@@ -1,22 +1,22 @@
-# Thương hiệu Bumeter (chốt 2026-09-28)
+# Bumeter brand (finalized 2026-09-28)
 
-- **Tên:** **Bumeter** = *Bum* (biệt danh của tác giả) + *meter* (đồng hồ đo). Viết thường trong logo chữ: `bumeter`. Trống trên crates.io và npm tại thời điểm chọn.
-- **Logo:** linh vật **Bum**, một ngọn lửa tròn trịa có mặt cười (token là "nhiên liệu" đang cháy). Xem `bum/index.html`; file SVG từng biểu cảm nằm trong `bum/`.
-- **Màu:** cam chủ đạo `#FF7A1A`; đỏ cam `#FF4B2B` cho trạng thái bốc cháy; mặt `#3A1C0C`; má `#FFB27A`. Phẳng, không gradient.
-- **Chữ:** Be Vietnam Pro (800–900 cho logo chữ).
-- **Nền icon app:** trắng (chính), cam (Bum trắng, mặt cam), tối `#1F2227`.
+- **Name:** **Bumeter** = *Bum* (the author's nickname) + *meter* (a measuring gauge). Lowercase in the wordmark: `bumeter`. Available on crates.io and npm at the time of choosing.
+- **Logo:** mascot **Bum**, a round flame with a smiling face (tokens are the "fuel" burning). See `bum/index.html`; the SVG file for each expression is in `bum/`.
+- **Colors:** primary orange `#FF7A1A`; red-orange `#FF4B2B` for the blazing state; face `#3A1C0C`; cheeks `#FFB27A`. Flat, no gradients.
+- **Font:** Be Vietnam Pro (800–900 for the wordmark).
+- **App icon background:** white (primary), orange (white Bum, orange face), dark `#1F2227`.
 
-## Biểu cảm theo trạng thái (tray, thông báo, trạng thái rỗng)
+## Expressions by state (tray, notifications, empty states)
 
-| File | Biểu cảm | Khi nào |
+| File | Expression | When |
 |---|---|---|
-| `bum-happy.svg` | Vui (mắt cười, miệng cười) | Hôm nay dùng ít hơn trung bình |
-| `bum-calm.svg` | Bình thường (logo mặc định) | Mọi thứ ổn |
-| `bum-worry.svg` | Lo lắng (lông mày nhướng, giọt mồ hôi) | Quota 5 giờ ≥ ngưỡng cảnh báo đầu (mặc định 70%) |
-| `bum-blaze.svg` | Bốc cháy (lửa đỏ bùng, mặt căng) | Vừa có lượt tốn bất thường, hoặc quota ≥ ngưỡng thứ hai (mặc định 90%) |
-| `bum-sleep.svg` | Ngủ (mắt nhắm, "z z") | Không có phiên nào đang chạy / dữ liệu quota đã cũ |
+| `bum-happy.svg` | Happy (smiling eyes, smiling mouth) | Today's usage is below average |
+| `bum-calm.svg` | Normal (default logo) | Everything is fine |
+| `bum-worry.svg` | Worried (raised eyebrows, sweat drop) | 5-hour quota ≥ first warning threshold (default 70%) |
+| `bum-blaze.svg` | Blazing (red flames flaring, tense face) | An anomalous turn just occurred, or quota ≥ second threshold (default 90%) |
+| `bum-sleep.svg` | Sleeping (closed eyes, "z z") | No session is running / quota data is stale |
 
-## Ghi chú
+## Notes
 
-- Bản hiện tại được vẽ bằng code SVG để chốt ý tưởng và bố cục. Muốn đường nét mượt hơn cho bản phát hành, có thể đưa `bum/index.html` cho designer hoặc làm lại trong công cụ vector, giữ nguyên tỉ lệ và màu.
-- Ở cỡ tray 16px, chi tiết má hồng có thể lược bớt.
+- The current version is drawn with SVG code to settle the concept and layout. For smoother lines in the release version, you can give `bum/index.html` to a designer or redo it in a vector tool, keeping the proportions and colors.
+- At the 16px tray size, the pink cheek detail can be dropped.

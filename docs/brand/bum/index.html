@@ -1,26 +1,26 @@
-<h2>Bumeter — linh vật Bum (đã chốt 2026-09-28)</h2>
-<p class="subtitle">Bum là logo, đồng thời là "đèn báo" trên tray: đổi mặt theo mức dùng token và quota. Cam #FF7A1A, phẳng, không gradient.</p>
+<h2>Bumeter — the Bum mascot (finalized 2026-09-28)</h2>
+<p class="subtitle">Bum is the logo and also the "indicator light" in the tray: it changes its face based on token usage and quota. Orange #FF7A1A, flat, no gradients.</p>
 
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;700;900&display=swap" rel="stylesheet">
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
   <symbol id="body" viewBox="0 0 48 48">
     <path d="M24 3c3.9 7.6 15 12.9 15 24.8C39 37.3 32.3 44 24 44S9 37.3 9 27.8c0-7 4-11 6.5-15 1 3.4 3 5.4 3 5.4C18.7 11.4 20.3 7 24 3z" fill="var(--body)"/>
   </symbol>
-  <!-- bình thường -->
+  <!-- normal -->
   <symbol id="calm" viewBox="0 0 48 48">
     <use href="#body"/>
     <ellipse cx="18.6" cy="29.2" rx="2.4" ry="3" fill="var(--face)"/><ellipse cx="29.4" cy="29.2" rx="2.4" ry="3" fill="var(--face)"/>
     <path d="M20.2 35.4c2.3 2 5.3 2 7.6 0" fill="none" stroke="var(--face)" stroke-width="2.3" stroke-linecap="round"/>
     <circle cx="14.2" cy="34" r="2.1" fill="var(--cheek)"/><circle cx="33.8" cy="34" r="2.1" fill="var(--cheek)"/>
   </symbol>
-  <!-- vui: tiết kiệm -->
+  <!-- happy: saving -->
   <symbol id="happy" viewBox="0 0 48 48">
     <use href="#body"/>
     <path d="M16 29.6c1.4-2.4 3.8-2.4 5.2 0M26.8 29.6c1.4-2.4 3.8-2.4 5.2 0" fill="none" stroke="var(--face)" stroke-width="2.3" stroke-linecap="round"/>
     <path d="M19 34.2c1.6 3.6 8.4 3.6 10 0z" fill="var(--face)"/>
     <circle cx="14.2" cy="34" r="2.1" fill="var(--cheek)"/><circle cx="33.8" cy="34" r="2.1" fill="var(--cheek)"/>
   </symbol>
-  <!-- lo lắng: quota gần hết -->
+  <!-- worried: quota nearly used up -->
   <symbol id="worry" viewBox="0 0 48 48">
     <use href="#body"/>
     <path d="M15.8 26.8 20.6 25.2M32.2 26.8 27.4 25.2" stroke="var(--face)" stroke-width="2" stroke-linecap="round"/>
@@ -28,7 +28,7 @@
     <path d="M20.4 37.2c2.2-1.8 5-1.8 7.2 0" fill="none" stroke="var(--face)" stroke-width="2.3" stroke-linecap="round"/>
     <path d="M35.6 20.5c1.2 1.9 1.6 3 1.6 3.8a1.6 1.6 0 0 1-3.2 0c0-.8.4-1.9 1.6-3.8z" fill="#5ab4ff"/>
   </symbol>
-  <!-- cháy: lượt tốn bất thường -->
+  <!-- blaze: unusually costly turn -->
   <symbol id="blaze" viewBox="0 0 48 48">
     <path d="M24 1c4.4 8 17 13.6 17 26.6C41 37.8 33.4 45 24 45S7 37.8 7 27.6c0-7.6 4.4-12 7.2-16.4 1.1 3.8 3.3 6 3.3 6C17.7 9.9 19.9 5.1 24 1z" fill="#ff4b2b"/>
     <path d="M24 9c3.2 6 11.5 10 11.5 19.3C35.5 35.6 30.3 41 24 41s-11.5-5.4-11.5-12.7c0-5.4 3-8.6 4.9-11.7.8 2.7 2.3 4.3 2.3 4.3C19.9 15 21.3 11.9 24 9z" fill="var(--body)"/>
@@ -36,7 +36,7 @@
     <ellipse cx="18.8" cy="31.4" rx="2" ry="2.3" fill="var(--face)"/><ellipse cx="29.2" cy="31.4" rx="2" ry="2.3" fill="var(--face)"/>
     <ellipse cx="24" cy="36.6" rx="2.6" ry="2" fill="var(--face)"/>
   </symbol>
-  <!-- ngủ: không có phiên nào đang chạy -->
+  <!-- sleep: no active sessions -->
   <symbol id="sleep" viewBox="0 0 48 48">
     <use href="#body"/>
     <path d="M16 30c1.4 1.6 3.8 1.6 5.2 0M26.8 30c1.4 1.6 3.8 1.6 5.2 0" fill="none" stroke="var(--face)" stroke-width="2.3" stroke-linecap="round"/>
@@ -72,15 +72,15 @@
   </div>
 
   <div class="states">
-    <div class="st"><svg width="56" height="56"><use href="#happy"/></svg><b>Vui</b><span>Hôm nay dùng ít hơn trung bình</span></div>
-    <div class="st"><svg width="56" height="56"><use href="#calm"/></svg><b>Bình thường</b><span>Mọi thứ ổn</span></div>
-    <div class="st"><svg width="56" height="56"><use href="#worry"/></svg><b>Lo lắng</b><span>Quota 5 giờ trên 70%</span></div>
-    <div class="st"><svg width="56" height="56"><use href="#blaze"/></svg><b>Bốc cháy</b><span>Vừa có lượt tốn bất thường</span></div>
-    <div class="st"><svg width="56" height="56"><use href="#sleep"/></svg><b>Ngủ</b><span>Không có phiên nào đang chạy</span></div>
+    <div class="st"><svg width="56" height="56"><use href="#happy"/></svg><b>Happy</b><span>Using less than average today</span></div>
+    <div class="st"><svg width="56" height="56"><use href="#calm"/></svg><b>Normal</b><span>Everything is fine</span></div>
+    <div class="st"><svg width="56" height="56"><use href="#worry"/></svg><b>Worried</b><span>5-hour quota above 70%</span></div>
+    <div class="st"><svg width="56" height="56"><use href="#blaze"/></svg><b>Blazing</b><span>An unusually costly turn just happened</span></div>
+    <div class="st"><svg width="56" height="56"><use href="#sleep"/></svg><b>Sleeping</b><span>No active sessions</span></div>
   </div>
 
   <div class="row">
     <div class="trayrow"><svg width="18" height="18"><use href="#happy"/></svg>32%<i></i><svg width="18" height="18"><use href="#worry"/></svg>78%<i></i><svg width="18" height="18"><use href="#blaze"/></svg>94%<i></i><svg width="16" height="16"><use href="#calm"/></svg>16px</div>
-    <span style="font-size:12px;color:#5b616b">Trên tray: Bum đổi mặt theo quota, liếc là biết.</span>
+    <span style="font-size:12px;color:#5b616b">In the tray: Bum changes its face based on quota, a glance tells you.</span>
   </div>
 </div>

@@ -1,29 +1,29 @@
-# M3: Kiểm chứng màn Skill
+# M3: Skill screen verification
 
-- Ngày: 2026-09-24. Máy: Ubuntu GNOME.
-- Ảnh chụp dùng dữ liệu giả: `screens/m3-light.png`, `screens/m3-dark.png`.
+- Date: 2026-09-24. Machine: Ubuntu GNOME.
+- Screenshots use fake data: `screens/m3-light.png`, `screens/m3-dark.png`.
 
-## Chạy trên dữ liệu thật (chỉ đọc: `tk skills`)
+## Run on real data (read-only: `tk skills`)
 
-| Kiểm tra | Kết quả |
+| Check | Result |
 |---|---|
-| Skill cá nhân khớp với `ls ~/.claude/skills` | ✅ 11 skill: pj, pj-*, estimate. `pj-clarify` là symlink |
-| Skill synced từ claude.ai | ✅ 8 skill (docs, docx, pdf, pptx, xlsx, morning, import-memory, skill-creator). Chỉ đọc, không gợi ý tắt |
-| Plugin qua `claude plugin list --json` / `details` | ✅ superpowers có 15 skill con, chi phí thật (ví dụ brainstorming ~70 nền / ~6,3K mỗi lần gọi) |
-| Tổng chi phí nền của skill đang bật | ~3.871 token mỗi phiên. Có 12 skill chưa dùng 30 ngày, tốn ~1.198 token mỗi phiên |
-| Không sửa file nào | ✅ Lệnh chỉ đọc |
+| Personal skills match `ls ~/.claude/skills` | ✅ 11 skills: pj, pj-*, estimate. `pj-clarify` is a symlink |
+| Skills synced from claude.ai | ✅ 8 skills (docs, docx, pdf, pptx, xlsx, morning, import-memory, skill-creator). Read-only, never suggested for disabling |
+| Plugins via `claude plugin list --json` / `details` | ✅ superpowers has 15 sub-skills, real cost (for example brainstorming ~70 baseline / ~6.3K per call) |
+| Total baseline cost of enabled skills | ~3,871 tokens per session. 12 skills unused for 30 days, costing ~1,198 tokens per session |
+| Does not modify any file | ✅ Read-only command |
 
-## Lỗi tìm ra khi chạy thật, đã sửa (có test)
+## Bugs found during a real run, fixed (with tests)
 
-1. `/superpowers:brainstorming` (gõ lệnh) và `superpowers:brainstorming` (skill) bị tách thành 2 dòng. Nay đã gộp chung (`slash_command_of_an_installed_skill_counts_toward_that_skill`).
-2. Gọi skill bằng `/X` thì log ghi cả lệnh lẫn skill với cùng `promptId`, làm số lần dùng bị **đếm đôi**. Nay chỉ đếm một lần (`a_slash_invoked_skill_is_counted_once`).
+1. `/superpowers:brainstorming` (typing the command) and `superpowers:brainstorming` (the skill) were split into 2 rows. Now merged (`slash_command_of_an_installed_skill_counts_toward_that_skill`).
+2. Invoking a skill with `/X` made the log record both the command and the skill with the same `promptId`, so the usage count was **double-counted**. Now counted once (`a_slash_invoked_skill_is_counted_once`).
 
-## Thao tác tắt/bật/gỡ/cài
+## Disable/enable/remove/install operations
 
-- Đã kiểm chứng bằng 11 test trên HOME tạm (`crates/bum-skills/tests/ops.rs`): tắt, bật, gỡ vào thùng rác, hoàn tác, không hoàn tác được hai lần, symlink chỉ di chuyển link (thư mục gốc còn nguyên), cài từ thư mục hoặc git (repo không có `SKILL.md` thì bị từ chối và dọn sạch), trả lại hết khi một bước lỗi, plugin chạy qua CLI (hoàn tác thì chạy lệnh ngược), dọn thùng rác sau 30 ngày.
-- **Chưa chạy trên `~/.claude` thật.** Thao tác có sửa file nên để bạn tự bấm trong app, và mọi thao tác đều có hộp xác nhận và nút hoàn tác.
-- Giới hạn: nếu thùng rác nằm khác phân vùng ổ đĩa với `~/.claude` thì thao tác chuyển thư mục sẽ báo lỗi (không tự sao chép).
+- Verified with 11 tests on a temporary HOME (`crates/bum-skills/tests/ops.rs`): disable, enable, move to trash, undo, can't undo twice, a symlink only moves the link (the source directory is left intact), install from a directory or git (a repo without `SKILL.md` is rejected and cleaned up), roll back everything when a step fails, plugin runs through the CLI (undo runs the reverse command), clean the trash after 30 days.
+- **Not run on the real `~/.claude`.** The operations modify files, so they are left for you to click in the app, and every operation has a confirmation dialog and an undo button.
+- Limitation: if the trash is on a different disk partition than `~/.claude`, moving the directory will error (it does not copy).
 
-## Test
+## Tests
 
 `cargo test --workspace` 132/132 · Vitest 34/34.

@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<title>thongke — Hội thoại (mockup)</title>
+<title>thongke — Conversations (mockup)</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--font:-apple-system,"SF Pro Text","Inter",system-ui,sans-serif;--desk:linear-gradient(135deg,#c9d6ff,#e2e2e2);--win:#fff;--side:rgba(232,232,237,.85);--tool:rgba(246,246,248,.92);--label:#1d1d1f;--l2:rgba(60,60,67,.64);--l3:rgba(60,60,67,.4);--sep:rgba(0,0,0,.09);--fill:rgba(120,120,128,.1);--fill2:rgba(120,120,128,.17);--accent:#007aff;--tint:rgba(0,122,255,.12);--sel:#0a64d6;--green:#28a745;--orange:#e8890c;--red:#e5372c;--purple:#a94fd6;--c-claude:#007aff;--c-kiro:#e8890c;--c-open:#34a853;--btn:#fff;--bb:rgba(0,0,0,.14)}
@@ -67,73 +67,73 @@ html[data-scope=one] .conv .ttag{display:none}html[data-scope=one] .conv.k{displ
 </head>
 <body>
 <div class="bar">
-  <b data-i="title">Mockup — màn Hội thoại</b>
+  <b data-i="title">Mockup — Conversations screen</b>
   <span><span class="seg" id="lang"><button class="on" data-l="vi">VI</button><button data-l="en">EN</button></span>
-  <span class="seg" id="scope"><button class="on" data-s="all" data-i="all">Tất cả</button><button data-s="one">Claude Code</button></span>
-  <span class="seg" id="theme"><button class="on" data-t="light" data-i="light">Sáng</button><button data-t="dark" data-i="dark">Tối</button></span></span>
+  <span class="seg" id="scope"><button class="on" data-s="all" data-i="all">All</button><button data-s="one">Claude Code</button></span>
+  <span class="seg" id="theme"><button class="on" data-t="light" data-i="light">Light</button><button data-t="dark" data-i="dark">Dark</button></span></span>
 </div>
 <div class="win">
   <aside class="side">
-    <div class="scope"><span class="glyph g-all">∗</span><span data-i="allTools">Tất cả công cụ</span><span class="caret">▾</span></div>
+    <div class="scope"><span class="glyph g-all">∗</span><span data-i="allTools">All tools</span><span class="caret">▾</span></div>
     <div class="menu">
-      <div class="mi on"><span class="glyph g-all">∗</span><span data-i="all">Tất cả</span><span class="n">1.398</span></div>
+      <div class="mi on"><span class="glyph g-all">∗</span><span data-i="all">All</span><span class="n">1.398</span></div>
       <div class="mi"><span class="glyph g-c">C</span>Claude Code<span class="n">643</span></div>
       <div class="mi"><span class="glyph g-k">K</span>Kiro<span class="n">755</span></div>
-      <div class="mi" style="opacity:.55"><span class="glyph g-o">O</span>OpenCode<span class="n" data-i="soon">sắp có</span></div>
+      <div class="mi" style="opacity:.55"><span class="glyph g-o">O</span>OpenCode<span class="n" data-i="soon">soon</span></div>
     </div>
-    <div class="nav"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 13V7M6 13V3M10 13V9M14 13V5"/></svg><span data-i="overview">Tổng quan</span></div>
-    <div class="nav on"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/></svg><span data-i="convs">Hội thoại</span><span class="n">187</span></div>
+    <div class="nav"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 13V7M6 13V3M10 13V9M14 13V5"/></svg><span data-i="overview">Overview</span></div>
+    <div class="nav on"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/></svg><span data-i="convs">Conversations</span><span class="n">187</span></div>
     <div class="nav"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z"/></svg>Skill<span class="n">26</span></div>
-    <div class="nav"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.4"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg><span data-i="settings">Cài đặt</span></div>
-    <div class="quota"><span data-i="quota">Giới hạn · Claude Code</span><b>5h 78% · 7d 41%</b>
+    <div class="nav"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.4"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg><span data-i="settings">Settings</span></div>
+    <div class="quota"><span data-i="quota">Limits · Claude Code</span><b>5h 78% · 7d 41%</b>
       <div class="meter"><span style="width:78%;background:var(--orange)"></span></div></div>
   </aside>
 
   <section class="col">
-    <div class="tb"><h1 data-i="convs">Hội thoại</h1><div class="search" data-i="search">🔎 Tìm trong câu hỏi, câu trả lời</div></div>
+    <div class="tb"><h1 data-i="convs">Conversations</h1><div class="search" data-i="search">🔎 Search questions and answers</div></div>
     <div class="chips">
       <span class="select"><span data-i="project">Project</span>: <b>TICKET-101</b> <span class="caret">▾</span></span>
-      <span class="chip on" data-i="7d">7 ngày</span><span class="chip" data-i="costly">🔥 Tốn bất thường</span><span class="chip" data-i="bigctx">Context lớn</span><span class="chip">⭐</span>
+      <span class="chip on" data-i="7d">7 days</span><span class="chip" data-i="costly">🔥 Costly</span><span class="chip" data-i="bigctx">Large context</span><span class="chip">⭐</span>
     </div>
     <div class="filters2"><span class="lbl" data-i="model">Model</span>
       <span class="mtag on c">opus-5 ✕</span><span class="mtag"><span class="dot" style="background:var(--c-claude)"></span>opus-5-5</span><span class="mtag"><span class="dot" style="background:var(--c-claude)"></span>sonnet-5</span><span class="mtag"><span class="dot" style="background:var(--c-kiro)"></span>opus-4.6</span><span class="mtag"><span class="dot" style="background:var(--c-kiro)"></span>auto</span>
     </div>
     <div class="list">
-      <div class="day"><span data-i="today">Hôm nay · Thứ Sáu 25/09</span><span>3 · 45M</span></div>
-      <div class="conv sel"><div><div class="t" data-i="c1">Sửa lỗi 404 khi gửi mail</div><div class="m"><span class="ttag c"><span class="glyph g-c">C</span>Claude Code</span>TICKET-101 · opus-5 · <span data-i="turns64">64 lượt</span> · 09:52</div></div><div class="v">32.6M<small><span class="icons">⚠ 🔥</span></small></div></div>
-      <div class="conv k"><div><div class="t" data-i="c2">Đọc cấu trúc dự án voice</div><div class="m"><span class="ttag k"><span class="glyph g-k">K</span>Kiro</span>TICKET-203 · opus-4.6 · <span data-i="turns12">12 lượt</span></div></div><div class="v est">~210K<small>0.9 credit</small></div></div>
-      <div class="conv"><div><div class="t" data-i="c3">Xây dựng tool thống kê token</div><div class="m"><span class="ttag c"><span class="glyph g-c">C</span>Claude Code</span>thongke · opus-5-5 · <span data-i="turns48">48 lượt</span> · 08:10</div></div><div class="v">12.1M<small></small></div></div>
-      <div class="day"><span data-i="yesterday">Hôm qua · Thứ Năm 24/09</span><span>5 · 40M</span></div>
-      <div class="conv"><div><div class="t" data-i="c4">Review lại tài liệu điều tra</div><div class="m"><span class="ttag c"><span class="glyph g-c">C</span>Claude Code</span>TICKET-103 · opus-5 · <span data-i="turns25">25 lượt</span></div></div><div class="v">5.6M<small></small></div></div>
-      <div class="conv k"><div><div class="t" data-i="c5">Viết test case cho màn đăng ký</div><div class="m"><span class="ttag k"><span class="glyph g-k">K</span>Kiro</span>TICKET-207 · auto · <span data-i="turns9">9 lượt</span></div></div><div class="v est">~96K<small>0.4 credit</small></div></div>
+      <div class="day"><span data-i="today">Today · Fri, Sep 25</span><span>3 · 45M</span></div>
+      <div class="conv sel"><div><div class="t" data-i="c1">Fix 404 when sending mail</div><div class="m"><span class="ttag c"><span class="glyph g-c">C</span>Claude Code</span>TICKET-101 · opus-5 · <span data-i="turns64">64 turns</span> · 09:52</div></div><div class="v">32.6M<small><span class="icons">⚠ 🔥</span></small></div></div>
+      <div class="conv k"><div><div class="t" data-i="c2">Read the voice project structure</div><div class="m"><span class="ttag k"><span class="glyph g-k">K</span>Kiro</span>TICKET-203 · opus-4.6 · <span data-i="turns12">12 turns</span></div></div><div class="v est">~210K<small>0.9 credit</small></div></div>
+      <div class="conv"><div><div class="t" data-i="c3">Build a token statistics tool</div><div class="m"><span class="ttag c"><span class="glyph g-c">C</span>Claude Code</span>thongke · opus-5-5 · <span data-i="turns48">48 turns</span> · 08:10</div></div><div class="v">12.1M<small></small></div></div>
+      <div class="day"><span data-i="yesterday">Yesterday · Thu, Sep 24</span><span>5 · 40M</span></div>
+      <div class="conv"><div><div class="t" data-i="c4">Review the investigation document</div><div class="m"><span class="ttag c"><span class="glyph g-c">C</span>Claude Code</span>TICKET-103 · opus-5 · <span data-i="turns25">25 turns</span></div></div><div class="v">5.6M<small></small></div></div>
+      <div class="conv k"><div><div class="t" data-i="c5">Write test cases for the sign-up screen</div><div class="m"><span class="ttag k"><span class="glyph g-k">K</span>Kiro</span>TICKET-207 · auto · <span data-i="turns9">9 turns</span></div></div><div class="v est">~96K<small>0.4 credit</small></div></div>
     </div>
   </section>
 
   <section class="det">
     <div class="dh">
       <span class="ttag c"><span class="glyph g-c">C</span>Claude Code</span>
-      <h2 data-i="c1">Sửa lỗi 404 khi gửi mail</h2>
-      <div class="s">Claude Code · opus-5 · TICKET-101 · 09:52–11:40 · <span data-i="summary">64 lượt · 71M token · 2 lần compact</span></div>
-      <div class="btns"><span class="btn" data-i="analyze">Phân tích context</span><span class="btn" data-i="openlog">Mở file log</span><span class="btn">☆</span></div>
+      <h2 data-i="c1">Fix 404 when sending mail</h2>
+      <div class="s">Claude Code · opus-5 · TICKET-101 · 09:52–11:40 · <span data-i="summary">64 turns · 71M tokens · 2 compactions</span></div>
+      <div class="btns"><span class="btn" data-i="analyze">Analyze context</span><span class="btn" data-i="openlog">Open log file</span><span class="btn">☆</span></div>
     </div>
     <div class="list" style="overflow:hidden">
-      <div class="turn"><span class="time">09:52</span><div><div class="q" data-i="q1">test chạy e2e với lambda ở local để kiểm tra</div><div class="a" data-i="a1">↳ Mình sẽ chạy test local bằng sam local invoke…</div></div><span class="v hot">14.9M</span></div>
-      <div class="turn"><span class="time">11:02</span><div><div class="q">tức là ntn ?</div><div class="a" data-i="a2">↳ Nghĩa là handler đang trả 404 khi không có dữ liệu…</div></div><span class="v">620K</span></div>
-      <div class="turn open"><span class="time">11:28</span><div><div class="q" data-i="q3">giờ bạn cập nhật tiến độ nhé, và tôi cần tài liệu cuối cùng</div></div><span class="v hot">9.4M</span>
+      <div class="turn"><span class="time">09:52</span><div><div class="q" data-i="q1">run the e2e test with lambda locally to check</div><div class="a" data-i="a1">↳ I will run the test locally with sam local invoke…</div></div><span class="v hot">14.9M</span></div>
+      <div class="turn"><span class="time">11:02</span><div><div class="q">what does that mean?</div><div class="a" data-i="a2">↳ It means the handler returns 404 when there is no data…</div></div><span class="v">620K</span></div>
+      <div class="turn open"><span class="time">11:28</span><div><div class="q" data-i="q3">please update the progress and give me the final document</div></div><span class="v hot">9.4M</span>
         <div class="exp">
-          <div class="bubble user"><b data-i="you">Bạn</b><span data-i="q3">giờ bạn cập nhật tiến độ nhé, và tôi cần tài liệu cuối cùng</span></div>
+          <div class="bubble user"><b data-i="you">You</b><span data-i="q3">please update the progress and give me the final document</span></div>
           <div class="tool">Bash · cat progress.md <span style="float:right">~2K</span></div>
-          <div class="tool">Edit · docs/final.md<br><span class="del">- Trạng thái: đang làm</span><br><span class="add">+ Trạng thái: hoàn thành</span></div>
-          <div class="bubble ai"><b>Claude · opus-5</b><span data-i="a3">Đã cập nhật progress.md và tạo tài liệu cuối cùng docs/final.md gồm 4 phần…</span></div>
-          <div class="why" data-i="why">Vì sao tốn? 99.8% là đọc lại 841K context cũ qua 11 lượt gọi → nên /compact trước bước tổng kết.</div>
+          <div class="tool">Edit · docs/final.md<br><span class="del">- Status: in progress</span><br><span class="add">+ Status: done</span></div>
+          <div class="bubble ai"><b>Claude · opus-5</b><span data-i="a3">Updated progress.md and created the final document docs/final.md with 4 sections…</span></div>
+          <div class="why" data-i="why">Why so costly? 99.8% was re-reading 841K of old context across 11 requests → run /compact before the wrap-up step.</div>
         </div>
       </div>
-      <div class="turn"><span class="time">11:40</span><div><div class="q">ok</div><div class="a" data-i="a4">↳ Đã xong. Tài liệu nằm ở docs/final.md.</div></div><span class="v">870K</span></div>
+      <div class="turn"><span class="time">11:40</span><div><div class="q">ok</div><div class="a" data-i="a4">↳ Done. The document is at docs/final.md.</div></div><span class="v">870K</span></div>
     </div>
   </section>
 </div>
 <div class="note" data-i="note">
-Bố cục: <b>Phạm vi công cụ</b> ở đầu sidebar (áp dụng cho cả app) → cột giữa là <b>Hội thoại nhóm theo ngày</b> (1 dòng = 1 hội thoại, icon chữ theo tool, số liệu Kiro in nhạt với "~") → bấm vào hội thoại, cột phải là <b>danh sách lượt</b> (câu hỏi + tóm tắt trả lời) → bấm 1 lượt để <b>mở rộng</b> xem đầy đủ hỏi/đáp, tool call, diff và "vì sao tốn". Không còn $. Ở phạm vi <b>Tất cả</b>, mỗi hội thoại có <b>tag công cụ</b> (icon + tên, màu theo tool); chọn 1 công cụ thì tag tự ẩn vì trùng lặp (nút "Tất cả / Claude Code" ở trên để so sánh). Tìm kiếm có <b>chọn Project</b> và <b>tag Model</b> (chọn nhiều, chấm màu cho biết model của tool nào). Nút VI/EN ở trên để xem bản tiếng Anh.
+Layout: <b>tool scope</b> at the top of the sidebar (applies to the whole app) → middle column lists <b>conversations grouped by day</b> (one row per conversation, a letter icon per tool, Kiro figures shown muted with "~") → click a conversation to see its <b>list of turns</b> (question + answer preview) → click a turn to <b>expand</b> the full Q&A, tool calls, diffs and "why so costly". No more $. In the <b>All</b> scope, each conversation has a <b>tool tag</b> (icon + name, colored by tool); selecting a single tool hides the tag since it would be redundant (use the "All / Claude Code" button above to compare). Search includes a <b>Project picker</b> and <b>Model tags</b> (multi-select, the colored dot shows which tool a model belongs to). The VI/EN button above switches to the English version.
 </div>
 <script>
 const EN={project:'Project',model:'Model',title:'Mockup — Conversations',light:'Light',dark:'Dark',allTools:'All tools',all:'All',soon:'soon',overview:'Overview',convs:'Conversations',settings:'Settings',quota:'Limits · Claude Code',search:'🔎 Search questions and answers','7d':'7 days',costly:'🔥 Costly',bigctx:'Large context',today:'Today · Fri, Sep 25',yesterday:'Yesterday · Thu, Sep 24',c1:'Fix 404 when sending mail',c2:'Read the voice project structure',c3:'Build a token statistics tool',c4:'Review the investigation document',c5:'Write test cases for the sign-up screen',turns64:'64 turns',turns12:'12 turns',turns48:'48 turns',turns25:'25 turns',turns9:'9 turns',ctxEst:'estimated context',summary:'64 turns · 71M tokens · 2 compactions',analyze:'Analyze context',openlog:'Open log file',q1:'run the e2e test with lambda locally',a1:'↳ I will run the test locally with sam local invoke…',a2:'↳ It means the handler returns 404 when there is no data…',q3:'please update the progress and give me the final document',you:'You',a3:'Updated progress.md and created the final document docs/final.md with 4 sections…',why:'Why so costly? 99.8% was re-reading 841K of old context across 11 requests → run /compact before the wrap-up step.',a4:'↳ Done. The document is at docs/final.md.',note:'Layout: <b>tool scope</b> at the top of the sidebar (applies to the whole app) → middle column lists <b>conversations grouped by day</b> (one row per conversation, a letter icon per tool, Kiro figures shown muted with "~") → click a conversation to see its <b>list of turns</b> (question + answer preview) → click a turn to <b>expand</b> the full Q&A, tool calls, diffs and "why so costly". No more $.'};

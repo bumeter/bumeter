@@ -1,6 +1,6 @@
-# Build bộ cài cho Linux, macOS, Windows.
-# - Chạy tay (workflow_dispatch): bộ cài nằm ở mục Artifacts của lần chạy.
-# - Push tag v* (vd. v1.0.2): tạo GitHub Release nháp kèm bộ cài.
+# Build installers for Linux, macOS, Windows.
+# - Run manually (workflow_dispatch): the installers appear under the run's Artifacts.
+# - Push a v* tag (e.g. v1.0.2): creates a draft GitHub Release with the installers attached.
 name: Release
 
 on:
@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           - name: Linux x64
-            os: ubuntu-22.04 # glibc 2.35: chạy được từ Ubuntu 22.04
+            os: ubuntu-22.04 # glibc 2.35: runs from Ubuntu 22.04
             target: x86_64-unknown-linux-gnu
             bundles: deb,appimage
           - name: macOS Apple Silicon
@@ -42,7 +42,7 @@ jobs:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
 
-      - name: Thư viện hệ thống (Linux)
+      - name: System libraries (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -61,7 +61,7 @@ jobs:
           cache: npm
           cache-dependency-path: app/ui/package-lock.json
 
-      # `bum` đi kèm app (externalBin "binaries/bum" → bum-<target>[.exe]).
+      # `bum` ships with the app (externalBin "binaries/bum" → bum-<target>[.exe]).
       - name: Build bum (sidecar)
         run: |
           cargo build --release --locked -p bum-cli --target ${{ matrix.target }}
@@ -73,11 +73,11 @@ jobs:
         working-directory: app/ui
         run: npm ci && npm run build
 
-      - name: Build bộ cài
+      - name: Build installers
         working-directory: app
         run: ./ui/node_modules/.bin/tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
-      - name: Gom bộ cài
+      - name: Collect installers
         run: |
           mkdir -p dist
           b="target/${{ matrix.target }}/release/bundle"
@@ -86,7 +86,7 @@ jobs:
             cp "$f" dist/
           done
           ls -la dist
-          [ -n "$(ls dist)" ] || { echo "Không có bộ cài nào"; exit 1; }
+          [ -n "$(ls dist)" ] || { echo "No installers found"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:

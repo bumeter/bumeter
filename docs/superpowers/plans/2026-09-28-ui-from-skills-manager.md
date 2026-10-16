@@ -1,15 +1,15 @@
-# Giao diện học từ skills-manager — Kế hoạch (bản gọn)
+# UI learned from skills-manager — Plan (condensed)
 
-- Nguồn ý tưởng: ảnh `~/outsource/skills-manager/assets/demo/{library,agent-workspace,install-skills}.png`. Xem `docs/research/2026-09-28-skills-manager-comparison.md` (mục 8).
-- Nhánh `feat/skill-search` (làm tiếp). TDD, mỗi task một commit.
-- **Trạng thái: xong 5 task.** Ảnh: `docs/screens/skills-cards-vi-light.png`, `skills-table-en-dark.png`, `overview-insights-vi-dark.png`, `conversations-logos-vi-light.png`.
+- Idea source: images `~/outsource/skills-manager/assets/demo/{library,agent-workspace,install-skills}.png`. See `docs/research/2026-09-28-skills-manager-comparison.md` (section 8).
+- Branch `feat/skill-search` (continued). TDD, one commit per task.
+- **Status: 5 tasks done.** Screenshots: `docs/screens/skills-cards-vi-light.png`, `skills-table-en-dark.png`, `overview-insights-vi-dark.png`, `conversations-logos-vi-light.png`.
 
 | # | Task | Test |
 |---|---|---|
-| 1 | **Logo công cụ**: `SourceInfo.icon` (tên file), logo Claude Code/Kiro trong `app/ui/public/tool-icons/` (lấy từ skills-manager, ghi chú nhãn hiệu trong `NOTICE.md`); `glyph()` hiện logo, lỗi tải thì quay về ô chữ cái. Màu nhận diện theo màu thương hiệu (Claude `#D77655`, Kiro `#9046FF`) | Rust registry; Vitest glyph + fallback |
-| 2 | **Màn Skill**: tiêu đề có số đếm dạng viên + nhãn cảnh báo "tốn nền mà không dùng" (bấm để lọc); hàng chip lọc (trạng thái, nguồn, chip viền đứt "Tốn nền mà không dùng"); nút chuyển **Bảng / Thẻ** (nhớ bằng localStorage); thẻ có mô tả, chi phí nền, số lần dùng, **công tắc bật/tắt** (vẫn qua hộp xác nhận + hoàn tác), chân thẻ = nguồn + logo công cụ | Vitest |
-| 3 | **Tìm trên skills.sh**: kết quả dạng thẻ, nhãn "✓ Đã cài", chip lọc theo repo nguồn trong kết quả | Vitest |
-| 4 | **Hội thoại**: số đếm dạng viên ở tiêu đề + dòng trạng thái theo công cụ. **Tổng quan**: 3 gợi ý thành thẻ có nút hành động | Vitest |
-| 5 | Kiểm chứng: ảnh vi/en sáng/tối, build app | — |
+| 1 | **Tool logos**: `SourceInfo.icon` (file name), Claude Code/Kiro logos in `app/ui/public/tool-icons/` (taken from skills-manager, brand notice in `NOTICE.md`); `glyph()` shows the logo, and falls back to the letter box on load failure. Identity colors use the brand colors (Claude `#D77655`, Kiro `#9046FF`) | Rust registry; Vitest glyph + fallback |
+| 2 | **Skill screen**: a title with a pill-style count + a "costly but unused" warning label (click to filter); a filter chip row (status, source, a dashed-border "Costly but unused" chip); a **Table / Cards** toggle button (remembered via localStorage); cards with a description, baseline cost, usage count, an **enable/disable toggle** (still through a confirmation dialog + undo), the card footer = source + tool logo | Vitest |
+| 3 | **Search on skills.sh**: card-style results, an "✓ Installed" label, a filter chip by source repo within the results | Vitest |
+| 4 | **Conversations**: pill-style counts in the title + a status line by tool. **Overview**: 3 suggestions as cards with action buttons | Vitest |
+| 5 | Verification: vi/en light/dark screenshots, build the app | — |
 
-Không làm: hàng logo của mọi agent trên thẻ, lưới thẻ cho danh sách Hội thoại, đổi màu nhấn chính của app.
+Not doing: a row of logos for every agent on the card, a card grid for the Conversations list, changing the app's primary accent color.

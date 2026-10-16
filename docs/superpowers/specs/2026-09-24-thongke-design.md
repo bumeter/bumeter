@@ -1,417 +1,417 @@
-# thongke — Thiết kế ứng dụng thống kê sử dụng AI
+# thongke — AI usage statistics app design
 
-- Ngày: 2026-09-24
-- Trạng thái: Chờ duyệt bản viết (nội dung đã duyệt từng phần)
-- Người dùng: cá nhân (developer outsource làm theo ticket), dùng Claude Code hằng ngày
+- Date: 2026-09-24
+- Status: Awaiting approval of the written version (content approved piece by piece)
+- User: individual (an outsource developer working from tickets), using Claude Code daily
 
-## 1. Mục tiêu
+## 1. Goals
 
-### 1.1 Vấn đề
+### 1.1 Problem
 
-Người dùng không biết mỗi lần hỏi AI tốn bao nhiêu token, dùng skill nào, và vì sao có lần hỏi rất đắt, nên không biết cần tối ưu gì. `/context` chỉ cho biết context của phiên hiện tại tại một thời điểm, không có lịch sử và không so sánh được.
+The user does not know how many tokens each AI prompt costs, which skills are used, or why some prompts are very expensive, so they do not know what to optimize. `/context` only shows the context of the current session at one point in time; it has no history and cannot be compared.
 
-### 1.2 Kết quả mong muốn
+### 1.2 Desired outcome
 
-Một app desktop nhẹ, **chạy nền liên tục**, đọc log của các công cụ AI theo thời gian thực. Mở app lên là trả lời được ngay 3 câu:
+A lightweight desktop app that **runs in the background continuously** and reads the logs of AI tools in real time. Opening the app answers 3 questions right away:
 
-1. Lần hỏi nào tốn nhất, và vì sao?
-2. Skill nào tốn nhiều hay ít trên mỗi lần dùng, được dùng ở đâu?
-3. Nên thay đổi thói quen gì?
+1. Which prompt is the most expensive, and why?
+2. Which skills cost a lot or a little per use, and where are they used?
+3. What habits should change?
 
-Ngoài ra app còn làm được:
+The app can also:
 
-- Cảnh báo khi sắp hết giới hạn sử dụng (5 giờ / 7 ngày) và khi có lần hỏi bất thường.
-- Cài, tắt, bật, gỡ skill và plugin ngay trong app.
-- Phân tích sâu từng phiên: thành phần context, biểu đồ compact, xem nội dung tool call.
-- Kiến trúc cho phép thêm công cụ khác sau này (Codex, Kiro, Gemini…).
-- Chạy được trên Windows, macOS và Linux.
+- Warn when the usage limit (5 hours / 7 days) is nearly reached and when there is an anomalous prompt.
+- Install, disable, enable, and remove skills and plugins right in the app.
+- Deep-analyze each session: context composition, compact chart, view tool-call content.
+- Have an architecture that allows adding other tools later (Codex, Kiro, Gemini…).
+- Run on Windows, macOS, and Linux.
 
-### 1.3 Tiêu chí thành công
+### 1.3 Success criteria
 
-- Số token hiển thị khớp 100% với một cách tính độc lập (`tk audit`).
-- Từ lúc log có dòng mới đến lúc giao diện hoặc tray cập nhật: dưới 100ms.
-- RAM khi chạy nền (cửa sổ đóng): dưới 20MB. CPU gần 0% khi không có log mới.
-- Quét lần đầu khoảng 34MB log (máy hiện tại): dưới 2 giây.
+- Displayed token counts match an independent count (`tk audit`) 100%.
+- From a new log line to the UI or tray updating: under 100ms.
+- RAM while running in the background (window closed): under 20MB. CPU near 0% when there is no new log.
+- First scan of about 34MB of logs (on the current machine): under 2 seconds.
 
-### 1.4 Nguyên tắc sản phẩm
+### 1.4 Product principles
 
-**Một app duy nhất, quản lý tập trung.** Người dùng không phải ghép nhiều tool lại với nhau (ccusage, claude-devtools, TokenTracker…). Phân tích từng lần hỏi, phân tích thành phần context, quota, thông báo và quản lý skill đều nằm trong cùng một app.
+**A single app, centrally managed.** The user does not have to assemble multiple tools (ccusage, claude-devtools, TokenTracker…). Per-prompt analysis, context composition analysis, quota, notifications, and skill management all live in the same app.
 
-### 1.5 Ngoài phạm vi v1
+### 1.5 Out of scope for v1
 
-Adapter Codex, Kiro và Gemini (chỉ thiết kế sẵn trait); xuất báo cáo; đồng bộ skill giữa các công cụ; sửa nội dung skill trong app; duyệt kho skill công khai; dùng nhiều máy hoặc cho team.
+Codex, Kiro, and Gemini adapters (only design the trait); report export; syncing skills between tools; editing skill content in the app; browsing a public skill store; multi-machine or team use.
 
-### 1.6 Khảo sát các tool tương tự (09/2026)
+### 1.6 Survey of similar tools (09/2026)
 
-Thông tin lấy từ README. Riêng ccusage đã chạy thử trên máy người dùng.
+Information taken from READMEs. ccusage was actually tried on the user's machine.
 
-| Tool | Dạng | Có | Không có |
+| Tool | Type | Has | Missing |
 |---|---|---|---|
-| ccusage | CLI | Thống kê theo ngày, phiên, khối 5h, khoảng 18 công cụ, có bỏ trùng (khớp số liệu: 726M) | Thống kê theo lần hỏi, skill, tray, thông báo |
-| claude-devtools | Electron, 3 hệ điều hành | Chia token từng lượt theo 7 nhóm (CLAUDE.md, skill, file, tool I/O, thinking…), biểu đồ compaction, thông báo khi tốn nhiều | Tray và quota 5h/7d, quản lý skill; nặng vì là Electron |
-| TokenTracker | Tray, 3 hệ điều hành | Giới hạn realtime, hơn 40 công cụ, bật/tắt và đồng bộ skill có Undo | Thống kê theo lần hỏi, chi phí skill so với mức dùng |
-| Claude-Code-Usage-Monitor v4 | TUI | Đọc `rate_limits` từ statusline, dự đoán tốc độ dùng | Thông báo hệ điều hành, tray |
-| ccboard | TUI và web | Tab Skills/Plugins, cảnh báo ngân sách | Chưa rõ có quản lý skill không |
+| ccusage | CLI | Stats by day, session, 5h block, about 18 tools, with dedup (matches the numbers: 726M) | Per-prompt stats, skills, tray, notifications |
+| claude-devtools | Electron, 3 OSes | Splits each call's tokens into 7 groups (CLAUDE.md, skill, file, tool I/O, thinking…), compaction chart, notifications when costly | Tray and 5h/7d quota, skill management; heavy because it is Electron |
+| TokenTracker | Tray, 3 OSes | Realtime limits, over 40 tools, enable/disable and sync skills with Undo | Per-prompt stats, skill cost vs. usage |
+| Claude-Code-Usage-Monitor v4 | TUI | Reads `rate_limits` from statusline, predicts usage rate | OS notifications, tray |
+| ccboard | TUI and web | Skills/Plugins tab, budget warnings | Unclear whether it has skill management |
 
-**Điểm khác biệt của thongke:**
-1. Gom tất cả vào một app nhẹ (Tauri).
-2. Giải thích **"vì sao tốn và nên làm gì"** ngay khi đang làm việc.
-3. Thông báo quota theo % thật từ statusline, chạy được cả trên Linux và Windows.
-4. Quản lý skill **dựa trên số liệu**: so chi phí nền với mức dùng thật, rồi mới tắt/bật/gỡ.
+**thongke's differentiators:**
+1. Gathers everything into one lightweight app (Tauri).
+2. Explains **"why it's costly and what to do"** right while working.
+3. Quota notifications based on the real % from statusline, works on both Linux and Windows.
+4. Skill management **based on data**: compare baseline cost with real usage, then disable/enable/remove.
 
-## 2. Phát hiện từ dữ liệu thật
+## 2. Findings from real data
 
-Khảo sát `~/.claude/projects` trên máy người dùng (24 file `.jsonl`, khoảng 34MB, 595 lần hỏi):
+Survey of `~/.claude/projects` on the user's machine (24 `.jsonl` files, about 34MB, 595 prompts):
 
-- **Log lặp bản ghi:** mỗi content block (text, tool_use…) của một lần gọi API được ghi thành một dòng `type=assistant` riêng, và các dòng này mang **cùng `usage`**. Bắt buộc phải bỏ trùng theo `requestId` (dự phòng: `message.id`). Chưa bỏ trùng thì tổng là 1,40 tỉ token, bỏ trùng rồi thì còn 721 triệu.
-- Trung vị khoảng 678K token mỗi lần hỏi, p90 khoảng 2,86M.
-- Lần hỏi đắt chủ yếu vì **context lớn**, không phải vì output. Ví dụ: một lần hỏi tốn 9,4M token qua 11 lần gọi API với context khoảng 841K, output chỉ 17K.
-- Skill được ghi ở `attributionSkill` (trên dòng assistant) và ở tool_use `Skill` (`input.skill`). Slash command nằm trong `<command-name>` ở message của user.
-- Log chỉ ghi giới hạn **khi đã bị chặn**: dòng `isApiErrorMessage` có `error: "rate_limit"`, kèm `quotaLimits.rateLimitType` (`five_hour`…) và `resetsAt`.
-- Phần trăm giới hạn **trước khi bị chặn** chỉ có trong JSON stdin của statusLine (có tài liệu chính thức): `rate_limits.five_hour.used_percentage`, `rate_limits.five_hour.resets_at`, `rate_limits.seven_day.*`. Chỉ có với gói Pro/Max, và có sau lần API trả lời đầu tiên. Hook, `/usage` và OpenTelemetry đều không cung cấp số liệu này.
-- `claude plugin details <name>` cho biết token chi phí nền (always-on) và token mỗi lần gọi (on-invoke) của từng skill con trong plugin.
-- Trên máy đã có `~/.codex/sessions`, `~/.kiro/{sessions,skills}`, `~/.gemini` để làm adapter sau này.
+- **The log repeats records:** each content block (text, tool_use…) of an API call is written as its own `type=assistant` line, and these lines carry the **same `usage`**. Dedup by `requestId` is mandatory (fallback: `message.id`). Without dedup the total is 1.40 billion tokens; after dedup it is 721 million.
+- The median is about 678K tokens per prompt, p90 about 2.86M.
+- Expensive prompts are mostly due to **large context**, not output. For example: one prompt cost 9.4M tokens across 11 API calls with a context of about 841K, and only 17K of output.
+- Skills are recorded in `attributionSkill` (on the assistant line) and in the `Skill` tool_use (`input.skill`). Slash commands are inside `<command-name>` in the user message.
+- The log only records limits **once blocked**: the `isApiErrorMessage` line has `error: "rate_limit"`, along with `quotaLimits.rateLimitType` (`five_hour`…) and `resetsAt`.
+- The limit percentage **before being blocked** is only in the statusLine stdin JSON (officially documented): `rate_limits.five_hour.used_percentage`, `rate_limits.five_hour.resets_at`, `rate_limits.seven_day.*`. It is only available on Pro/Max plans and appears after the first API response. Hooks, `/usage`, and OpenTelemetry do not provide this number.
+- `claude plugin details <name>` reports the baseline (always-on) tokens and the per-call (on-invoke) tokens of each sub-skill in a plugin.
+- The machine already has `~/.codex/sessions`, `~/.kiro/{sessions,skills}`, `~/.gemini` for adapters later.
 
-## 3. Kiến trúc
+## 3. Architecture
 
-### 3.1 Công nghệ
+### 3.1 Technology
 
-- **Tauri 2 + Rust** cho lõi. Giao diện là **HTML/CSS/TypeScript thuần** chạy trong WebView của hệ điều hành, không dùng framework, build bằng Vite.
-- **Lý do chọn:** nhẹ nhất trong các lựa chọn vẫn có giao diện đầy đủ. Theo dõi file bằng sự kiện của hệ điều hành (crate `notify`: inotify / FSEvents / ReadDirectoryChangesW). Có sẵn tray, thông báo và tự khởi động.
-- **Tiết kiệm RAM:** đóng cửa sổ thì **hủy WebView**, chỉ còn lõi Rust và tray chạy nền. Mở lại thì tạo lại WebView (khoảng 0,3 giây).
-- Lưu trữ bằng **SQLite** (crate `rusqlite`, bản bundled). Vị trí file theo crate `dirs`: `data_dir()/thongke/thongke.db`, ví dụ `~/.local/share/thongke/`.
+- **Tauri 2 + Rust** for the core. The UI is **plain HTML/CSS/TypeScript** running in the OS WebView, with no framework, built with Vite.
+- **Why chosen:** the lightest of the options that still has a full UI. File watching via OS events (the `notify` crate: inotify / FSEvents / ReadDirectoryChangesW). Tray, notifications, and autostart are available.
+- **RAM savings:** closing the window **destroys the WebView**, leaving only the Rust core and the tray running in the background. Reopening recreates the WebView (about 0.3 seconds).
+- Storage in **SQLite** (the `rusqlite` crate, bundled build). File location via the `dirs` crate: `data_dir()/thongke/thongke.db`, for example `~/.local/share/thongke/`.
 
-### 3.2 Sơ đồ
+### 3.2 Diagram
 
 ```
-┌──────────── Cửa sổ Tauri (WebView) — HTML/TS thuần ─────────────┐
-│   Lần hỏi · Skill · Project · Ngày · Cài đặt                    │
-└──────────▲ event "data-changed"  │ invoke(query_*, skill_*, …) ──┘
+┌──────────── Tauri window (WebView) — plain HTML/TS ────────────┐
+│   Prompts · Skill · Project · Day · Settings                   │
+└──────────▲ event "data-changed"  │ invoke(query_*, skill_*, …) ┘
            │                       ▼
-┌────────────────────────── Rust core (chạy nền) ─────────────────┐
-│ Watcher(notify) → Adapter.parse → Aggregator → Store(SQLite)    │
-│                                          │                       │
-│                         Insight/Alert ◄──┘ → Tray + Notification │
-│  LimitWatcher (limits.json) ─────────────┘                       │
-│                                                                  │
-│  trait LogSource    trait SkillSource                            │
-│   └─ claude_code    └─ claude_code        (v1)                   │
-│   └─ codex / kiro   └─ kiro               (sau)                  │
-└──────────────────────────────────────────────────────────────────┘
+┌────────────────────────── Rust core (background) ──────────────┐
+│ Watcher(notify) → Adapter.parse → Aggregator → Store(SQLite)   │
+│                                          │                     │
+│                         Insight/Alert ◄──┘ → Tray + Notification│
+│  LimitWatcher (limits.json) ─────────────┘                     │
+│                                                                │
+│  trait LogSource    trait SkillSource                          │
+│   └─ claude_code    └─ claude_code        (v1)                 │
+│   └─ codex / kiro   └─ kiro               (later)              │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-Giao diện và lõi giao tiếp qua IPC nội bộ của Tauri. **Không mở cổng mạng nào.**
+The UI and the core communicate through Tauri's internal IPC. **No network port is opened.**
 
-### 3.2.1 Nhiều giao diện, một lõi (host + client)
+### 3.2.1 Many UIs, one core (host + client)
 
 ```
                     ┌──────────── tk-core + tk-adapters + tk-skills ────────────┐
-                    │  watcher → store(SQLite) → insight/alerts   (1 nơi GHI)   │
+                    │  watcher → store(SQLite) → insight/alerts  (1 writer)     │
                     └──────────────────────────┬────────────────────────────────┘
-                                 tk-service: API local (JSON-RPC)
+                                 tk-service: local API (JSON-RPC)
                      Unix socket (Linux/macOS) · Named pipe (Windows)
             ┌──────────────┬───────────────┼────────────────┬──────────────────┐
             ▼              ▼               ▼                ▼                  ▼
-     App desktop     Terminal TUI     VS Code ext     Statusline Claude    (sau) Web
-     (Tauri, tray)   `tk tui`         status bar +    `tk statusline`
+     Desktop app      Terminal TUI     VS Code ext     Claude statusline   (later) Web
+     (Tauri, tray)    `tk tui`         status bar +    `tk statusline`
                                       webview panel
 ```
 
-- **Host** là tiến trình duy nhất theo dõi log và ghi DB. Host là app desktop nếu app đang chạy, còn không thì là `tk daemon` chạy không giao diện. Dùng file lock `data_dir()/thongke/host.lock` để bảo đảm chỉ có một host. DB bật chế độ WAL.
-- **Client** gồm TUI, VS Code và statusline. Client gọi `tk-service` qua socket hoặc pipe. Nếu chưa có host, client tự khởi động `tk daemon`.
-- Socket chỉ cho user hiện tại truy cập (quyền `0600`, Windows dùng pipe ACL theo user), không mở cổng mạng.
-- Bộ lệnh của `tk-service` **giống hệt** các lệnh Tauri ở mục 14.4. Cả hai cùng gọi một lớp `handlers` nên mỗi lệnh chỉ viết logic một lần. Tauri UI gọi trực tiếp trong tiến trình, không đi qua socket.
+- The **host** is the single process that watches logs and writes the DB. The host is the desktop app if it is running, otherwise it is `tk daemon` running without a UI. A file lock `data_dir()/thongke/host.lock` ensures there is only one host. The DB runs in WAL mode.
+- **Clients** include the TUI, VS Code, and the statusline. A client calls `tk-service` over a socket or pipe. If there is no host yet, the client starts `tk daemon` itself.
+- The socket is accessible only to the current user (mode `0600`, on Windows a per-user pipe ACL), and does not open a network port.
+- `tk-service`'s command set is **identical** to the Tauri commands in section 14.4. Both call the same `handlers` layer, so each command's logic is written only once. The Tauri UI calls directly in-process, not through the socket.
 
-### 3.3 Các module (Rust)
+### 3.3 Modules (Rust)
 
-| Module | Trách nhiệm | Phụ thuộc |
+| Module | Responsibility | Depends on |
 |---|---|---|
 | `adapters::LogSource` (trait) | `id()`, `watch_roots()`, `parse_line(ctx, line) -> Vec<RawEvent>` | — |
 | `adapters::SkillSource` (trait) | `list()`, `enable()`, `disable()`, `install()`, `uninstall()`, `cost()` | — |
-| `adapters::claude_code` | Implement cả hai trait cho Claude Code | `serde_json` |
-| `watcher` | Nhận sự kiện từ `notify`, đọc tiếp file từ offset, quét đối chiếu mỗi 60 giây | `notify`, `store` |
-| `aggregator` | Chuyển `RawEvent` thành Session / Prompt / ApiCall / SkillUse; bỏ trùng; gán skill | `store` |
-| `store` | Schema SQLite, migration, truy vấn | `rusqlite` |
-| `insight` | Đánh dấu bất thường, gợi ý tối ưu, tính chi phí USD | `store`, `pricing` |
-| `limits` | Đọc `limits.json` và các sự kiện 429, tính trạng thái giới hạn | `notify` |
-| `alerts` | Quyết định khi nào gửi thông báo (có chống lặp), cập nhật tray | `tauri-plugin-notification` |
-| `skills_ops` | Chạy thao tác skill có xác nhận, nhật ký thao tác, hoàn tác, thùng rác | `SkillSource`, `store` |
-| `composition` | Ước lượng thành phần context của từng ApiCall, đọc lại nội dung tool I/O từ log theo offset (mục 6.1) | `adapters`, `store` |
-| `handlers` | Lớp xử lý chung cho mọi lệnh (dùng bởi cả Tauri commands và `tk-service`) | tất cả |
-| `service` | JSON-RPC qua Unix socket / named pipe, host lock | `handlers` |
-| `commands` | Các lệnh Tauri `invoke`, chỉ bọc `handlers` | `handlers` |
+| `adapters::claude_code` | Implements both traits for Claude Code | `serde_json` |
+| `watcher` | Receives events from `notify`, reads the file onward from its offset, rescans every 60 seconds | `notify`, `store` |
+| `aggregator` | Turns `RawEvent` into Session / Prompt / ApiCall / SkillUse; dedups; attributes skills | `store` |
+| `store` | SQLite schema, migrations, queries | `rusqlite` |
+| `insight` | Flags anomalies, suggests optimizations, computes USD cost | `store`, `pricing` |
+| `limits` | Reads `limits.json` and 429 events, computes limit state | `notify` |
+| `alerts` | Decides when to send notifications (with anti-repeat), updates the tray | `tauri-plugin-notification` |
+| `skills_ops` | Runs skill operations with confirmation, operation journal, undo, trash | `SkillSource`, `store` |
+| `composition` | Estimates the context composition of each ApiCall, re-reading tool I/O content from the log by offset (section 6.1) | `adapters`, `store` |
+| `handlers` | Shared handling layer for every command (used by both Tauri commands and `tk-service`) | all |
+| `service` | JSON-RPC over Unix socket / named pipe, host lock | `handlers` |
+| `commands` | Tauri `invoke` commands, just wrapping `handlers` | `handlers` |
 
-Giao diện (`ui/`) gồm một file cho mỗi màn hình: `prompts.ts`, `skills.ts`, `projects.ts`, `days.ts`, `settings.ts`, `session.ts` (Phân tích phiên), và `detail.ts` cho panel chi tiết. Biểu đồ vẽ bằng SVG tự viết, không dùng thư viện chart để giữ app nhẹ.
+The UI (`ui/`) has one file per screen: `prompts.ts`, `skills.ts`, `projects.ts`, `days.ts`, `settings.ts`, `session.ts` (Session analysis), and `detail.ts` for the detail panel. Charts are hand-written SVG, with no chart library, to keep the app light.
 
-## 4. Mô hình dữ liệu chung
+## 4. Common data model
 
-### 4.1 Khái niệm
+### 4.1 Concepts
 
-| Khái niệm | Trường chính | Claude Code |
+| Concept | Main fields | Claude Code |
 |---|---|---|
-| **Session** | id, tool, project, cwd, file_path, started_at, ended_at, deleted | Một file `.jsonl` / `sessionId`. Project lấy từ tên thư mục cha |
-| **Prompt** | id, session_id, ts, text (tối đa 2.000 ký tự), interrupted, compacted_after | Dòng `type=user` có `promptId`, không phải `isMeta`, không có `toolUseResult`, không bắt đầu bằng `<` và không phải `[Request interrupted…]` |
-| **ApiCall** | request_id (unique), prompt_id, ts, model, input, cache_write, cache_read, output, context, tools_json | Dòng `type=assistant`, **bỏ trùng theo `requestId`**. `context = input + cache_write + cache_read`. Tool gộp từ mọi dòng cùng `requestId` |
+| **Session** | id, tool, project, cwd, file_path, started_at, ended_at, deleted | One `.jsonl` file / `sessionId`. Project is taken from the parent directory name |
+| **Prompt** | id, session_id, ts, text (up to 2,000 characters), interrupted, compacted_after | A `type=user` line with `promptId`, not `isMeta`, no `toolUseResult`, not starting with `<`, and not `[Request interrupted…]` |
+| **ApiCall** | request_id (unique), prompt_id, ts, model, input, cache_write, cache_read, output, context, tools_json | A `type=assistant` line, **deduped by `requestId`**. `context = input + cache_write + cache_read`. Tools merged from every line with the same `requestId` |
 | **SkillUse** | prompt_id, skill, kind (`direct` / `continued` / `command`), source | `Skill` tool_use, `attributionSkill`, `<command-name>` |
 
-Dòng `[Request interrupted by user]` đánh dấu `interrupted=true` cho lần hỏi ngay trước nó. Dòng `isCompactSummary` đánh dấu `compacted_after` và cắt chuỗi "làm tiếp" của skill.
+A `[Request interrupted by user]` line marks `interrupted=true` for the prompt immediately before it. An `isCompactSummary` line marks `compacted_after` and cuts the skill's "continued" chain.
 
-### 4.2 Số liệu mỗi lần hỏi (tính khi truy vấn hoặc cache trong bảng `prompt_stats`)
+### 4.2 Per-prompt metrics (computed at query time or cached in the `prompt_stats` table)
 
-Tổng từng loại token, `total`, `context_at_start` (của ApiCall đầu tiên), `api_calls`, `tools` (đếm theo tên), `duration` (từ lúc hỏi đến ApiCall cuối), `cost_usd`.
+Totals for each token type, `total`, `context_at_start` (of the first ApiCall), `api_calls`, `tools` (counted by name), `duration` (from the prompt to the last ApiCall), `cost_usd`.
 
-### 4.3 Quy tắc gán skill
+### 4.3 Skill attribution rules
 
-- **direct:** trong lần hỏi có tool_use `Skill`, có `attributionSkill`, hoặc có slash command (kind `command`).
-- **continued:** các lần hỏi sau trong cùng phiên kế thừa skill direct gần nhất, cho đến khi gặp một trong ba trường hợp: có skill direct khác, có compact, hoặc lần hỏi cách lần trước hơn 30 phút.
-- Giao diện: tag đậm là direct, tag nhạt là continued.
+- **direct:** the prompt has a `Skill` tool_use, has `attributionSkill`, or has a slash command (kind `command`).
+- **continued:** later prompts in the same session inherit the nearest direct skill, until one of three cases: a different direct skill, a compact, or a prompt more than 30 minutes after the previous one.
+- UI: a bold tag is direct, a light tag is continued.
 
-### 4.4 Quy tắc bất thường (ngưỡng chỉnh được)
+### 4.4 Anomaly rules (adjustable thresholds)
 
-`total > 3 × trung vị (30 ngày gần nhất)`, **hoặc** `context_at_start > 300_000`.
+`total > 3 × median (last 30 days)`, **or** `context_at_start > 300_000`.
 
-Thanh màu hiển thị: xanh khi dưới 2× trung vị, vàng khi từ 2× đến dưới 5×, đỏ khi từ 5× trở lên.
+Color bar display: green when below 2× the median, yellow from 2× to below 5×, red from 5× up.
 
-### 4.5 Chi phí
+### 4.5 Cost
 
-Bảng giá model lưu ở `pricing.toml` (trong data dir, có bản mặc định đi kèm app, người dùng sửa được). Giá tính riêng cho input, cache_write (5 phút / 1 giờ), cache_read và output. Model không có trong bảng thì hiện "—", không đoán giá. Bảng mặc định lấy từ trang giá chính thức lúc triển khai.
+The model pricing table is stored in `pricing.toml` (in the data dir, with a default bundled with the app, editable by the user). Pricing is separate for input, cache_write (5 minutes / 1 hour), cache_read, and output. A model not in the table shows "—", without guessing a price. The default table is taken from the official pricing page at deployment time.
 
-### 4.6 Bảng SQLite phụ
+### 4.6 Auxiliary SQLite tables
 
 - `file_offsets(path, inode/file_id, size, offset, mtime)`
-- `notes(prompt_id, starred, note, updated_at)`, sao lưu song song ra `notes.json`
-- `skill_ops(id, ts, op, target, before_json, after_json, status)` dùng cho hoàn tác
-- `alerts_sent(key, ts)` để chống gửi thông báo lặp
+- `notes(prompt_id, starred, note, updated_at)`, backed up in parallel to `notes.json`
+- `skill_ops(id, ts, op, target, before_json, after_json, status)` used for undo
+- `alerts_sent(key, ts)` to prevent duplicate notifications
 - `schema_version`
 
-## 5. Đọc log realtime
+## 5. Realtime log reading
 
-1. Khi khởi động: liệt kê các file trong `watch_roots()`. Với mỗi file, so với `file_offsets`, rồi đọc từ `offset` đến hết.
-2. `notify` báo file thay đổi thì đọc tiếp từ `offset`. **Chỉ xử lý đến ký tự `\n` cuối cùng.** Phần còn lại giữ lại cho lần đọc sau.
-3. Nếu `size < offset` hoặc inode/file_id đổi thì đọc lại file từ đầu. Xóa ApiCall cũ của file đó trước khi đọc lại (bỏ trùng theo `request_id` giúp tránh đếm hai lần).
-4. File bị xóa: giữ dữ liệu và đánh dấu `Session.deleted = true`.
-5. Quét đối chiếu mỗi 60 giây (theo size và mtime) để bắt các sự kiện bị lỡ, ví dụ khi máy ngủ hoặc inotify bị tràn.
-6. Mỗi lô dữ liệu được ghi trong một transaction, sau đó gửi event `data-changed { session_ids, prompt_ids }` cho giao diện (nếu đang mở) và cho module `alerts`.
+1. On startup: list the files in `watch_roots()`. For each file, compare with `file_offsets`, then read from `offset` to the end.
+2. When `notify` reports a file change, read onward from `offset`. **Only process up to the last `\n` character.** The remainder is kept for the next read.
+3. If `size < offset` or the inode/file_id changes, re-read the file from the start. Delete the old ApiCalls of that file before re-reading (dedup by `request_id` helps avoid double counting).
+4. A deleted file: keep the data and set `Session.deleted = true`.
+5. Rescan every 60 seconds (by size and mtime) to catch missed events, for example when the machine sleeps or inotify overflows.
+6. Each batch of data is written in one transaction, then a `data-changed { session_ids, prompt_ids }` event is sent to the UI (if open) and to the `alerts` module.
 
-## 6. Giao diện
+## 6. UI
 
-Bố cục 3 cột (theo mockup v4 đã duyệt):
+3-column layout (per the approved mockup v4):
 
-- **Sidebar trái:**
-  - Các màn hình: Lần hỏi, Skill, Project, Ngày, Cài đặt.
-  - Lọc nhanh: 🔥 tốn bất thường, 🧠 context trên 300K, ✋ bị ngắt ngang, ⭐ cần xem lại.
-  - Số liệu hôm nay.
-  - Bộ lọc "Công cụ" (ẩn khi mới có một adapter).
-- **Cột giữa, danh sách lần hỏi:**
-  - Gom theo phiên.
-  - Ô tìm kiếm theo nội dung câu hỏi. Bộ lọc dạng chip: project, skill, khoảng thời gian, sắp xếp.
-  - Mỗi dòng gồm: giờ, câu hỏi, thanh màu, tag skill, token.
-  - Lần hỏi mới tự thêm vào khi đang chạy.
-- **Cột phải, chi tiết một lần hỏi:**
-  - Tổng token, số lần gọi API, context lúc hỏi, output thực sự, chi phí.
-  - Biểu đồ cột từng lần gọi API (phần đọc context và phần output).
-  - Các tool đã dùng.
-  - Mục **"Vì sao tốn / Nên làm"** do `insight` sinh ra.
-  - Nút ⭐, 📝 và "Mở vị trí file log".
-  - Nút **"Phân tích sâu"** để mở màn hình Phân tích phiên (mục 6.1).
-- **Skill:** bảng gồm skill cá nhân, skill trong plugin, slash command, và skill **đã cài nhưng chưa dùng**. Có các cột nguồn, trạng thái, chi phí nền, chi phí mỗi lần gọi, số lần dùng, TB token mỗi lần, lần cuối dùng, và các công cụ có skill đó. Bấm vào một skill thì cột giữa lọc theo skill đó. Các nút thao tác xem ở mục 8.
-- **Project:** mỗi project gồm tổng token, số phiên, các skill đã dùng, và lần hỏi đắt nhất. Bấm vào thì lọc theo project.
-- **Ngày:** biểu đồ cột token theo ngày. Bấm vào một cột thì lọc theo ngày đó.
-- **Cài đặt:** các ngưỡng, đường dẫn cho từng adapter, tự khởi động, bảng giá, bật/tắt từng loại thông báo, thiết lập statusline (mục 7), số dòng log lỗi, nhật ký thao tác skill.
+- **Left sidebar:**
+  - Screens: Prompts, Skill, Project, Day, Settings.
+  - Quick filters: 🔥 anomalous cost, 🧠 context above 300K, ✋ interrupted, ⭐ needs review.
+  - Today's metrics.
+  - A "Tools" filter (hidden when there is only one adapter).
+- **Middle column, prompt list:**
+  - Grouped by session.
+  - A search box over question content. Chip-style filters: project, skill, time range, sort.
+  - Each row has: time, question, color bar, skill tags, tokens.
+  - New prompts are appended automatically while running.
+- **Right column, one prompt's detail:**
+  - Total tokens, number of API calls, context at prompt time, actual output, cost.
+  - A bar chart per API call (the context-reading part and the output part).
+  - The tools used.
+  - A **"Why it's costly / What to do"** section generated by `insight`.
+  - ⭐, 📝 buttons and "Open log file location".
+  - A **"Deep analysis"** button to open the Session analysis screen (section 6.1).
+- **Skill:** a table of personal skills, skills inside plugins, slash commands, and skills that are **installed but unused**. There are columns for source, status, baseline cost, cost per call, usage count, average tokens per use, last use, and the tools that have the skill. Clicking a skill filters the middle column by that skill. See section 8 for the operation buttons.
+- **Project:** each project has total tokens, session count, skills used, and the most expensive prompt. Clicking filters by project.
+- **Day:** a bar chart of tokens by day. Clicking a bar filters by that day.
+- **Settings:** thresholds, per-adapter paths, autostart, the pricing table, per-type notification on/off, statusline setup (section 7), the count of error log lines, the skill operation journal.
 
-Múi giờ hiển thị theo hệ thống. Giao diện theo sáng/tối của hệ thống.
+The display time zone follows the system. The UI follows the system light/dark setting.
 
-### 6.0 Ngôn ngữ thiết kế (đã duyệt 2026-09-24)
+### 6.0 Design language (approved 2026-09-24)
 
-App **đa nền tảng** (Linux, Windows, macOS). Giao diện theo **phong cách macOS**, nhưng không phải app riêng cho macOS. Mockup tham chiếu: `2026-09-24-thongke-mockup-macos.html`.
+The app is **cross-platform** (Linux, Windows, macOS). The UI follows a **macOS style**, but is not a macOS-only app. Reference mockup: `2026-09-24-thongke-mockup-macos.html`.
 
-- **Thanh tiêu đề:** dùng thanh tiêu đề **gốc của từng hệ điều hành**, không tự vẽ nút đóng/thu nhỏ. Bỏ 3 nút màu của macOS có trong mockup.
-- **Font:** `-apple-system, "SF Pro Text"` trên macOS. Các hệ điều hành khác dùng **Inter**, nhúng sẵn trong app (woff2, dùng được khi offline). Số liệu dùng `font-variant-numeric: tabular-nums`.
-- **Màu:** khai báo dạng token trên `:root`, có đủ chế độ sáng và tối theo hệ thống (`prefers-color-scheme`). Màu nhấn xanh hệ thống (`#007aff` khi sáng, `#0a84ff` khi tối). Màu trạng thái: xanh lá, cam, đỏ, tím (skill).
-- **Chi tiết:** đường kẻ 0,5px; bo góc 6–12px; hàng đang chọn tô màu nhấn với chữ trắng; nhãn nhóm 11px màu xám; nút có viền mảnh; thẻ số liệu nền xám nhạt; không dùng viền đậm hay màu gắt.
-- **Sidebar trong mờ:** dùng `backdrop-filter` nếu WebView hỗ trợ, không thì dùng màu nền đặc.
-- **Tương tác:** ↑/↓ để chọn lần hỏi, `⌘/Ctrl+F` để vào ô tìm kiếm, `Esc` để bỏ lọc.
+- **Title bar:** use the **native title bar of each OS**, don't draw your own close/minimize buttons. Drop the 3 colored macOS buttons from the mockup.
+- **Font:** `-apple-system, "SF Pro Text"` on macOS. Other OSes use **Inter**, embedded in the app (woff2, works offline). Numbers use `font-variant-numeric: tabular-nums`.
+- **Colors:** declared as tokens on `:root`, with full light and dark modes following the system (`prefers-color-scheme`). The accent is the system blue (`#007aff` in light, `#0a84ff` in dark). Status colors: green, orange, red, purple (skills).
+- **Details:** 0.5px hairlines; 6–12px corner radii; the selected row filled with the accent color and white text; 11px gray group labels; buttons with a thin border; stat cards on a light gray background; no heavy borders or harsh colors.
+- **Translucent sidebar:** use `backdrop-filter` if the WebView supports it, otherwise a solid background color.
+- **Interaction:** ↑/↓ to select a prompt, `⌘/Ctrl+F` to focus the search box, `Esc` to clear filters.
 
-### 6.1 Phân tích phiên (phân tích sâu kiểu devtools)
+### 6.1 Session analysis (devtools-style deep analysis)
 
-Màn hình toàn trang cho một phiên, mở từ panel chi tiết hoặc từ danh sách phiên.
+A full-page screen for one session, opened from the detail panel or from the session list.
 
-- **Biểu đồ context theo thời gian:** trục X là từng lượt gọi API, trục Y là context. Các vùng chồng lên nhau thể hiện **thành phần context**. Có đánh dấu các điểm compact (context tụt xuống) và các lần hỏi của người dùng.
-- **Thành phần context của từng lượt (ước lượng):**
+- **Context chart over time:** the X axis is each API call, the Y axis is context. Overlapping areas show the **context composition**. Marks show the compact points (where context drops) and the user's prompts.
+- **Context composition of each call (estimated):**
 
-  | Nhóm | Cách nhận diện trong log |
+  | Group | How it is identified in the log |
   |---|---|
-  | Hệ thống / CLAUDE.md / memory | Các `attachment` và message `isMeta` ở đầu phiên hoặc sau compact |
-  | Skill | Nội dung được nạp khi gọi tool `Skill` (tool_result của Skill) |
-  | File đã đọc | tool_result của Read, Grep, Glob, và các lệnh Bash đọc file |
-  | Tool I/O khác | tool_use input và tool_result còn lại |
-  | Thinking | Các block `thinking` của assistant |
-  | Output của assistant | Các block text và tool_use của assistant |
-  | Câu hỏi của người dùng | Message user có `promptId` |
+  | System / CLAUDE.md / memory | `attachment`s and `isMeta` messages at the start of the session or after a compact |
+  | Skill | Content loaded when the `Skill` tool is called (the Skill tool_result) |
+  | Files read | tool_result of Read, Grep, Glob, and Bash commands that read files |
+  | Other tool I/O | tool_use input and the remaining tool_results |
+  | Thinking | The assistant's `thinking` blocks |
+  | Assistant output | The assistant's text and tool_use blocks |
+  | User questions | User messages with a `promptId` |
 
-  **Cách ước lượng:**
-  - Đếm số ký tự của từng khối rồi quy ra token theo hệ số (mặc định 1 token ≈ 3,5 ký tự; chỉnh được).
-  - Cộng dồn theo thứ tự hội thoại. Sau mỗi lần compact thì đặt lại, lúc này tổng tóm tắt được tính vào nhóm "Hệ thống".
-  - Hiệu chỉnh theo `usage` thật: nhân mọi nhóm với cùng một tỉ lệ, sao cho tổng bằng `context` thật của lượt đó.
-  - Giao diện luôn ghi rõ nhãn **"ước lượng"**.
-- **Top khối nặng nhất** trong context hiện tại, ví dụ: "tool_result Bash lúc 11:30, khoảng 120K token". Bấm vào để xem nội dung.
-- **Xem tool call:** nội dung input/output của từng tool. Edit và Write hiện dạng diff, Bash hiện lệnh và output (tự cắt, có nút xem hết), Read hiện đường dẫn và số dòng.
-- **Gợi ý từ phân tích:**
-  - "File X được đọc 4 lần, tốn khoảng 200K."
-  - "Output Bash quá dài, nên dùng `| head`."
-  - "Skill Y nạp 9.7K token mỗi lần gọi."
+  **How the estimate works:**
+  - Count the characters of each block and convert to tokens with a factor (default 1 token ≈ 3.5 characters; adjustable).
+  - Accumulate in conversation order. After each compact, reset, and the summary total is then counted into the "System" group.
+  - Correct against the real `usage`: multiply every group by the same ratio so the total equals the real `context` of that call.
+  - The UI always labels it clearly as an **"estimate"**.
+- **Top heaviest blocks** in the current context, for example: "Bash tool_result at 11:30, about 120K tokens". Click to view the content.
+- **View tool calls:** the input/output content of each tool. Edit and Write are shown as a diff, Bash shows the command and output (auto-truncated, with a "view all" button), Read shows the path and line count.
+- **Suggestions from the analysis:**
+  - "File X was read 4 times, costing about 200K."
+  - "The Bash output is too long; use `| head`."
+  - "Skill Y loads 9.7K tokens per call."
 
-Nội dung tool I/O **không lưu vào SQLite**. Khi mở màn hình này, app đọc lại trực tiếp từ file log theo offset đã lưu, để DB luôn nhỏ. DB chỉ lưu số liệu tổng hợp theo nhóm cho từng ApiCall, trong bảng `call_composition(request_id, category, est_tokens)`.
+Tool I/O content is **not stored in SQLite**. When this screen opens, the app re-reads directly from the log file at the saved offset, so the DB stays small. The DB only stores the aggregate per-group numbers for each ApiCall, in the `call_composition(request_id, category, est_tokens)` table.
 
-## 7. Giới hạn sử dụng, tray và thông báo
+## 7. Usage limits, tray, and notifications
 
-### 7.1 Nguồn dữ liệu giới hạn
+### 7.1 Sources of limit data
 
-- **Trước khi bị chặn:** lấy từ statusLine qua lệnh **`tk statusline`**. Lệnh này đọc JSON từ stdin, ghi `rate_limits` ra `data_dir()/thongke/limits.json` (ghi ra file tạm rồi đổi tên), rồi in ra **một dòng trạng thái** gọn, ví dụ `🟡5h 78% ↻14:30 · lượt này 620K · ctx 450K · pj-review`. Không cần `jq`, chạy được trên cả Windows.
-  - Người dùng đã có script statusLine (máy này là `~/.claude/statusline-command.sh`): trong Cài đặt có nút "Bật theo dõi giới hạn". Khi bấm, app hiện chính xác đoạn sẽ thêm vào script, rồi **sao lưu** script. Đoạn thêm vào là `echo "$input" | tk statusline --quiet >/dev/null` (`--quiet` chỉ ghi file, không in gì), nên phần hiển thị hiện tại của script giữ nguyên.
-  - Người dùng muốn dùng luôn dòng trạng thái của app: đặt `statusLine.command = "tk statusline"`. Trường hợp chưa có statusLine: app hỏi trước khi tạo script mới và thêm `statusLine` vào `~/.claude/settings.json`. Việc sửa settings là thao tác có xác nhận, có sao lưu và hoàn tác được. Có nút gỡ để khôi phục bản sao lưu.
-- **Đã bị chặn:** lấy từ dòng log có `error: "rate_limit"`, dùng `quotaLimits.resetsAt` và `rateLimitType`.
-- Nếu `limits.json` cũ hơn 10 phút thì tray hiện "cập nhật X phút trước". Không báo động khi dữ liệu đã cũ.
+- **Before being blocked:** taken from statusLine via the **`tk statusline`** command. This command reads JSON from stdin, writes `rate_limits` to `data_dir()/thongke/limits.json` (temp-file-then-rename), then prints **one concise status line**, for example `🟡5h 78% ↻14:30 · this call 620K · ctx 450K · pj-review`. No `jq` needed; works on Windows too.
+  - If the user already has a statusLine script (on this machine it is `~/.claude/statusline-command.sh`): the Settings screen has an "Enable limit tracking" button. When clicked, the app shows exactly the snippet that will be added to the script, then **backs up** the script. The snippet is `echo "$input" | tk statusline --quiet >/dev/null` (`--quiet` only writes the file, prints nothing), so the script's current display stays as it is.
+  - If the user wants to use the app's status line directly: set `statusLine.command = "tk statusline"`. When there is no statusLine yet: the app asks first before creating a new script and adding `statusLine` to `~/.claude/settings.json`. Editing settings is an operation with confirmation, backup, and undo. There is a remove button to restore the backup.
+- **Already blocked:** taken from a log line with `error: "rate_limit"`, using `quotaLimits.resetsAt` and `rateLimitType`.
+- If `limits.json` is older than 10 minutes, the tray shows "updated X minutes ago". No alarm when the data is stale.
 
 ### 7.2 Tray
 
-- Icon đổi màu theo mức giới hạn cao nhất: xanh dưới 70%, vàng từ 70%, đỏ từ 90% hoặc khi đã bị chặn.
-- Menu gồm: 5 giờ và 7 ngày (% và giờ reset), token và chi phí hôm nay, lần hỏi gần nhất, Mở dashboard, Tạm dừng thông báo 1 giờ, Thoát.
+- The icon changes color by the highest limit level: green below 70%, yellow from 70%, red from 90% or when already blocked.
+- The menu contains: 5 hours and 7 days (% and reset time), today's tokens and cost, the latest prompt, Open dashboard, Pause notifications for 1 hour, Quit.
 
-### 7.3 Thông báo (bật/tắt và chỉnh ngưỡng được từng loại)
+### 7.3 Notifications (each type can be turned on/off and have its threshold adjusted)
 
-| Loại | Điều kiện | Chống lặp |
+| Type | Condition | Anti-repeat |
 |---|---|---|
-| Giới hạn | 5h hoặc 7 ngày vượt 70% / 90% | Mỗi ngưỡng chỉ báo 1 lần cho mỗi chu kỳ reset |
-| Bị chặn | Có lỗi 429, và báo lại khi đến `resetsAt` | Mỗi `resetsAt` chỉ báo 1 lần |
-| Lần hỏi bất thường | Lần hỏi thỏa mục 4.4 | Mỗi lần hỏi chỉ báo 1 lần, khi lần hỏi đó kết thúc (không có ApiCall mới trong 5 giây) |
-| Context lớn | `context` vượt 300K trong phiên đang chạy | Mỗi phiên chỉ báo 1 lần cho mỗi ngưỡng |
+| Limit | 5h or 7 days exceed 70% / 90% | Each threshold is reported only once per reset cycle |
+| Blocked | There is a 429 error, re-reported at `resetsAt` | Each `resetsAt` is reported only once |
+| Anomalous prompt | A prompt satisfying section 4.4 | Each prompt is reported once, when the prompt ends (no new ApiCall for 5 seconds) |
+| Large context | `context` exceeds 300K in a running session | Each session is reported only once per threshold |
 
-Bấm vào thông báo thì mở dashboard tại đúng lần hỏi hoặc phiên đó.
+Clicking a notification opens the dashboard at that exact prompt or session.
 
-## 8. Quản lý skill
+## 8. Skill management
 
-### 8.1 Liệt kê
+### 8.1 Listing
 
-- Skill cá nhân: các thư mục con của `~/.claude/skills/` có `SKILL.md` (đọc frontmatter `name` và `description`). Skill đang tắt nằm ở `~/.claude/skills-disabled/`.
-- Plugin: `claude plugin list` và `claude plugin details <name>` (lấy danh sách skill con và chi phí nền / chi phí mỗi lần gọi).
-- Chi phí của skill cá nhân là ước lượng: chi phí nền dựa trên độ dài `description`, chi phí mỗi lần gọi dựa trên độ dài `SKILL.md`. Công thức ký tự sang token được ghi rõ là ước lượng.
-- Gợi ý: skill không được dùng trong 30 ngày và có chi phí nền lớn hơn 0 thì gợi ý tắt.
+- Personal skills: subdirectories of `~/.claude/skills/` that have a `SKILL.md` (read the `name` and `description` frontmatter). Disabled skills are in `~/.claude/skills-disabled/`.
+- Plugins: `claude plugin list` and `claude plugin details <name>` (get the list of sub-skills and the baseline cost / cost per call).
+- The cost of a personal skill is an estimate: the baseline cost is based on the length of `description`, the cost per call on the length of `SKILL.md`. The character-to-token formula is labeled clearly as an estimate.
+- Suggestion: a skill unused for 30 days with a baseline cost greater than 0 is suggested for disabling.
 
-### 8.2 Thao tác
+### 8.2 Operations
 
-| Thao tác | Skill cá nhân | Plugin |
+| Operation | Personal skills | Plugin |
 |---|---|---|
-| Tắt | Chuyển `skills/<n>` sang `skills-disabled/<n>`. Nếu là symlink thì chỉ chuyển link | `claude plugin disable` |
-| Bật | Chuyển ngược lại | `claude plugin enable` |
-| Cài | Từ thư mục (Linux/macOS: symlink; Windows: copy) hoặc git URL (`git clone`). Kiểm tra có `SKILL.md` với frontmatter hợp lệ | `claude plugin install <plugin@marketplace>` |
-| Gỡ | Chuyển vào `data_dir()/thongke/trash/<ts>-<n>`, giữ 30 ngày. Nếu là symlink thì chỉ xóa link | `claude plugin uninstall` |
+| Disable | Move `skills/<n>` to `skills-disabled/<n>`. If it is a symlink, only move the link | `claude plugin disable` |
+| Enable | Move back | `claude plugin enable` |
+| Install | From a directory (Linux/macOS: symlink; Windows: copy) or a git URL (`git clone`). Check for a `SKILL.md` with valid frontmatter | `claude plugin install <plugin@marketplace>` |
+| Remove | Move to `data_dir()/thongke/trash/<ts>-<n>`, kept for 30 days. If it is a symlink, only delete the link | `claude plugin uninstall` |
 
-**Nguyên tắc:**
-- Plugin chỉ được thao tác qua CLI chính thức, app không tự sửa file cấu hình plugin.
-- Mọi thao tác đều qua hộp xác nhận ghi rõ các file bị ảnh hưởng, và được ghi vào `skill_ops` để **hoàn tác** được.
-- Tên skill trùng thì hỏi người dùng muốn ghi đè hay đổi tên.
-- Nếu thao tác thất bại thì hoàn tác phần đã làm và hiện nguyên thông báo lỗi.
-- Sau mỗi thao tác, app nhắc: "Có hiệu lực từ phiên Claude Code mới."
+**Principles:**
+- Plugins are only operated through the official CLI; the app never edits the plugin config files itself.
+- Every operation goes through a confirmation dialog listing the affected files, and is written to `skill_ops` so it can be **undone**.
+- On a duplicate skill name, ask the user whether to overwrite or rename.
+- If an operation fails, undo what was done and show the original error message.
+- After each operation, the app notes: "Takes effect from the next Claude Code session."
 
-## 9. Mở rộng sang công cụ khác
+## 9. Extending to other tools
 
-Thêm một công cụ mới gồm các bước:
-1. Tạo `adapters/<tool>.rs` implement `LogSource` (và `SkillSource` nếu công cụ có khái niệm tương đương).
-2. Đăng ký adapter vào registry.
-3. Thêm đường dẫn mặc định cho từng hệ điều hành.
+Adding a new tool consists of:
+1. Create `adapters/<tool>.rs` implementing `LogSource` (and `SkillSource` if the tool has an equivalent concept).
+2. Register the adapter in the registry.
+3. Add default paths for each OS.
 
-Core, store và giao diện không phải sửa. Trường `Session.tool` cho phép lọc theo công cụ. Giới hạn sử dụng là tùy chọn của từng adapter (`fn limits() -> Option<LimitState>`).
+Core, store, and UI do not need changes. The `Session.tool` field allows filtering by tool. Usage limits are optional per adapter (`fn limits() -> Option<LimitState>`).
 
-## 10. Đa nền tảng
+## 10. Cross-platform
 
 | | Windows | macOS | Linux |
 |---|---|---|---|
-| File cài | `.msi` / NSIS `.exe` | `.dmg` | `.deb` / `.AppImage` |
-| Log Claude | `%USERPROFILE%\.claude\projects` | `~/.claude/projects` | `~/.claude/projects` |
-| Tray | Có | Thanh menu | Cần AppIndicator. Nếu không có tray thì vẫn chạy bằng cửa sổ và thông báo |
-| Tự khởi động | `tauri-plugin-autostart` | như Windows | như Windows |
+| Installer | `.msi` / NSIS `.exe` | `.dmg` | `.deb` / `.AppImage` |
+| Claude logs | `%USERPROFILE%\.claude\projects` | `~/.claude/projects` | `~/.claude/projects` |
+| Tray | Yes | Menu bar | Needs AppIndicator. If there is no tray, it still runs via a window and notifications |
+| Autostart | `tauri-plugin-autostart` | like Windows | like Windows |
 
-- Chỉ chạy một bản app: dùng `tauri-plugin-single-instance`.
-- Build bằng GitHub Actions với ma trận 3 hệ điều hành.
-- Phát triển và test thật trên Linux. Test tay trên Windows và macOS thì cần máy thật hoặc máy ảo.
+- Only one app instance: use `tauri-plugin-single-instance`.
+- Build with GitHub Actions using a 3-OS matrix.
+- Develop and test for real on Linux. Manual testing on Windows and macOS needs a real machine or a VM.
 
-## 11. Xử lý lỗi
+## 11. Error handling
 
-| Tình huống | Xử lý |
+| Situation | Handling |
 |---|---|
-| Dòng JSON hỏng hoặc đang ghi dở | Chỉ đọc đến `\n` cuối. Dòng hỏng thì bỏ qua và đếm vào `parse_errors` |
-| Định dạng log thay đổi | Bỏ qua trường lạ, trường không bắt buộc để trống. Gặp `version` chưa từng thử thì hiện cảnh báo nhẹ |
-| File bị ghi lại nhỏ hơn hoặc bị xóa | Xem mục 5 |
-| Watcher bị lỡ sự kiện | Quét đối chiếu mỗi 60 giây |
-| DB hỏng hoặc migration lỗi | Đổi tên DB cũ, tạo lại từ log, khôi phục ghi chú từ `notes.json` |
-| `limits.json` không có hoặc đã cũ | Hiện "chưa có dữ liệu" hoặc "X phút trước", không báo động |
-| Thao tác skill lỗi | Hoàn tác và hiện nguyên lỗi |
-| Không có tray | Chạy bằng cửa sổ và thông báo |
+| A broken or half-written JSON line | Only read up to the last `\n`. A broken line is skipped and counted in `parse_errors` |
+| The log format changes | Ignore unknown fields; missing optional fields are left empty. On an unseen `version`, show a mild warning |
+| A file rewritten smaller or deleted | See section 5 |
+| The watcher misses an event | Rescan every 60 seconds |
+| The DB is corrupt or a migration fails | Rename the old DB, recreate from logs, restore notes from `notes.json` |
+| `limits.json` missing or stale | Show "no data yet" or "X minutes ago", no alarm |
+| A skill operation fails | Undo and show the original error |
+| No tray | Run via a window and notifications |
 
-## 12. Test
+## 12. Testing
 
-- **Unit test adapter Claude Code** trên bộ file mẫu `tests/fixtures/` (cắt từ log thật, **đã xóa nội dung**, chỉ giữ cấu trúc). Gồm: dòng trùng `requestId`, compact, interrupt, lỗi 429, slash command, dòng meta, dòng ghi dở.
-- **Aggregator:** gán skill direct và continued, quy tắc bất thường, chi phí, context lúc hỏi.
-- **Watcher:** ghi thêm dòng vào file trong lúc đang theo dõi, ghi một dòng làm 2 lần, file bị ghi lại nhỏ hơn, file bị xóa. Kiểm tra không trùng, không sót.
-- **composition:** trên bộ fixture, tổng các nhóm sau khi hiệu chỉnh phải bằng `context` thật; compact phải đặt lại đúng; phân loại đúng tool_result của Read, Bash và Skill.
-- **skills_ops:** chạy trên thư mục `HOME` tạm. Làm lần lượt tắt, bật, gỡ, hoàn tác, trùng tên, symlink, rồi kiểm tra file thật trên đĩa. Phần plugin dùng CLI giả (script `claude` giả nằm đầu `PATH`).
-- **`tk audit`:** so tổng token của DB với một cách tính độc lập trực tiếp từ log. Phải khớp 100%.
-- **Hiệu năng:** đo thời gian quét lần đầu, độ trễ realtime và RAM khi ẩn cửa sổ, so với tiêu chí ở mục 1.3.
-- **CI:** chạy `cargo test` trên 3 hệ điều hành. Test giao diện làm tay trên Linux.
+- **Claude Code adapter unit tests** on the sample files in `tests/fixtures/` (cut from real logs, **content removed**, only the structure kept). They include: duplicate `requestId` lines, compact, interrupt, 429 error, slash command, meta line, half-written line.
+- **Aggregator:** direct and continued skill attribution, anomaly rules, cost, context at prompt time.
+- **Watcher:** append a line to a file while watching, write a line in two parts, a file rewritten smaller, a deleted file. Check for no duplicates and no misses.
+- **composition:** on the fixture set, the per-group totals after correction must equal the real `context`; a compact must reset correctly; Read, Bash, and Skill tool_results must be classified correctly.
+- **skills_ops:** run on a temporary `HOME` directory. Do disable, enable, remove, undo, duplicate name, symlink in turn, then check the real files on disk. The plugin part uses a fake CLI (a fake `claude` script at the front of `PATH`).
+- **`tk audit`:** compare the DB's total tokens with an independent count directly from the logs. It must match 100%.
+- **Performance:** measure the first-scan time, realtime latency, and RAM with the window hidden, against the criteria in section 1.3.
+- **CI:** run `cargo test` on 3 OSes. UI tests are done manually on Linux.
 
-## 13. Phạm vi v1 và các cột mốc
+## 13. v1 scope and milestones
 
-Mỗi cột mốc xong là **dùng được ngay**. M1 đến M6 khoảng 4 tuần làm việc. M7 và M8 thêm khoảng 1,5 tuần.
+Each completed milestone is **immediately usable**. M1 to M6 take about 4 weeks of work. M7 and M8 add about 1.5 weeks.
 
-| Cột mốc | Nội dung | Ước lượng |
+| Milestone | Content | Estimate |
 |---|---|---|
-| **M1: Lõi + Tray** | Adapter Claude Code (phần log), watcher, bỏ trùng, gán skill, SQLite, `tk audit`; `tk-service` + host lock; `tk statusline`; tray; quota 5h/7d (mục 7); thông báo quota, context lớn, lần hỏi bất thường | 5–6 ngày |
-| **M2: Lần hỏi** | Khung 3 cột, danh sách lần hỏi, tìm kiếm và lọc, panel chi tiết có "Vì sao tốn / Nên làm", ⭐ và 📝, Cài đặt cơ bản | 4–5 ngày |
-| **M3: Skill** | Liệt kê và tính chi phí (mục 8.1), "dùng ở đâu", gợi ý; thao tác tắt/bật/cài/gỡ có hoàn tác (mục 8.2) | 4–5 ngày |
-| **M4: Project, Ngày** | Hai màn hình tổng hợp, bấm vào để lọc danh sách lần hỏi | 2 ngày |
-| **M5: Phân tích phiên** | Mục 6.1: thành phần context, biểu đồ context và compact, xem tool call, gợi ý | 4–5 ngày |
-| **M6: Đóng gói** | File cài cho 3 hệ điều hành, tự khởi động, single-instance, CI | 2 ngày |
-| **M7: Terminal** | `tk tui` (ratatui: Lần hỏi, chi tiết, Skill, quota; phím j/k, /, Tab), `tk daemon`, `tk prompts --json` | 3–4 ngày |
-| **M8: VS Code** | Extension: thanh trạng thái quota và token, panel webview dùng lại `app/ui` (đổi `api.ts` sang socket), thông báo, tự lọc theo workspace | 4–5 ngày |
+| **M1: Core + Tray** | Claude Code adapter (log part), watcher, dedup, skill attribution, SQLite, `tk audit`; `tk-service` + host lock; `tk statusline`; tray; 5h/7d quota (section 7); quota, large-context, and anomalous-prompt notifications | 5–6 days |
+| **M2: Prompts** | 3-column frame, prompt list, search and filters, a detail panel with "Why it's costly / What to do", ⭐ and 📝, basic Settings | 4–5 days |
+| **M3: Skill** | List and cost computation (section 8.1), "where used", suggestions; disable/enable/install/remove with undo (section 8.2) | 4–5 days |
+| **M4: Project, Day** | Two summary screens, click to filter the prompt list | 2 days |
+| **M5: Session analysis** | Section 6.1: context composition, context and compact chart, view tool calls, suggestions | 4–5 days |
+| **M6: Packaging** | Installers for 3 OSes, autostart, single-instance, CI | 2 days |
+| **M7: Terminal** | `tk tui` (ratatui: Prompts, detail, Skill, quota; keys j/k, /, Tab), `tk daemon`, `tk prompts --json` | 3–4 days |
+| **M8: VS Code** | Extension: a quota and token status bar, a webview panel reusing `app/ui` (switching `api.ts` to a socket), notifications, auto-filtering by workspace | 4–5 days |
 
-- ⏭️ Để sau: adapter Codex, Kiro và Gemini; xuất báo cáo; đồng bộ skill giữa các công cụ.
-- Khi làm M5: đọc cách claude-devtools (mã nguồn mở) phân loại context để tham khảo. **Không copy code** khi chưa kiểm tra license.
+- ⏭️ Deferred: Codex, Kiro, and Gemini adapters; report export; syncing skills between tools.
+- When doing M5: read how claude-devtools (open source) classifies context for reference. **Do not copy code** without checking the license.
 
-## 14. Cấu trúc dự án
+## 14. Project structure
 
-Vì chưa có tên chính thức, các crate tạm dùng tiền tố `tk-`. Đổi tên sau bằng tìm và thay thế.
+Since there is no official name yet, the crates temporarily use the `tk-` prefix. Rename later with find and replace.
 
-### 14.1 Thư mục
+### 14.1 Directories
 
 ```
 thongke/
 ├── Cargo.toml                  # workspace
 ├── crates/
-│   ├── tk-core/                # Lõi: KHÔNG phụ thuộc Tauri/Claude
+│   ├── tk-core/                # Core: NO dependency on Tauri/Claude
 │   │   └── src/ lib.rs · model.rs · aggregator.rs · watcher.rs · insight.rs
 │   │           composition.rs · limits.rs · pricing.rs · config.rs · handlers.rs
 │   │           store/{mod,schema,queries}.rs
-│   ├── tk-adapters/            # Mỗi công cụ AI là một module
-│   │   └── src/ lib.rs (trait LogSource, SkillSource, registry)
+│   ├── tk-adapters/            # Each AI tool is a module
+│   │   └── src/ lib.rs (traits LogSource, SkillSource, registry)
 │   │           claude_code/{mod,log,skills,statusline}.rs
-│   ├── tk-skills/              # Thao tác skill an toàn
+│   ├── tk-skills/              # Safe skill operations
 │   │   └── src/ ops.rs (plan/apply) · journal.rs (undo) · trash.rs
-│   ├── tk-service/             # JSON-RPC qua socket/pipe, host lock
+│   ├── tk-service/             # JSON-RPC over socket/pipe, host lock
 │   └── tk-cli/                 # tk audit|scan|statusline|daemon|tui|prompts
 ├── app/
 │   ├── src-tauri/src/ main.rs · runtime.rs · commands.rs · tray.rs · alerts.rs · window.rs
 │   └── ui/src/ main.ts · api.ts · state.ts
 │              views/{prompts,detail,session,skills,projects,days,settings,onboarding}.ts
-│              components/ · charts/ (SVG tự viết) · styles/{tokens,layout}.css
+│              components/ · charts/ (hand-written SVG) · styles/{tokens,layout}.css
 ├── extensions/vscode/          # M8
-├── tests/fixtures/claude_code/ # log mẫu đã xóa nội dung
+├── tests/fixtures/claude_code/ # sample logs with content removed
 ├── pricing.default.toml
 ├── docs/superpowers/specs/
 └── .github/workflows/ ci.yml · release.yml
 ```
 
-### 14.2 Phụ thuộc giữa các thành phần
+### 14.2 Dependencies between components
 
 ```
  app/ui ─invoke─► app/src-tauri ─┐        tk-cli / TUI / VS Code / statusline
@@ -421,38 +421,38 @@ thongke/
                     tk-adapters    tk-skills
 ```
 
-`tk-core` chỉ biết `RawEvent` và các trait, nên test được bằng `cargo test` mà không cần giao diện. `tk-adapters` là nơi duy nhất biết định dạng log của từng công cụ.
+`tk-core` only knows `RawEvent` and the traits, so it can be tested with `cargo test` without a UI. `tk-adapters` is the only place that knows each tool's log format.
 
-### 14.3 Luồng realtime
+### 14.3 Realtime flow
 
 ```
-Claude ghi .jsonl ─► notify ─► watcher (offset → '\n' cuối) ─► adapter.parse_line
-  ─► aggregator (bỏ trùng, gán skill) ─► store (1 transaction) ─► runtime:
-        ├─► alerts → thông báo HĐH     ├─► tray (số hôm nay, màu)
-        └─► event "data-changed" → UI Tauri / client socket (subscribe)
+Claude writes .jsonl ─► notify ─► watcher (offset → last '\n') ─► adapter.parse_line
+  ─► aggregator (dedup, attribute skill) ─► store (1 transaction) ─► runtime:
+        ├─► alerts → OS notification   ├─► tray (today's numbers, color)
+        └─► event "data-changed" → Tauri UI / socket client (subscribe)
 statusline ─► tk statusline ─► limits.json ─► notify ─► limits ─► tray/alerts
 ```
 
-### 14.4 Bộ lệnh (Tauri invoke = tk-service JSON-RPC)
+### 14.4 Command set (Tauri invoke = tk-service JSON-RPC)
 
-| Nhóm | Lệnh |
+| Group | Commands |
 |---|---|
-| Lần hỏi | `list_prompts(filter)`, `prompt_detail(id)`, `session_analysis(id)`, `set_note(id, starred, note)` |
+| Prompts | `list_prompts(filter)`, `prompt_detail(id)`, `session_analysis(id)`, `set_note(id, starred, note)` |
 | Skill | `list_skills()`, `skill_usage(name)`, `plan_skill_op(op)`, `apply_skill_op(plan_id)`, `undo_skill_op(id)`, `skill_ops_log()` |
-| Tổng hợp | `project_stats()`, `day_stats(range)`, `today_summary()`, `limit_state()` |
-| Cài đặt | `get_settings()`, `save_settings(s)`, `setup_statusline()`, `remove_statusline()`, `run_audit()` |
-| Sự kiện | `data-changed`, `limits-changed`, `scan-progress` (client socket nhận qua `subscribe`) |
+| Aggregation | `project_stats()`, `day_stats(range)`, `today_summary()`, `limit_state()` |
+| Settings | `get_settings()`, `save_settings(s)`, `setup_statusline()`, `remove_statusline()`, `run_audit()` |
+| Events | `data-changed`, `limits-changed`, `scan-progress` (a socket client receives them via `subscribe`) |
 
-Thao tác skill luôn đi qua 2 bước: **`plan`** trả về danh sách thay đổi cụ thể để hiện trong hộp xác nhận, sau đó **`apply`** mới thực sự sửa file.
+Skill operations always go through 2 steps: **`plan`** returns the specific list of changes to show in the confirmation dialog, then **`apply`** actually modifies files.
 
-### 14.5 Thư viện chính
+### 14.5 Main libraries
 
-| Phần | Thư viện |
+| Part | Libraries |
 |---|---|
-| Rust chung | `serde`, `serde_json`, `thiserror`, `anyhow`, `tracing`, `chrono`, `dirs`, `toml` |
-| Lõi | `rusqlite` (bundled), `notify` |
-| Service | `interprocess` (local socket / named pipe đa nền tảng), `fs4` (file lock) |
-| Tauri | `tauri` 2, các plugin `notification`, `autostart`, `single-instance`, `dialog`, `opener` |
+| Shared Rust | `serde`, `serde_json`, `thiserror`, `anyhow`, `tracing`, `chrono`, `dirs`, `toml` |
+| Core | `rusqlite` (bundled), `notify` |
+| Service | `interprocess` (cross-platform local socket / named pipe), `fs4` (file lock) |
+| Tauri | `tauri` 2, the plugins `notification`, `autostart`, `single-instance`, `dialog`, `opener` |
 | TUI | `ratatui`, `crossterm` |
-| UI | Vite, TypeScript, `@tauri-apps/api`. Không dùng framework, không dùng thư viện chart |
+| UI | Vite, TypeScript, `@tauri-apps/api`. No framework, no chart library |
 | Test | `tempfile`, `insta` |

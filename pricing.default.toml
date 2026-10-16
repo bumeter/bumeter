@@ -1,5 +1,5 @@
-# Giá USD / 1 triệu token, lấy từ https://platform.claude.com/docs/en/about-claude/pricing (2026-09-24).
-# Model không có trong bảng sẽ hiển thị "—". Khóa khớp chính xác, hoặc theo tiền tố dài nhất.
+# USD price per 1 million tokens, taken from https://platform.claude.com/docs/en/about-claude/pricing (2026-09-24).
+# A model not in the table is shown as "—". Keys match exactly, or by longest prefix.
 
 [models."claude-fable-5-1"]
 input = 10.0

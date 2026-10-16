@@ -1,5 +1,5 @@
-<h2>Phần 3 — Skill, Cài đặt, Phân tích context</h2>
-<p class="subtitle">Cùng ngôn ngữ thẻ trắng trên nền xám, màu nhấn xanh dương.</p>
+<h2>Part 3 — Skill, Settings, Context analysis</h2>
+<p class="subtitle">The same white-card-on-gray language, with a blue accent.</p>
 
 <style>
   .s { --bg:#f5f6f8; --card:#fff; --line:#e7e9ee; --t1:#111827; --t2:#6b7280; --t3:#9ca3af; --acc:#0a84ff; --acct:#e6f1ff; --hot:#e5372c; --warm:#e8890c;
@@ -39,15 +39,15 @@
 </style>
 
 <div class="mockup">
-  <div class="mockup-header">Skill · dạng thẻ (vẫn có nút chuyển sang Bảng)</div>
+  <div class="mockup-header">Skill · card view (still has a toggle to Table)</div>
   <div class="mockup-body">
     <div class="s">
-      <div class="hd"><h3>Skill</h3><span class="pill">24</span><span class="warnb">⚠ 4 skill tốn nền mà không dùng · ~320 tok/phiên</span><span class="sp"></span><div class="seg"><span>Bảng</span><span class="on">Thẻ</span></div><span class="pbtn">+ Cài skill</span></div>
-      <div class="chips"><span class="chip on">Tất cả</span><span class="chip">Đang dùng</span><span class="chip">Chưa dùng 30 ngày</span><span class="chip">Đã tắt</span><span class="chip">cá nhân</span><span class="chip">plugin</span><span class="chip d">Tốn nền mà không dùng</span></div>
+      <div class="hd"><h3>Skill</h3><span class="pill">24</span><span class="warnb">⚠ 4 background-cost skills unused · ~320 tok/session</span><span class="sp"></span><div class="seg"><span>Table</span><span class="on">Cards</span></div><span class="pbtn">+ Install skill</span></div>
+      <div class="chips"><span class="chip on">All</span><span class="chip">In use</span><span class="chip">Unused for 30 days</span><span class="chip">Disabled</span><span class="chip">personal</span><span class="chip">plugin</span><span class="chip d">Background cost, unused</span></div>
       <div class="grid">
-        <div class="card"><div class="ch"><b>pj-review</b><span class="sw"></span></div><div class="desc">Review code theo khung P0–P3</div><div class="bars"><span>Nền ~90</span><span>5 lần dùng</span><span>TB 5.7M</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tag">cá nhân</span><span class="sp"></span>16/09</div></div>
-        <div class="card"><div class="ch"><b>superpowers:brainstorming</b><span class="sw"></span></div><div class="desc">Explore intent before implementation</div><div class="bars"><span>Nền ~70</span><span>4 lần dùng</span><span>TB 450K</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tag">superpowers</span><span class="sp"></span>24/09</div></div>
-        <div class="card" style="border:1px solid #fcd9a5"><div class="ch"><b>pj-debug</b><span class="sw"></span></div><div class="desc">Debug có hệ thống theo 4 phase</div><div class="bars"><span class="w">Nền ~75</span><span>0 lần dùng</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tag">cá nhân</span><span class="sp"></span>—</div></div>
+        <div class="card"><div class="ch"><b>pj-review</b><span class="sw"></span></div><div class="desc">Review code using the P0–P3 framework</div><div class="bars"><span>Base ~90</span><span>5 uses</span><span>Avg 5.7M</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tag">personal</span><span class="sp"></span>16/09</div></div>
+        <div class="card"><div class="ch"><b>superpowers:brainstorming</b><span class="sw"></span></div><div class="desc">Explore intent before implementation</div><div class="bars"><span>Base ~70</span><span>4 uses</span><span>Avg 450K</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tag">superpowers</span><span class="sp"></span>24/09</div></div>
+        <div class="card" style="border:1px solid #fcd9a5"><div class="ch"><b>pj-debug</b><span class="sw"></span></div><div class="desc">Systematic debugging across 4 phases</div><div class="bars"><span class="w">Base ~75</span><span>0 uses</span></div><div class="ft"><span class="g" style="background:#d77655">C</span><span class="tag">personal</span><span class="sp"></span>—</div></div>
       </div>
     </div>
   </div>
@@ -55,50 +55,50 @@
 
 <div class="split2">
   <div class="mockup">
-    <div class="mockup-header">Cài đặt · nhóm thành thẻ kiểu System Settings</div>
+    <div class="mockup-header">Settings · grouped into System Settings–style cards</div>
     <div class="mockup-body">
       <div class="s">
-        <div class="hd"><h3>Cài đặt</h3></div>
-        <div class="grp"><div class="t">Chung</div>
-          <div class="it"><div class="l">Ngôn ngữ</div><span class="val">Tiếng Việt ▾</span></div>
-          <div class="it"><div class="l">Giao diện</div><span class="val">Theo hệ thống ▾</span></div>
+        <div class="hd"><h3>Settings</h3></div>
+        <div class="grp"><div class="t">General</div>
+          <div class="it"><div class="l">Language</div><span class="val">Vietnamese ▾</span></div>
+          <div class="it"><div class="l">Appearance</div><span class="val">System ▾</span></div>
         </div>
-        <div class="grp"><div class="t">Công cụ</div>
-          <div class="it"><span class="g" style="background:#d77655">C</span><div class="l">Claude Code<small>~/.claude/projects · 643 lượt</small></div><span class="ok">● Đang theo dõi</span></div>
-          <div class="it"><span class="g" style="background:#9046ff">K</span><div class="l">Kiro<small>~/.kiro/sessions/cli · 755 lượt</small></div><span class="ok">● Đang theo dõi</span></div>
+        <div class="grp"><div class="t">Tools</div>
+          <div class="it"><span class="g" style="background:#d77655">C</span><div class="l">Claude Code<small>~/.claude/projects · 643 calls</small></div><span class="ok">● Monitoring</span></div>
+          <div class="it"><span class="g" style="background:#9046ff">K</span><div class="l">Kiro<small>~/.kiro/sessions/cli · 755 calls</small></div><span class="ok">● Monitoring</span></div>
         </div>
-        <div class="grp"><div class="t">Giới hạn & thông báo</div>
-          <div class="it"><div class="l">Theo dõi quota (statusline)<small>cập nhật mỗi khi Claude Code chạy</small></div><span class="sw"></span></div>
-          <div class="it"><div class="l">Báo quota ở mức</div><span class="val">70%, 90%</span></div>
-          <div class="it"><div class="l">Lượt tốn bất thường</div><span class="sw"></span></div>
+        <div class="grp"><div class="t">Limits & notifications</div>
+          <div class="it"><div class="l">Track quota (statusline)<small>updates every time Claude Code runs</small></div><span class="sw"></span></div>
+          <div class="it"><div class="l">Quota alerts at</div><span class="val">70%, 90%</span></div>
+          <div class="it"><div class="l">Unusually costly turns</div><span class="sw"></span></div>
         </div>
       </div>
     </div>
   </div>
 
   <div class="mockup">
-    <div class="mockup-header">Phân tích context · mở từ chi tiết hội thoại</div>
+    <div class="mockup-header">Context analysis · opened from conversation details</div>
     <div class="mockup-body">
       <div class="s">
-        <div class="hd"><h3>Phân tích context</h3><span class="sp"></span><span class="chip">← Hội thoại</span></div>
-        <div class="card"><div class="ch"><b>Context theo thời gian (ước lượng)</b></div><div class="area"></div>
-          <div class="legend"><span><i style="background:rgba(10,132,255,.7)"></i>File đã đọc</span><span><i style="background:rgba(144,70,255,.5)"></i>Tool I/O</span><span><i style="background:rgba(232,137,12,.5)"></i>Hệ thống</span><span>┆ compact</span></div></div>
-        <div class="card"><div class="ch"><b>Lượt gọi #41 · context 852K</b></div>
-          <div class="partrow"><span>File đã đọc</span><div class="meter"><i style="width:48%;background:#0a84ff"></i></div><span>48%</span></div>
+        <div class="hd"><h3>Context analysis</h3><span class="sp"></span><span class="chip">← Conversations</span></div>
+        <div class="card"><div class="ch"><b>Context over time (estimated)</b></div><div class="area"></div>
+          <div class="legend"><span><i style="background:rgba(10,132,255,.7)"></i>Files read</span><span><i style="background:rgba(144,70,255,.5)"></i>Tool I/O</span><span><i style="background:rgba(232,137,12,.5)"></i>System</span><span>┆ compact</span></div></div>
+        <div class="card"><div class="ch"><b>Call #41 · context 852K</b></div>
+          <div class="partrow"><span>Files read</span><div class="meter"><i style="width:48%;background:#0a84ff"></i></div><span>48%</span></div>
           <div class="partrow"><span>Tool I/O</span><div class="meter"><i style="width:31%;background:#9046ff"></i></div><span>31%</span></div>
-          <div class="partrow"><span>Hệ thống</span><div class="meter"><i style="width:15%;background:#e8890c"></i></div><span>15%</span></div>
+          <div class="partrow"><span>System</span><div class="meter"><i style="width:15%;background:#e8890c"></i></div><span>15%</span></div>
         </div>
-        <div class="card" style="border-left:3px solid #e8890c"><b>Gợi ý</b><div class="desc" style="white-space:normal">File handler.ts bị đọc 4 lần (~51K token). Nên đọc một lần, hoặc dùng offset/limit.</div></div>
+        <div class="card" style="border-left:3px solid #e8890c"><b>Suggestion</b><div class="desc" style="white-space:normal">handler.ts is read 4 times (~51K tokens). Read it once, or use offset/limit.</div></div>
       </div>
     </div>
   </div>
 </div>
 
 <div class="section">
-  <h3>Thay đổi chính so với hiện tại</h3>
+  <h3>Main changes from the current version</h3>
   <ul>
-    <li><b>Skill</b>: giữ các tính năng vừa làm (thẻ, công tắc, chip, nhãn cảnh báo), chỉ đổi sang ngôn ngữ thẻ mới; thẻ tốn nền mà không dùng có viền cam. Có thêm chip "Tất cả".</li>
-    <li><b>Cài đặt</b>: nhóm thành các thẻ kiểu System Settings (Chung, Công cụ, Giới hạn & thông báo, Chẩn đoán). Mục mới <b>"Công cụ"</b> hiện thư mục log và trạng thái từng công cụ. Chọn <b>Giao diện sáng/tối/theo hệ thống</b>. Ngưỡng và bật/tắt thông báo lưu ngay, không cần nút Lưu.</li>
-    <li><b>Phân tích context</b>: biểu đồ, thành phần của lượt gọi và gợi ý là các thẻ riêng; gợi ý có viền màu như ở Tổng quan.</li>
+    <li><b>Skill</b>: keeps the features we just built (cards, toggles, chips, warning label), only switching to the new card language; background-cost unused cards get an orange border. A new "All" chip is added.</li>
+    <li><b>Settings</b>: grouped into System Settings–style cards (General, Tools, Limits & notifications, Diagnostics). The new <b>"Tools"</b> section shows the log directory and status of each tool. Choose <b>light/dark/system appearance</b>. Thresholds and notification toggles save immediately, with no Save button.</li>
+    <li><b>Context analysis</b>: the chart, the call breakdown, and suggestions are separate cards; suggestions have colored borders as in Overview.</li>
   </ul>
 </div>

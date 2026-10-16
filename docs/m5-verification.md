@@ -1,26 +1,26 @@
-# M5: Kiểm chứng màn Phân tích phiên
+# M5: Session Analysis screen verification
 
-- Ảnh chụp dùng dữ liệu giả: `screens/m5-light.png`, `screens/m5-dark.png`.
-- Chạy thật: `tk session <id>` trên phiên lớn nhất (TICKET-101): 224 lần hỏi, 726 lượt gọi, 1 lần compact. **Phân tích mất 48ms.**
+- Screenshots use fake data: `screens/m5-light.png`, `screens/m5-dark.png`.
+- Real run: `tk session <id>` on the largest session (TICKET-101): 224 prompts, 726 turns, 1 compact. **Analysis takes 48ms.**
 
-## Thành phần context ở lượt gọi lớn nhất (963K token, ước lượng)
+## Context composition at the largest call (963K tokens, estimated)
 
-| Nhóm | Token | % |
+| Group | Tokens | % |
 |---|---|---|
-| Hệ thống & không đo được | 354K | 37% |
+| System & unmeasurable | 354K | 37% |
 | Tool I/O | 247K | 26% |
 | **Thinking** | **280K** | **29%** |
 | Output | 63K | 7% |
-| File đã đọc | 15K | 2% |
+| Files read | 15K | 2% |
 
-## Phát hiện khi chạy thật (đã sửa, có test)
+## Findings during a real run (fixed, with tests)
 
-1. Attachment chứa nội dung ở nhiều trường khác nhau (`snippet`, `text`, `content` dạng list…). Nay app đọc hết. `prompt_snapshot` là ảnh chụp system prompt lặp lại nhiều lần nên được bỏ qua.
-2. **Nội dung thinking bị ẩn, nhưng chữ ký mã hoá (`signature`) vẫn được gửi lại trong context.** Riêng chữ ký đã là 979K ký tự, nhiều nhất trong log. Nay app ước lượng thinking theo độ dài chữ ký. Trước khi sửa, phần này bị dồn cả vào "Hệ thống" (66%).
+1. Attachments contain content in various fields (`snippet`, `text`, `content` as a list…). Now the app reads them all. `prompt_snapshot` is a system prompt snapshot repeated many times, so it is skipped.
+2. **Thinking content is hidden, but the encrypted signature (`signature`) is still sent back in the context.** The signature alone is 979K characters, the most in the log. Now the app estimates thinking by signature length. Before the fix, this part was lumped entirely into "System" (66%).
 
-## Giới hạn
+## Limitations
 
-- Tỉ lệ 3,5 ký tự/token chỉ là ước lượng. Code và tiếng Việt thường tốn nhiều token hơn trên mỗi ký tự, nên phần "không đo được" cũng gồm cả sai số này. System prompt, định nghĩa tool và CLAUDE.md không có trong log.
-- Phiên thật chỉ được chạy qua CLI. Màn này trong app đã test bằng Vitest và chụp ảnh với dữ liệu giả.
+- The ratio of 3.5 characters/token is only an estimate. Code and Vietnamese tend to cost more tokens per character, so the "unmeasurable" part also includes this error margin. The system prompt, tool definitions, and CLAUDE.md are not in the log.
+- The real session is only run through the CLI. This screen in the app has been tested with Vitest and screenshotted with fake data.
 
-Test: `cargo test --workspace` và Vitest 41/41.
+Tests: `cargo test --workspace` and Vitest 41/41.
