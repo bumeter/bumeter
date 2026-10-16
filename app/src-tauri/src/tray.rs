@@ -6,16 +6,20 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Wry};
 use tk_core::handlers::TodaySummary;
 use tk_core::i18n::Lang;
-use tk_core::insight::fmt_tokens;
+use tk_core::meter::{self, MenuText, ToolQuota};
+use tk_core::source::SourceInfo;
 use tk_core::config::Config;
 use tk_core::face::{face_for, Face, FaceInput};
 use tk_core::handlers::local_day_bounds;
-use tk_core::limits::{LimitState, Window};
+use tk_core::limits::LimitState;
+#[cfg(test)]
+use tk_core::limits::Window;
 use tk_core::store::Store;
 
 pub struct TrayItems {
-    five: MenuItem<Wry>,
-    seven: MenuItem<Wry>,
+    sources: Vec<SourceInfo>,
+    /// Các dòng theo công cụ, `meter::line_count` dòng mỗi công cụ.
+    tools: Vec<MenuItem<Wry>>,
     today: MenuItem<Wry>,
     open: MenuItem<Wry>,
     pause: MenuItem<Wry>,
@@ -67,41 +71,10 @@ pub fn face_input(store: &Store, cfg: &Config, limits: &LimitState, today_tokens
     }
 }
 
-fn ago(secs: i64, lang: Lang) -> String {
-    let (n, vi, en) = match secs.max(0) {
-        s if s < 60 => (s, "giây", "s"),
-        s if s < 3600 => (s / 60, "phút", "min"),
-        s if s < 86_400 => (s / 3600, "giờ", "h"),
-        s => (s / 86_400, "ngày", "d"),
-    };
-    match lang {
-        Lang::Vi => format!("{n} {vi} trước"),
-        Lang::En => format!("{n}{en} ago"),
-    }
-}
-
-fn window_label(name: &str, w: Option<Window>, limits: &LimitState, now: i64, lang: Lang) -> String {
-    match w {
-        Some(w) => {
-            let when = chrono::DateTime::from_timestamp(w.resets_at, 0)
-                .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
-                .unwrap_or_default();
-            let freshness = match (limits.stale, limits.updated_at) {
-                (true, Some(t)) => format!(" · {} {}", lang.pick("cập nhật", "updated"), ago(now - t, lang)),
-                _ => String::new(),
-            };
-            format!("{name}: {:.0}% · reset {when}{freshness}", w.used_percentage)
-        }
-        None => format!("{name}: {}", lang.pick("chưa có dữ liệu", "no data yet")),
-    }
-}
-
-pub fn labels(limits: &LimitState, today: &TodaySummary, now: i64, lang: Lang) -> [String; 3] {
-    [
-        window_label(lang.pick("5 giờ", "5 hours"), limits.five_hour, limits, now, lang),
-        window_label(lang.pick("7 ngày", "7 days"), limits.seven_day, limits, now, lang),
-        format!("{}: {} token · {} {}", lang.pick("Hôm nay", "Today"), fmt_tokens(today.total), today.prompts, lang.pick("lượt", "turns")),
-    ]
+/// Text các dòng theo công cụ + dòng "Hôm nay" (tk_core::meter). Lỗi truy vấn → chỉ quota, không credit/hoạt động.
+pub fn menu_text(store: &Store, cfg: &Config, quotas: &std::collections::BTreeMap<String, ToolQuota>, sources: &[SourceInfo], limits: &LimitState, now: DateTime<Utc>, lang: Lang) -> MenuText {
+    let snap = meter::snapshot(store, cfg, quotas, sources, now).unwrap_or_default();
+    meter::render(sources, limits, &snap, now.timestamp(), lang)
 }
 
 /// Nhãn các mục cố định: mở dashboard, tạm dừng, thoát.
@@ -109,16 +82,31 @@ pub fn action_labels(lang: Lang) -> [&'static str; 3] {
     [lang.pick("Mở dashboard", "Open dashboard"), lang.pick("Tạm dừng thông báo 1 giờ", "Pause notifications for 1 hour"), lang.pick("Thoát", "Quit")]
 }
 
+/// Danh sách công cụ từ registry (thứ tự hiển thị).
+pub fn sources(cfg: &Config) -> Vec<SourceInfo> {
+    tk_adapters::registry(&tk_service::host::claude_root(cfg), &tk_service::host::kiro_root(cfg)).into_iter().map(|(i, _)| i).collect()
+}
+
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let five = MenuItem::with_id(app, "five", "5 giờ: …", false, None::<&str>)?;
-    let seven = MenuItem::with_id(app, "seven", "7 ngày: …", false, None::<&str>)?;
-    let today = MenuItem::with_id(app, "today", "Hôm nay: …", false, None::<&str>)?;
-    let [open_l, pause_l, quit_l] = action_labels(app.state::<crate::state::AppState>().lang());
+    let st = app.state::<crate::state::AppState>();
+    let sources = sources(&st.cfg);
+    // Số dòng theo công cụ cố định từ registry; nội dung đặt lại ở `refresh`.
+    let tools = (0..sources.iter().map(meter::line_count).sum::<usize>())
+        .map(|i| MenuItem::with_id(app, format!("tool-{i}"), "…", false, None::<&str>))
+        .collect::<tauri::Result<Vec<_>>>()?;
+    let today = MenuItem::with_id(app, "today", "…", false, None::<&str>)?;
+    let [open_l, pause_l, quit_l] = action_labels(st.lang());
     let open = MenuItem::with_id(app, "open", open_l, true, None::<&str>)?;
     let pause = MenuItem::with_id(app, "pause", pause_l, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", quit_l, true, None::<&str>)?;
-    let sep1 = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&five, &seven, &today, &sep1, &open, &pause, &quit])?;
+    let menu = Menu::new(app)?;
+    for t in &tools {
+        menu.append(t)?;
+    }
+    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    menu.append(&today)?;
+    menu.append(&PredefinedMenuItem::separator(app)?)?;
+    menu.append_items(&[&open, &pause, &quit])?;
     TrayIconBuilder::with_id("main")
         .icon(face_image(Face::Calm))
         .tooltip("Bumeter")
@@ -131,24 +119,29 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             _ => {}
         })
         .build(app)?;
-    app.manage(TrayItems { five, seven, today, open, pause, quit });
+    app.manage(TrayItems { sources, tools, today, open, pause, quit });
     Ok(())
 }
 
 pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &TodaySummary) {
     let items = app.state::<TrayItems>();
-    let lang = app.state::<crate::state::AppState>().lang();
-    let [five, seven, today_label] = labels(limits, today, chrono::Utc::now().timestamp(), lang);
+    let st = app.state::<crate::state::AppState>();
+    let lang = st.lang();
+    let now = Utc::now();
+    // Đọc lại config/hạn mức mỗi lần: người dùng sửa ở Cài đặt thì tray theo ngay.
+    let cfg = Config::load(&st.paths.config());
+    let quotas = meter::read_quotas(&st.paths.tool_quotas());
+    let text = menu_text(store, &cfg, &quotas, &items.sources, limits, now, lang);
+    for (item, line) in items.tools.iter().zip(&text.tools) {
+        let _ = item.set_text(line);
+    }
+    let _ = items.today.set_text(&text.today);
     let [open_l, pause_l, quit_l] = action_labels(lang);
     let _ = items.open.set_text(open_l);
     let _ = items.pause.set_text(pause_l);
     let _ = items.quit.set_text(quit_l);
-    let _ = items.five.set_text(&five);
-    let _ = items.seven.set_text(&seven);
-    let _ = items.today.set_text(&today_label);
     if let Some(tray) = app.tray_by_id("main") {
-        let now = Utc::now();
-        let face = face_for(&face_input(store, &app.state::<crate::state::AppState>().cfg, limits, today.total, now));
+        let face = face_for(&face_input(store, &st.cfg, limits, today.total, now));
         let _ = tray.set_icon(Some(face_image(face)));
         let _ = tray.set_tooltip(Some(tk_core::limits::render_line(limits, Some(today.total), lang)));
     }
@@ -167,20 +160,31 @@ mod tests {
     }
 
     #[test]
-    fn labels_mark_stale_data_and_missing_windows() {
+    fn menu_lines_follow_registry_and_match_item_count() {
+        let srcs = sources(&Config::default());
+        assert_eq!(srcs.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), vec!["claude_code", "kiro"]);
+        let store = Store::open_in_memory().unwrap();
         let st = tk_core::limits::state(
-            Some(tk_core::limits::LimitsFile { updated_at: 0, five_hour: Some(Window { used_percentage: 78.0, resets_at: 4_102_444_800 }), seven_day: None }),
+            Some(tk_core::limits::LimitsFile { updated_at: 0, five_hour: Some(Window { used_percentage: 47.0, resets_at: 4_102_444_800 }), seven_day: None }),
             None,
-            10_000,
+            0,
         );
-        let today = TodaySummary { prompts: 1, usage: Default::default(), total: 2_100_000, cost_usd: 3.2, unpriced_models: vec![] };
-        let [five, seven, t] = labels(&st, &today, 10_000, Lang::Vi);
-        assert!(five.contains("78%") && five.contains("cập nhật 2 giờ trước"), "{five}");
-        assert!(seven.contains("chưa có dữ liệu"), "{seven}");
-        assert_eq!(t, "Hôm nay: 2.1M token · 1 lượt");
-        let [five, seven, t] = labels(&st, &today, 10_000, Lang::En);
-        assert!(five.starts_with("5 hours: 78%") && five.contains("updated 2h ago"), "{five}");
-        assert!(seven.contains("no data yet"), "{seven}");
-        assert_eq!(t, "Today: 2.1M token · 1 turns");
+        let mut cfg = Config::default();
+        cfg.tool_limits.insert("kiro".into(), tk_core::config::ToolLimit { monthly_credits: Some(1000.0), reset_day: 1 });
+        let now = Utc::now();
+        let t = menu_text(&store, &cfg, &Default::default(), &srcs, &st, now, Lang::Vi);
+        assert_eq!(t.tools.len(), srcs.iter().map(meter::line_count).sum::<usize>());
+        assert!(t.tools[0].starts_with("Claude Code") && t.tools[0].contains("▰▰▰▰▰▱▱▱▱▱  47% · 5 giờ"), "{}", t.tools[0]);
+        assert!(t.tools[1].contains("7 ngày · chưa có dữ liệu"), "{}", t.tools[1]);
+        assert!(t.tools[2].starts_with("Kiro") && t.tools[2].contains("▱▱▱▱▱▱▱▱▱▱  0% · 0/1000 credit · reset "), "{}", t.tools[2]);
+        assert_eq!(t.today, "Hôm nay: chưa có hoạt động");
+        // /usage còn mới thì thắng hạn mức người dùng nhập.
+        let mut q = std::collections::BTreeMap::new();
+        q.insert("kiro".to_string(), ToolQuota { used: 270.69, limit: 1000.0, resets_on: chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), plan: "KIRO PRO".into(), fetched_at: now.timestamp() });
+        let t = menu_text(&store, &cfg, &q, &srcs, &st, now, Lang::Vi);
+        assert!(t.tools[2].contains("27% · 271/1000 credit · reset 01/11"), "{}", t.tools[2]);
+        for l in t.tools.iter().chain([&t.today]) {
+            println!("{l}");
+        }
     }
 }

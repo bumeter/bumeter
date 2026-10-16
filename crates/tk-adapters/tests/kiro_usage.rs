@@ -54,3 +54,17 @@ fn run_with_reads_stdout_and_handles_missing_or_slow_command() {
     assert_eq!(run_with(&dir.path().join("nope"), Duration::from_secs(1)), None);
     assert_eq!(run_with(&script("bad", "echo lỗi; exit 1"), Duration::from_secs(5)), None);
 }
+
+#[test]
+fn store_quotas_merges_and_skips_empty() {
+    use tk_core::meter::read_quotas;
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("tool_quotas.json");
+    assert!(!tk_adapters::store_quotas(&p, vec![]).unwrap());
+    assert!(!p.exists());
+    let q = |n: i64| expected().into_quota(n);
+    assert!(tk_adapters::store_quotas(&p, vec![("other".into(), q(1)), ("kiro".into(), q(1))]).unwrap());
+    assert!(tk_adapters::store_quotas(&p, vec![("kiro".into(), q(2))]).unwrap());
+    let all = read_quotas(&p);
+    assert_eq!((all["other"].fetched_at, all["kiro"].fetched_at), (1, 2));
+}

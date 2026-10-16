@@ -88,6 +88,7 @@ impl HostHandler for TauriHandler {
 /// Chạy nền (không chặn main thread): chiếm quyền host; thất bại thì chạy ở chế độ client,
 /// tray vẫn cập nhật từ DB chỉ đọc (spec mục 3.2.1).
 pub fn start(app: &AppHandle) {
+    poll_quotas(app);
     let app = app.clone();
     std::thread::spawn(move || {
         let st = app.state::<AppState>();
@@ -126,4 +127,18 @@ fn refresh_from_db(app: &AppHandle) {
     if let (Ok(limits), Ok(today)) = (limit_state(&ctx, now), today_summary(&store, &st.pricing, &from, &to)) {
         crate::tray::refresh(app, &store, &limits, &today);
     }
+}
+
+/// Hạn mức công cụ tự báo (Kiro `/usage`): lấy lúc khởi động rồi mỗi 15 phút, ở luồng riêng để không chặn tray.
+fn poll_quotas(app: &AppHandle) {
+    const EVERY: Duration = Duration::from_secs(15 * 60);
+    let app = app.clone();
+    std::thread::spawn(move || loop {
+        let path = app.state::<AppState>().paths.tool_quotas();
+        let fresh = tk_adapters::fetch_quotas(chrono::Utc::now().timestamp());
+        if matches!(tk_adapters::store_quotas(&path, fresh), Ok(true)) {
+            refresh_from_db(&app);
+        }
+        std::thread::sleep(EVERY);
+    });
 }
