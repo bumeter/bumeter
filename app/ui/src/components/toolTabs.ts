@@ -1,3 +1,4 @@
+import { api } from '../api';
 import { h } from '../dom';
 import { t } from '../i18n';
 import { state, update } from '../state';
@@ -17,6 +18,23 @@ function rememberScope(scope: string | undefined) {
 export function setScope(scope: string | undefined) {
   rememberScope(scope);
   update({ scope, filter: { ...state.filter, tool: scope, models: [] }, conversation: null, turn: null });
+  // Đổi từ ngoài hàng tab (vd menu tray) thì các hàng tab đang hiện cũng theo.
+  document.querySelectorAll<HTMLElement>('.tool-tabs [role="radio"]').forEach((x) => x.setAttribute('aria-checked', String(x.dataset.scope === (scope ?? 'all'))));
+}
+
+const knownTool = (id: unknown): id is string => typeof id === 'string' && allSources().some((s) => s.info.id === id);
+
+/** Cửa sổ đang mở, bấm dòng công cụ ở menu tray → đổi phạm vi sang công cụ đó (công cụ lạ bỏ qua). */
+export function followTrayScope(): Promise<() => void> {
+  return api.onTrayScope((tool) => { if (knownTool(tool) && state.scope !== tool) setScope(tool); });
+}
+
+/** Cửa sổ mở mới từ tray (`?tray_scope=`): phạm vi đó, và nhớ lại như khi chọn tab. */
+export function scopeFromTray(params: URLSearchParams): string | undefined {
+  const tool = params.get('tray_scope');
+  if (!knownTool(tool)) return undefined;
+  rememberScope(tool);
+  return tool;
 }
 
 /**

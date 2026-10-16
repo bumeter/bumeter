@@ -142,5 +142,7 @@ export const api = {
   skillSearch: (q: string, limit = 20) => call<SkillHit[]>('skills:search', { q, limit }),
   skillLog: () => call<SkillJournalEntry[]>('skills:log'),
   onDataChanged: async (cb: (c: Change) => void) => (await getTransport()).listen('data-changed', (p) => cb(p as Change)),
+  /** Bấm dòng một công cụ trong menu tray: payload là tool id. */
+  onTrayScope: async (cb: (tool: unknown) => void) => (await getTransport()).listen('tray-scope', cb),
   onLimitsChanged: async (cb: (l: LimitState) => void) => (await getTransport()).listen('limits-changed', (p) => cb(p as LimitState)),
 };

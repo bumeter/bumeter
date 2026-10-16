@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fake, SOURCES } from './fake';
-import { toolTabs } from '../src/components/toolTabs';
+import { followTrayScope, scopeFromTray, toolTabs } from '../src/components/toolTabs';
 import { setLang } from '../src/i18n';
 import { state, update } from '../src/state';
 import { loadSources } from '../src/tools';
@@ -36,5 +36,32 @@ describe('toolTabs (hàng tab công cụ dưới thanh tiêu đề)', () => {
     const kiro = toolTabs().querySelector('[data-scope="kiro"]')!;
     expect(kiro.classList.contains('missing')).toBe(true);
     expect(kiro.getAttribute('title')).toContain('/no/kiro');
+  });
+
+  it('bấm dòng công cụ ở menu tray (event tray-scope) thì đổi phạm vi và nhớ lại; công cụ lạ bỏ qua', async () => {
+    const f = fake({ sources: () => SOURCES });
+    await loadSources();
+    await followTrayScope();
+    const tabs = toolTabs();
+    document.body.replaceChildren(tabs);
+    f.emit('tray-scope', 'kiro');
+    expect(tabs.querySelector('[data-scope="kiro"]')?.getAttribute('aria-checked')).toBe('true');
+    expect(tabs.querySelector('[data-scope="all"]')?.getAttribute('aria-checked')).toBe('false');
+    expect(state.scope).toBe('kiro');
+    expect(state.filter.tool).toBe('kiro');
+    expect(localStorage.getItem('bumeter.scope')).toBe('kiro');
+    f.emit('tray-scope', 'nope');
+    f.emit('tray-scope', 42);
+    expect(state.scope).toBe('kiro');
+    f.emit('tray-scope', 'claude_code');
+    expect(state.scope).toBe('claude_code');
+  });
+
+  it('mở mới từ tray (?tray_scope=) thì dùng và nhớ phạm vi đó', () => {
+    localStorage.removeItem('bumeter.scope');
+    expect(scopeFromTray(new URLSearchParams('tray_scope=kiro'))).toBe('kiro');
+    expect(localStorage.getItem('bumeter.scope')).toBe('kiro');
+    expect(scopeFromTray(new URLSearchParams('tray_scope=nope'))).toBeUndefined();
+    expect(scopeFromTray(new URLSearchParams(''))).toBeUndefined();
   });
 });

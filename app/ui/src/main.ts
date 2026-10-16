@@ -32,6 +32,7 @@ export async function boot() {
   const { mountSkills } = await import('./views/skills');
   const { mountSession } = await import('./views/session');
   const { loadSources } = await import('./tools');
+  const { followTrayScope, scopeFromTray } = await import('./components/toolTabs');
 
   // Ngôn ngữ lưu trong config của app; ?lang= ghi đè để xem thử.
   let lang: Lang = 'vi';
@@ -49,7 +50,8 @@ export async function boot() {
   await loadSources();
 
   const view = params.get('view') as View | null;
-  const scope = (params.get('scope') ?? rememberedScope()) || undefined;
+  // Mở từ dòng công cụ trong menu tray thì theo công cụ đó.
+  const scope = (scopeFromTray(params) ?? params.get('scope') ?? rememberedScope()) || undefined;
   update({ lang, scope, filter: { tool: scope }, view: view && VIEWS.includes(view) ? view : state.view,
     session: view === 'session' ? 'mock' : state.session,
     conversation: params.get('conversation'), turn: params.get('turn') });
@@ -74,6 +76,7 @@ export async function boot() {
   });
   await mountSidebar(document.getElementById('sidebar')!);
   await show();
+  void followTrayScope();
   // ?open=1: mở chi tiết của hội thoại đang chọn như khi bấm (ngăn kéo ở medium, toàn màn ở narrow) — để chụp ảnh.
   if (params.get('open') === '1' && state.view === 'conversations') {
     const started = Date.now();
