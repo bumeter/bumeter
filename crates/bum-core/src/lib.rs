@@ -4,6 +4,7 @@ pub mod coalesce;
 pub mod config;
 pub mod engine;
 pub mod face;
+pub mod forecast;
 pub mod handlers;
 pub mod host;
 pub mod i18n;
