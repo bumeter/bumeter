@@ -28,9 +28,13 @@ export interface Config {
   theme?: 'system' | 'light' | 'dark';
   anomaly_multiplier: number; context_threshold: number; quota_thresholds: number[];
   notify: { quota: boolean; blocked: boolean; anomaly: boolean; context: boolean }; claude_projects_dir: string | null;
+  /** Hạn mức người dùng nhập theo công cụ (id → hạn mức); `monthly_credits` null = không theo dõi. */
+  tool_limits?: Record<string, { monthly_credits: number | null; reset_day: number }>;
 }
+/** Hạn mức công cụ tự báo (vd Kiro `/usage`), lần lấy gần nhất. */
+export interface ToolQuota { used: number; limit: number; resets_on: string; plan: string; fetched_at: number }
 export type StatuslineStatus = { kind: 'not_configured' } | { kind: 'custom'; command: string } | { kind: 'hooked'; command: string };
-export interface SettingsInfo { config: Config; statusline: StatuslineStatus; data_dir: string; parse_errors: number }
+export interface SettingsInfo { config: Config; statusline: StatuslineStatus; data_dir: string; parse_errors: number; tool_quotas?: Record<string, ToolQuota> }
 
 export type SkillSource = { kind: 'personal' } | { kind: 'plugin'; plugin: string } | { kind: 'synced' } | { kind: 'command' };
 export interface SkillEntry {

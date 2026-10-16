@@ -36,6 +36,7 @@ pub fn settings(state: State<'_, AppState>, action: String, params: Option<Value
                 "statusline": s.status().map_err(err)?,
                 "data_dir": state.paths.data_dir,
                 "parse_errors": parse_errors,
+                "tool_quotas": tk_core::meter::read_quotas(&state.paths.tool_quotas()),
             }))
         }
         "statusline_plan" => {

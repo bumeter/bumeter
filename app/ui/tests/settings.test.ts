@@ -209,4 +209,60 @@ describe('cài đặt', () => {
     expect(el.textContent).not.toContain('Đã lưu');
     expect(el.textContent).toContain('Tự lưu khi bạn thay đổi');
   });
+
+  describe('hạn mức credit theo công cụ', () => {
+    const mountWithSources = async (info: any) => {
+      const f = fake({ settings_get: () => info, save_config: () => true, sources: () => SOURCES });
+      await loadSources();
+      await mountSettings(el);
+      return f;
+    };
+    const errOf = (name: string) => input(name).closest('.field')!.querySelector('.field-error')!.textContent;
+
+    it('chỉ công cụ tính credit có 2 ô; nhập hạn mức + ngày reset thì lưu vào tool_limits', async () => {
+      const f = await mountWithSources(hookedInfo());
+      expect(el.querySelector('[data-tool="kiro"] input[name="credits_limit_kiro"]')).not.toBeNull();
+      expect(el.querySelector('[data-tool="claude_code"] input')).toBeNull();
+      expect(input('credits_limit_kiro').value).toBe('');
+      expect(input('credits_reset_kiro').value).toBe('1');
+      type('credits_limit_kiro', '1000');
+      type('credits_reset_kiro', '15');
+      await wait(SAVE_DEBOUNCE_MS + 100);
+      expect(saves(f)).toHaveLength(1);
+      expect(saves(f)[0].params.config.tool_limits).toEqual({ kiro: { monthly_credits: 1000, reset_day: 15 } });
+    });
+
+    it('để trống hạn mức = không theo dõi (null), giữ hạn mức công cụ khác', async () => {
+      const f = await mountWithSources(hookedInfo({ ...cfg, tool_limits: { kiro: { monthly_credits: 500, reset_day: 3 }, other: { monthly_credits: 9, reset_day: 2 } } }));
+      expect(input('credits_limit_kiro').value).toBe('500');
+      expect(input('credits_reset_kiro').value).toBe('3');
+      type('credits_limit_kiro', '  ');
+      await wait(SAVE_DEBOUNCE_MS + 100);
+      expect(saves(f)).toHaveLength(1);
+      expect(saves(f)[0].params.config.tool_limits).toEqual({ kiro: { monthly_credits: null, reset_day: 3 }, other: { monthly_credits: 9, reset_day: 2 } });
+    });
+
+    it('giá trị sai báo tại ô khi rời ô, không lưu', async () => {
+      const f = await mountWithSources(hookedInfo());
+      for (const [name, v] of [['credits_limit_kiro', '-5'], ['credits_limit_kiro', 'abc'], ['credits_reset_kiro', '29'], ['credits_reset_kiro', '0'], ['credits_reset_kiro', '1.5'], ['credits_reset_kiro', '']]) {
+        type(name, v);
+        await wait(SAVE_DEBOUNCE_MS + 100);
+        expect(saves(f), `${name}=${v}`).toHaveLength(0);
+        input(name).dispatchEvent(new Event('blur'));
+        expect(errOf(name), `${name}=${v}`).not.toBe('');
+        expect(input(name).getAttribute('aria-invalid')).toBe('true');
+        type(name, name === 'credits_reset_kiro' ? '1' : '');
+        input(name).dispatchEvent(new Event('blur'));
+        expect(errOf(name)).toBe('');
+      }
+      expect(errOf('credits_reset_kiro')).toBe('');
+    });
+
+    it('hiện số Kiro tự báo (chỉ đọc) và ô nhập thành dự phòng', async () => {
+      await mountWithSources({ ...hookedInfo(), tool_quotas: { kiro: { used: 270.69, limit: 1000, resets_on: '2026-11-01', plan: 'KIRO PRO', fetched_at: 1 } } });
+      const row = el.querySelector('[data-tool="kiro"]')!;
+      expect(row.querySelector('.tool-quota')!.textContent).toBe('Kiro báo: 270.69/1000 credit · KIRO PRO · reset 01/11');
+      expect(row.textContent!.toLowerCase()).toContain('dự phòng');
+    });
+  });
 });

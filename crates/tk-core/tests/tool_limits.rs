@@ -97,3 +97,13 @@ fn tool_activity_between_groups_tokens_credits_and_turns_by_tool() {
     assert!((k.credits - 3.25).abs() < 1e-9);
     assert!(s.tool_activity_between("2030-01-01T00:00:00.000Z", "2030-01-02T00:00:00.000Z").unwrap().is_empty());
 }
+
+#[test]
+fn blank_limit_from_settings_json_saves_and_reloads() {
+    // UI gửi `monthly_credits: null` khi ô trống.
+    let cfg: Config = serde_json::from_value(serde_json::json!({ "tool_limits": { "kiro": { "monthly_credits": null, "reset_day": 5 } } })).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.toml");
+    cfg.save(&path).unwrap();
+    assert_eq!(Config::load(&path).tool_limits["kiro"], ToolLimit { monthly_credits: None, reset_day: 5 });
+}

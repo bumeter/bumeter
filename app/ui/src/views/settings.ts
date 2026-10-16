@@ -15,11 +15,20 @@ let cleanup: (() => void) | null = null;
 /** Lời nhắn còn lại sau khi đổi ngôn ngữ (màn được mount lại). */
 let carried = '';
 
-type NumField = 'anomaly_multiplier' | 'context_threshold' | 'quota_thresholds';
-type Parsed = { ok: true; value: number | number[] } | { ok: false; error: Key };
+type NumField = 'anomaly_multiplier' | 'context_threshold' | 'quota_thresholds' | `credits_limit_${string}` | `credits_reset_${string}`;
+type Parsed = { ok: true; value: number | number[] | null } | { ok: false; error: Key };
 
 function parseField(name: NumField, raw: string): Parsed {
   const v = raw.trim();
+  if (name.startsWith('credits_limit_')) {
+    if (v === '') return { ok: true, value: null }; // trống = không theo dõi
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? { ok: true, value: n } : { ok: false, error: 'set.errNumber' };
+  }
+  if (name.startsWith('credits_reset_')) {
+    const n = /^\d+$/.test(v) ? Number(v) : NaN;
+    return n >= 1 && n <= 28 ? { ok: true, value: n } : { ok: false, error: 'set.errResetDay' };
+  }
   if (name === 'quota_thresholds') {
     const parts = v.split(',').map((x) => x.trim());
     const nums = parts.map((x) => (/^\d+$/.test(x) ? Number(x) : NaN));
@@ -29,6 +38,12 @@ function parseField(name: NumField, raw: string): Parsed {
   const n = v === '' ? NaN : Number(v);
   if (!Number.isFinite(n) || n <= 0) return { ok: false, error: 'set.errNumber' };
   return { ok: true, value: name === 'context_threshold' ? Math.round(n * 1000) : n };
+}
+
+/** "2026-11-01" → "01/11". */
+function ddmm(iso: string): string {
+  const [, m, d] = iso.split('-');
+  return d && m ? `${d}/${m}` : iso;
 }
 
 export async function mountSettings(el: HTMLElement) {
@@ -76,11 +91,16 @@ export async function mountSettings(el: HTMLElement) {
   let language: Lang = info.config.language ?? 'vi';
 
   const current = (show: boolean): Config | null => {
-    const parsed = (['anomaly_multiplier', 'context_threshold', 'quota_thresholds'] as NumField[]).map((n) => [n, validate(n, show)] as const);
+    const parsed = [...inputs.keys()].map((n) => [n, validate(n, show)] as const);
     if (parsed.some(([, r]) => !r.ok)) return null;
-    const v = Object.fromEntries(parsed.map(([n, r]) => [n, (r as { value: number | number[] }).value]));
+    const v = Object.fromEntries(parsed.map(([n, r]) => [n, (r as { value: number | number[] | null }).value]));
+    const tool_limits = { ...(info.config.tool_limits ?? {}) };
+    for (const id of creditTools) {
+      tool_limits[id] = { monthly_credits: v[`credits_limit_${id}`] as number | null, reset_day: v[`credits_reset_${id}`] as number };
+    }
     return {
       ...info.config,
+      tool_limits,
       anomaly_multiplier: v.anomaly_multiplier as number,
       context_threshold: v.context_threshold as number,
       quota_thresholds: v.quota_thresholds as number[],
@@ -154,11 +174,23 @@ export async function mountSettings(el: HTMLElement) {
   const themeSeg = h('div', { class: 'segmented', role: 'group', 'aria-label': t('set.theme') },
     themeBtn('light', t('set.themeLight')), themeBtn('dark', t('set.themeDark')), themeBtn('system', t('set.themeSystem')));
 
-  const toolRows = allSources().map((s) => h('div', { class: 'tool-row', 'data-tool': s.info.id },
-    glyph(s.info.id),
-    h('div', { class: 'tool-main' }, h('div', { class: 'tool-name' }, s.info.label), h('code', {}, s.root)),
-    h('span', { class: 'pill' }, t('set.toolTurns', { n: s.prompts })),
-    s.found ? h('span', { class: 'pill ok' }, t('set.toolFound')) : h('span', { class: 'pill missing' }, t('set.toolMissing'))));
+  /** Công cụ tính bằng credit: thêm hạn mức mỗi tháng + ngày reset (dự phòng khi công cụ không tự báo). */
+  const creditTools = allSources().filter((s) => s.info.credits).map((s) => s.info.id);
+  const creditFields = (id: string, label: string) => {
+    const lim = info.config.tool_limits?.[id];
+    const q = info.tool_quotas?.[id];
+    return h('div', { class: 'tool-limits' },
+      q ? h('div', { class: 'sub tool-quota' }, t('set.toolQuota', { tool: label, used: String(q.used), limit: String(q.limit), plan: q.plan, date: ddmm(q.resets_on) })) : '',
+      field(t('set.creditLimit'), `credits_limit_${id}`, lim?.monthly_credits ?? '', t(q ? 'set.creditLimitFallbackHint' : 'set.creditLimitHint')),
+      field(t('set.resetDay'), `credits_reset_${id}`, lim?.reset_day ?? 1, t('set.resetDayHint')));
+  };
+  const toolRows = allSources().map((s) => h('div', { class: 'tool-block', 'data-tool': s.info.id },
+    h('div', { class: 'tool-row' },
+      glyph(s.info.id),
+      h('div', { class: 'tool-main' }, h('div', { class: 'tool-name' }, s.info.label), h('code', {}, s.root)),
+      h('span', { class: 'pill' }, t('set.toolTurns', { n: s.prompts })),
+      s.found ? h('span', { class: 'pill ok' }, t('set.toolFound')) : h('span', { class: 'pill missing' }, t('set.toolMissing'))),
+    s.info.credits ? creditFields(s.info.id, s.info.label) : ''));
 
   // Trạng thái statusline + hộp xác nhận: vẽ riêng để không làm mất giá trị đang gõ ở ô khác.
   const limitsHost = h('div', {});
