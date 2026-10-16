@@ -12,9 +12,9 @@ fn first_change_goes_out_immediately_then_bursts_are_merged() {
 
     c.add(&["p2".into()], &["s1".into()]);
     c.add(&["p3".into(), "p2".into()], &["s1".into()]);
-    assert!(c.take(t0 + Duration::from_millis(100)).is_none(), "chưa đủ 250ms");
+    assert!(c.take(t0 + Duration::from_millis(100)).is_none(), "not 250ms yet");
     let merged = c.take(t0 + Duration::from_millis(260)).unwrap();
     assert_eq!(merged.prompt_keys, vec!["p2", "p3"]);
     assert_eq!(merged.session_ids, vec!["s1"]);
-    assert!(c.take(t0 + Duration::from_secs(5)).is_none(), "không có gì mới");
+    assert!(c.take(t0 + Duration::from_secs(5)).is_none(), "nothing new");
 }

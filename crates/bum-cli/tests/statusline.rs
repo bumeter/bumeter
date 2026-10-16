@@ -38,7 +38,7 @@ fn quiet_mode_prints_nothing() {
 fn garbage_input_never_fails_the_statusline() {
     let dir = tempfile::tempdir().unwrap();
     let (out, ok) = run(&["statusline"], dir.path(), "not json");
-    assert!(ok, "statusline không được làm hỏng Claude Code");
+    assert!(ok, "statusline must not break Claude Code");
     assert!(out.contains("5h —"), "{out}");
 }
 

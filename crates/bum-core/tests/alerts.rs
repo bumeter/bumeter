@@ -69,13 +69,13 @@ fn context_alert_fires_once_per_session() {
 
 #[test]
 fn anomaly_waits_until_prompt_is_idle_long_enough_for_tool_runs() {
-    // p1 = 2343 > 1.5 × trung vị (1206 khi chỉ tính lần hỏi khác)… dùng hệ số thấp để p1 bất thường theo tỉ lệ.
+    // p1 = 2343 > 1.5 × median (1206 when only counting other prompts)… use a low multiplier so p1 is anomalous by ratio.
     let cfg = Config { anomaly_multiplier: 0.5, ..Config::default() };
     let (mut s, mut a, report) = setup(cfg);
     let t0 = Instant::now();
     let now_utc = t("2026-09-11T05:00:00Z");
     a.on_ingest(&mut s, &report, t0, now_utc).unwrap();
-    assert!(a.on_tick(&mut s, t0 + Duration::from_secs(10), now_utc).unwrap().is_empty(), "build/test 10s không được coi là xong");
+    assert!(a.on_tick(&mut s, t0 + Duration::from_secs(10), now_utc).unwrap().is_empty(), "10s of build/test is not considered done");
     let fired = a.on_tick(&mut s, t0 + Duration::from_secs(46), now_utc).unwrap();
     assert!(fired.iter().any(|x| matches!(x, Alert::Anomaly { .. })));
     assert!(a.on_tick(&mut s, t0 + Duration::from_secs(100), now_utc).unwrap().is_empty());
@@ -89,7 +89,7 @@ fn big_context_alone_is_left_to_the_context_alert() {
     let now_utc = t("2026-09-11T05:00:00Z");
     a.on_ingest(&mut s, &report, t0, now_utc).unwrap();
     let fired = a.on_tick(&mut s, t0 + Duration::from_secs(46), now_utc).unwrap();
-    assert!(!fired.iter().any(|x| matches!(x, Alert::Anomaly { .. })), "không báo trùng với cảnh báo context");
+    assert!(!fired.iter().any(|x| matches!(x, Alert::Anomaly { .. })), "does not double-fire with the context alert");
 }
 
 #[test]
@@ -115,7 +115,7 @@ fn disabled_notification_kind_is_skipped() {
 
 #[test]
 fn anomaly_mark_is_recorded_even_when_notification_is_off() {
-    // Bum "bất thường" không phụ thuộc cờ thông báo: vẫn ghi mốc, chỉ không trả Alert để gửi.
+    // The "anomaly" ring does not depend on the notification flag: it still records the mark, it just does not return an Alert to send.
     let mut cfg = Config { anomaly_multiplier: 0.5, ..Config::default() };
     cfg.notify.anomaly = false;
     let (mut s, mut a, report) = setup(cfg);

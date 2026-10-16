@@ -43,9 +43,9 @@ fn detail_explains_where_tokens_went() {
 #[test]
 fn detail_includes_note_and_missing_prompt_is_none() {
     let mut s = loaded();
-    s.set_note("p2", true, "hỏi lại", "t").unwrap();
+    s.set_note("p2", true, "ask again", "t").unwrap();
     let d = prompt_detail(&s, &Pricing::default_table(), &Config::default(), "p2").unwrap().unwrap();
-    assert_eq!(d.note.unwrap().note, "hỏi lại");
+    assert_eq!(d.note.unwrap().note, "ask again");
     assert!(d.row.starred);
     assert!(prompt_detail(&s, &Pricing::default_table(), &Config::default(), "nope").unwrap().is_none());
 }

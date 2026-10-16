@@ -1,10 +1,10 @@
-//! Đọc phần mới của file log, chỉ tới ký tự xuống dòng cuối cùng (spec mục 5).
+//! Read the new part of a log file, only up to the last newline (spec section 5).
 use std::fs::{File, Metadata};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
-/// Trả về các dòng hoàn chỉnh từ `from` và offset mới (ngay sau `\n` cuối).
+/// Return the complete lines from `from` and the new offset (right after the last `\n`).
 pub fn read_complete_lines(path: &Path, from: u64) -> io::Result<(Vec<String>, u64)> {
     let mut f = File::open(path)?;
     f.seek(SeekFrom::Start(from))?;
@@ -19,7 +19,7 @@ pub fn read_complete_lines(path: &Path, from: u64) -> io::Result<(Vec<String>, u
     Ok((lines, from + last_nl as u64 + 1))
 }
 
-/// Định danh file để phát hiện file bị thay thế.
+/// File identity to detect a replaced file.
 #[cfg(unix)]
 pub fn file_identity(meta: &Metadata) -> String {
     use std::os::unix::fs::MetadataExt;

@@ -17,7 +17,7 @@ fn big_store(prompts: usize) -> Store {
         if i % 100 == 0 {
             ev.push(RawEvent::Session { session_id: sid.clone(), tool: "claude_code".into(), project: format!("P{}", i / 500), cwd: None, version: None, ts: ts.clone() });
         }
-        ev.push(RawEvent::Prompt { key: format!("k{i}"), session_id: sid.clone(), ts: ts.clone(), text: format!("câu hỏi số {i}") });
+        ev.push(RawEvent::Prompt { key: format!("k{i}"), session_id: sid.clone(), ts: ts.clone(), text: format!("question number {i}") });
         for c in 0..4 {
             ev.push(call(&format!("r{i}_{c}"), &format!("k{i}"), &ts, "claude-opus-5", u(1, 100, 50_000 + i as u64, 200), &[("t", "Bash")], false));
         }

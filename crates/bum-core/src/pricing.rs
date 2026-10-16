@@ -1,4 +1,4 @@
-//! Bảng giá model (spec mục 4.5).
+//! Model pricing table (spec section 4.5).
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
@@ -23,7 +23,7 @@ pub struct Pricing {
 
 impl Pricing {
     pub fn default_table() -> Self {
-        Self::from_toml(DEFAULT_TOML).expect("pricing.default.toml hợp lệ")
+        Self::from_toml(DEFAULT_TOML).expect("pricing.default.toml is valid")
     }
 
     pub fn default_toml() -> &'static str {
@@ -34,7 +34,7 @@ impl Pricing {
         toml::from_str(s)
     }
 
-    /// Khớp chính xác, không có thì theo tiền tố dài nhất.
+    /// Exact match; if none, the longest matching prefix.
     fn price(&self, model: &str) -> Option<&ModelPrice> {
         self.models.get(model).or_else(|| {
             self.models.iter().filter(|(k, _)| model.starts_with(k.as_str())).max_by_key(|(k, _)| k.len()).map(|(_, p)| p)
@@ -48,7 +48,7 @@ impl Pricing {
             + m(u.cache_read, p.cache_read) + m(u.output, p.output))
     }
 
-    /// Tổng tiền và danh sách model chưa có giá.
+    /// Total cost and the list of models without a price.
     pub fn cost_of(&self, per_model: &[(String, Usage)]) -> (f64, Vec<String>) {
         let mut total = 0.0;
         let mut unpriced = Vec::new();
@@ -63,7 +63,7 @@ impl Pricing {
 }
 
 impl Pricing {
-    /// Đọc `pricing.toml` của người dùng; chưa có thì ghi bản mặc định ra để họ sửa.
+    /// Read the user's `pricing.toml`; if absent, write the default so they can edit it.
     pub fn load_or_init(path: &std::path::Path) -> Self {
         match std::fs::read_to_string(path) {
             Ok(s) => Self::from_toml(&s).unwrap_or_else(|_| Self::default_table()),

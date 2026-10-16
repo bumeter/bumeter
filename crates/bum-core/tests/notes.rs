@@ -8,8 +8,8 @@ fn set_and_get_note() {
     let mut s = Store::open_in_memory().unwrap();
     s.ingest_batch(&offset(MAIN), &main_events(), 0).unwrap();
     assert_eq!(s.get_note("p1").unwrap(), None);
-    s.set_note("p1", true, "xem lại context", "2026-09-24T00:00:00.000Z").unwrap();
-    assert_eq!(s.get_note("p1").unwrap(), Some(Note { prompt_key: "p1".into(), starred: true, note: "xem lại context".into(), updated_at: "2026-09-24T00:00:00.000Z".into() }));
+    s.set_note("p1", true, "review context", "2026-09-24T00:00:00.000Z").unwrap();
+    assert_eq!(s.get_note("p1").unwrap(), Some(Note { prompt_key: "p1".into(), starred: true, note: "review context".into(), updated_at: "2026-09-24T00:00:00.000Z".into() }));
     s.set_note("p1", false, "", "2026-09-24T01:00:00.000Z").unwrap();
     assert!(!s.get_note("p1").unwrap().unwrap().starred);
 }
@@ -19,17 +19,17 @@ fn notes_survive_a_rebuilt_database_via_json_backup() {
     let dir = tempfile::tempdir().unwrap();
     let json = dir.path().join("notes.json");
     let mut a = Store::open_in_memory().unwrap();
-    a.set_note("p1", true, "hay", "t1").unwrap();
-    a.set_note("p2", false, "ghi chú", "t2").unwrap();
+    a.set_note("p1", true, "good", "t1").unwrap();
+    a.set_note("p2", false, "note", "t2").unwrap();
     export_notes(&a, &json).unwrap();
 
     let mut b = Store::open_in_memory().unwrap();
     assert_eq!(import_notes(&mut b, &json).unwrap(), 2);
     assert!(b.get_note("p1").unwrap().unwrap().starred);
-    // Không ghi đè ghi chú mới hơn đã có
-    b.set_note("p2", true, "mới", "t9").unwrap();
+    // Do not overwrite a newer existing note
+    b.set_note("p2", true, "new", "t9").unwrap();
     import_notes(&mut b, &json).unwrap();
-    assert_eq!(b.get_note("p2").unwrap().unwrap().note, "mới");
+    assert_eq!(b.get_note("p2").unwrap().unwrap().note, "new");
 }
 
 #[test]

@@ -38,19 +38,19 @@ fn d(y: i32, m: u32, day: u32) -> NaiveDate {
 
 #[test]
 fn credit_period_starts_on_the_latest_reset_day_not_after_today() {
-    // Hôm nay đúng ngày reset: kỳ bắt đầu hôm nay.
+    // Today is the reset day: the period starts today.
     assert_eq!(credit_period(d(2026, 10, 15), 15), (d(2026, 10, 15), d(2026, 11, 15)));
-    // Sau ngày reset.
+    // After the reset day.
     assert_eq!(credit_period(d(2026, 10, 20), 15), (d(2026, 10, 15), d(2026, 11, 15)));
-    // Trước ngày reset: kỳ từ tháng trước.
+    // Before the reset day: the period is from last month.
     assert_eq!(credit_period(d(2026, 10, 3), 15), (d(2026, 9, 15), d(2026, 10, 15)));
-    // Qua năm.
+    // Across the new year.
     assert_eq!(credit_period(d(2026, 1, 3), 15), (d(2025, 12, 15), d(2026, 1, 15)));
     assert_eq!(credit_period(d(2026, 12, 31), 1), (d(2026, 12, 1), d(2027, 1, 1)));
-    // Cuối tháng ngắn với ngày reset 28.
+    // End of a short month with reset day 28.
     assert_eq!(credit_period(d(2026, 2, 28), 28), (d(2026, 2, 28), d(2026, 3, 28)));
     assert_eq!(credit_period(d(2026, 3, 1), 28), (d(2026, 2, 28), d(2026, 3, 28)));
-    // Giá trị ngoài 1–28 bị kẹp.
+    // Values outside 1–28 are clamped.
     assert_eq!(credit_period(d(2026, 2, 28), 31), (d(2026, 2, 28), d(2026, 3, 28)));
     assert_eq!(credit_period(d(2026, 2, 5), 0), (d(2026, 2, 1), d(2026, 3, 1)));
 }
@@ -100,7 +100,7 @@ fn tool_activity_between_groups_tokens_credits_and_turns_by_tool() {
 
 #[test]
 fn blank_limit_from_settings_json_saves_and_reloads() {
-    // UI gửi `monthly_credits: null` khi ô trống.
+    // The UI sends `monthly_credits: null` when the field is empty.
     let cfg: Config = serde_json::from_value(serde_json::json!({ "tool_limits": { "kiro": { "monthly_credits": null, "reset_day": 5 } } })).unwrap();
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("config.toml");

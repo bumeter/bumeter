@@ -56,13 +56,13 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         conn.pragma_update(None, "user_version", 3)?;
     }
     if version < 4 {
-        // Bảng riêng: tiêu đề có thể đến trước dòng tạo session.
+        // Separate table: a title can arrive before the line that creates the session.
         conn.execute_batch("CREATE TABLE IF NOT EXISTS session_titles(session_id TEXT PRIMARY KEY, title TEXT NOT NULL, source_file TEXT NOT NULL);")?;
         conn.pragma_update(None, "user_version", 4)?;
     }
     if version < 5 {
-        // Parser Kiro cũ bỏ mất câu hỏi của phiên Kiro CLI ghi "subagent": làm offset lệch để
-        // engine xoá dữ liệu cũ của file rồi đọc lại (một lần).
+        // The old Kiro parser dropped questions from Kiro CLI sessions tagged "subagent": skew the offset so
+        // the engine deletes the file's old data and re-reads it (once).
         conn.execute_batch(
             "UPDATE file_offsets SET size = -1 WHERE path IN (
                SELECT a.source_file FROM api_calls a JOIN sessions s ON s.id = a.session_id WHERE s.tool = 'kiro');",

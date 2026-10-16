@@ -48,8 +48,8 @@ fn host_serves_queries_and_shuts_down_on_request() {
     assert!(client::call(&paths, "no_such_method", Value::Null).is_err());
 
     client::call(&paths, "shutdown", Value::Null).unwrap();
-    assert!(handle.wait_timeout(Duration::from_secs(5)), "host không tắt");
-    assert!(HostLock::try_acquire(&paths.lock()).unwrap().is_some(), "lock phải được nhả");
+    assert!(handle.wait_timeout(Duration::from_secs(5)), "host did not shut down");
+    assert!(HostLock::try_acquire(&paths.lock()).unwrap().is_some(), "lock must be released");
 }
 
 #[test]

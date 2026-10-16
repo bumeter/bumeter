@@ -1,6 +1,6 @@
-//! Adapter cho Kiro CLI: `~/.kiro/sessions/cli/<id>.json` (metadata từng lượt, bị ghi đè toàn bộ)
-//! + `<id>.jsonl` (câu hỏi, câu trả lời, tool). Kiro không ghi token: context =
-//! `context_usage_percentage × context_window_tokens`; chi phí tính bằng credit.
+//! Adapter for Kiro CLI: `~/.kiro/sessions/cli/<id>.json` (per-turn metadata, overwritten in full)
+//! + `<id>.jsonl` (questions, answers, tools). Kiro does not log tokens: context =
+//! `context_usage_percentage × context_window_tokens`; cost is measured in credits.
 pub mod usage;
 
 use std::path::{Path, PathBuf};
@@ -21,7 +21,7 @@ impl Kiro {
         Self { root: root.into() }
     }
 
-    /// `BUM_KIRO_DIR` (hoặc `TK_KIRO_DIR`) nếu có, không thì `~/.kiro/sessions/cli`.
+    /// `BUM_KIRO_DIR` (or `TK_KIRO_DIR`) if set, otherwise `~/.kiro/sessions/cli`.
     pub fn default_root() -> PathBuf {
         if let Some(d) = std::env::var_os("BUM_KIRO_DIR").or_else(|| std::env::var_os("TK_KIRO_DIR")) {
             return PathBuf::from(d);
@@ -38,7 +38,7 @@ fn text_of(content: &Value) -> String {
     content.as_array().into_iter().flatten().filter(|c| c["kind"] == "text").filter_map(|c| c["data"].as_str()).collect::<Vec<_>>().join("\n")
 }
 
-/// Mỗi câu hỏi (Prompt) và tên các tool dùng sau nó, theo thứ tự.
+/// Each question (Prompt) and the names of the tools used after it, in order.
 fn read_prompts(jsonl: &Path) -> Vec<(String, String, Vec<ToolUse>)> {
     let bytes = std::fs::read(jsonl).unwrap_or_default();
     let mut out: Vec<(String, String, Vec<ToolUse>)> = Vec::new();
@@ -89,7 +89,7 @@ impl LogSource for Kiro {
     }
 
     fn parse_line(&self, _path: &Path, _ctx: &mut ParseCtx, _line: &str) -> Result<Vec<RawEvent>, LineError> {
-        Err(LineError("Kiro đọc cả file".into()))
+        Err(LineError("Kiro reads the whole file".into()))
     }
 
     fn whole_file(&self) -> bool {
@@ -104,7 +104,7 @@ impl LogSource for Kiro {
         let model_info = &st["rts_model_state"]["model_info"];
         let model = format!("kiro:{}", model_info["model_id"].as_str().unwrap_or("auto"));
         let window = model_info["context_window_tokens"].as_f64().unwrap_or(DEFAULT_WINDOW);
-        // Kiro CLI mới ghi "subagent" cho cả phiên người dùng chat; phiên đó có `.history` (lịch sử gõ).
+        // Newer Kiro CLI marks all interactive chat sessions as "subagent"; such a session has a `.history` (typing history).
         let subagent = v["session_created_reason"].as_str() == Some("subagent") && !path.with_extension("history").exists();
         let turns = st["conversation_metadata"]["user_turn_metadatas"].as_array().cloned().unwrap_or_default();
         let prompts = read_prompts(&path.with_extension("jsonl"));
@@ -163,8 +163,8 @@ fn result_text(content: &Value) -> String {
         .join("\n")
 }
 
-/// Hỏi/đáp của một phiên Kiro: `path` là file `.json`, nội dung nằm ở `.jsonl` cùng tên.
-/// Lượt thứ i ứng với prompt key `kiro:<session_id>:<i>`.
+/// Q&A of a Kiro session: `path` is the `.json` file, the content lives in a `.jsonl` with the same name.
+/// Turn i corresponds to the prompt key `kiro:<session_id>:<i>`.
 pub fn transcript(path: &Path) -> std::io::Result<Vec<bum_core::transcript::TranscriptTurn>> {
     use bum_core::transcript::{clip, tool_input_summary, TranscriptItem, TranscriptTurn, MAX_TEXT, MAX_TOOL_OUTPUT};
     let meta: Value = std::fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();

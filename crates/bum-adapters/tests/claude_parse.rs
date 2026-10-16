@@ -26,7 +26,7 @@ fn parse_file(src: &ClaudeCode, rel: &str) -> (Vec<RawEvent>, usize) {
 fn main_file_yields_expected_events() {
     let src = ClaudeCode::new(root());
     let (ev, errors) = parse_file(&src, "-home-u-proj/s1.jsonl");
-    assert_eq!(errors, 1, "dòng JSON hỏng phải bị đếm lỗi");
+    assert_eq!(errors, 1, "a broken JSON line must be counted as an error");
 
     let prompts: Vec<_> = ev.iter().filter_map(|e| match e {
         RawEvent::Prompt { key, text, .. } => Some((key.as_str(), text.as_str())),

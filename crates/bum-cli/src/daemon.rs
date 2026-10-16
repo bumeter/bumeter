@@ -1,4 +1,4 @@
-//! `bum daemon`: host không giao diện; cảnh báo in ra stderr.
+//! `bum daemon`: headless host; warnings are printed to stderr.
 use std::time::Instant;
 
 use bum_core::alerts::{Alert, AlertEngine};
@@ -52,11 +52,11 @@ pub fn run(paths: Paths, cfg: Config) -> anyhow::Result<()> {
     let handler = LogAlerts { alerts: AlertEngine::new(cfg.clone(), chrono::Utc::now()), cfg: cfg.clone(), paths: paths.clone() };
     match start_host(paths, cfg, Box::new(handler)) {
         Ok(h) => {
-            eprintln!("bum: host đang chạy (Ctrl+C để dừng)");
+            eprintln!("bum: host is running (Ctrl+C to stop)");
             h.wait();
             Ok(())
         }
-        Err(StartError::AlreadyRunning) => anyhow::bail!("đã có host khác đang chạy (app hoặc bum daemon)"),
+        Err(StartError::AlreadyRunning) => anyhow::bail!("another host is already running (app or bum daemon)"),
         Err(StartError::Other(e)) => Err(e),
     }
 }

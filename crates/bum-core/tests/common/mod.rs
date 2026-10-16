@@ -22,17 +22,17 @@ pub fn call(rid: &str, pk: &str, ts: &str, model: &str, usage: Usage, tools: &[(
     }
 }
 
-/// Tương đương `tests/fixtures/claude_code/-home-u-proj/s1.jsonl` sau khi parse.
+/// Equivalent to `tests/fixtures/claude_code/-home-u-proj/s1.jsonl` after parsing.
 pub fn main_events() -> Vec<RawEvent> {
     vec![
         RawEvent::Session { session_id: "s1".into(), tool: "claude_code".into(), project: "TICKET-101".into(), cwd: Some("/home/u/proj/TICKET-101".into()), version: Some("2.1.247".into()), ts: "2026-09-11T04:28:23.938Z".into() },
-        RawEvent::Prompt { key: "p1".into(), session_id: "s1".into(), ts: "2026-09-11T04:28:23.938Z".into(), text: "giờ bạn cập nhật tiến độ nhé".into() },
+        RawEvent::Prompt { key: "p1".into(), session_id: "s1".into(), ts: "2026-09-11T04:28:23.938Z".into(), text: "update the progress now, ok?".into() },
         call("req_A", "p1", "2026-09-11T04:28:41.000Z", "claude-opus-5", u(2, 100, 1000, 50), &[], false),
         RawEvent::Skill { prompt_key: Some("p1".into()), session_id: "s1".into(), ts: "2026-09-11T04:28:42.000Z".into(), skill: "pj-review".into(), kind: SkillKind::Direct },
         RawEvent::Skill { prompt_key: Some("p1".into()), session_id: "s1".into(), ts: "2026-09-11T04:28:42.000Z".into(), skill: "pj-review".into(), kind: SkillKind::Direct },
         call("req_A", "p1", "2026-09-11T04:28:42.000Z", "claude-opus-5", u(2, 100, 1000, 50), &[("tu_1", "Skill")], false),
         call("req_B", "p1", "2026-09-11T04:29:01.000Z", "claude-opus-5", u(1, 10, 1100, 20), &[("tu_2", "Bash")], false),
-        RawEvent::Prompt { key: "p2".into(), session_id: "s1".into(), ts: "2026-09-11T04:35:00.000Z".into(), text: "tức là ntn ?".into() },
+        RawEvent::Prompt { key: "p2".into(), session_id: "s1".into(), ts: "2026-09-11T04:35:00.000Z".into(), text: "what does that mean?".into() },
         call("req_C", "p2", "2026-09-11T04:35:05.000Z", "claude-opus-5", u(1, 0, 1200, 5), &[], false),
         RawEvent::Interrupted { prompt_key: Some("p2".into()), session_id: "s1".into(), ts: "2026-09-11T04:35:10.000Z".into() },
         RawEvent::Skill { prompt_key: Some("p3".into()), session_id: "s1".into(), ts: "2026-09-11T04:36:00.000Z".into(), skill: "/model".into(), kind: SkillKind::Command },

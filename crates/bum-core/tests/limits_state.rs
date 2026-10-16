@@ -25,6 +25,6 @@ fn stale_data_is_grey_not_an_alarm_color() {
     let st = state(Some(f), None, now);
     assert!(st.stale);
     assert_eq!(st.level(), Level::Grey);
-    // Đang bị chặn thì vẫn đỏ dù dữ liệu % đã cũ
+    // While blocked it stays red even if the % data is stale
     assert_eq!(state(None, Some(("five_hour".into(), now + 60)), now).level(), Level::Red);
 }

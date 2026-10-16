@@ -12,7 +12,7 @@ pub fn listen(name: Name<'static>) -> io::Result<interprocess::local_socket::Lis
     ListenerOptions::new().name(name).create_sync()
 }
 
-/// Mỗi kết nối một thread; dừng khi `stop` bật (người dừng phải "chọc" socket một lần).
+/// One thread per connection; stops when `stop` is set (the stopper must "nudge" the socket once).
 pub fn serve(listener: interprocess::local_socket::Listener, handler: Handler, stop: Arc<AtomicBool>) {
     for conn in listener.incoming() {
         if stop.load(Ordering::SeqCst) {

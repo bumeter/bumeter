@@ -1,7 +1,7 @@
-//! Giới hạn 5h/7d: dữ liệu từ statusline (`limits.json`) và sự kiện 429 (spec mục 7.1).
+//! 5h/7d limits: data from the statusline (`limits.json`) and 429 events (spec section 7.1).
 use serde::{Deserialize, Serialize};
 
-/// Dữ liệu cũ hơn ngưỡng này thì không báo động.
+/// Data older than this threshold does not raise an alert.
 pub const STALE_SECS: i64 = 600;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -23,7 +23,7 @@ pub enum Level {
     Green,
     Yellow,
     Red,
-    /// Dữ liệu % đã cũ: không tô màu báo động (spec mục 7.1).
+    /// Stale % data: not colored as an alert (spec section 7.1).
     Grey,
 }
 
@@ -42,7 +42,7 @@ pub struct LimitState {
     pub blocked: Option<Blocked>,
 }
 
-/// Cửa sổ đã qua giờ reset thì coi như 0%.
+/// A window past its reset time is treated as 0%.
 fn live(w: Option<Window>, now: i64) -> Option<Window> {
     w.map(|w| if w.resets_at <= now { Window { used_percentage: 0.0, ..w } } else { w })
 }
@@ -82,7 +82,7 @@ fn window_from(v: &serde_json::Value) -> Option<Window> {
     Some(Window { used_percentage: v["used_percentage"].as_f64()?, resets_at: v["resets_at"].as_i64()? })
 }
 
-/// Đọc `rate_limits` từ JSON mà Claude Code truyền vào statusline.
+/// Read `rate_limits` from the JSON that Claude Code passes to the statusline.
 pub fn from_statusline(input: &serde_json::Value, now: i64) -> Option<LimitsFile> {
     let rl = input.get("rate_limits")?;
     let five_hour = window_from(&rl["five_hour"]);
@@ -90,7 +90,7 @@ pub fn from_statusline(input: &serde_json::Value, now: i64) -> Option<LimitsFile
     (five_hour.is_some() || seven_day.is_some()).then_some(LimitsFile { updated_at: now, five_hour, seven_day })
 }
 
-/// Ghi ra file tạm rồi đổi tên, để người đọc không bao giờ thấy file dở.
+/// Write to a temp file then rename, so readers never see a partial file.
 pub fn write_atomic(path: &std::path::Path, f: &LimitsFile) -> std::io::Result<()> {
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, serde_json::to_vec(f)?)?;
@@ -106,7 +106,7 @@ fn hhmm(epoch: i64) -> String {
     chrono::Local.timestamp_opt(epoch, 0).single().map(|t| t.format("%H:%M").to_string()).unwrap_or_default()
 }
 
-/// Dòng trạng thái gọn cho statusline / tooltip tray.
+/// Compact status line for the statusline / tray tooltip.
 pub fn render_line(st: &LimitState, today_total: Option<u64>, lang: crate::i18n::Lang) -> String {
     let dot = match st.level() {
         Level::Green => "🟢",

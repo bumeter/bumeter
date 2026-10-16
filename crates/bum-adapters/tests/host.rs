@@ -25,7 +25,7 @@ impl HostHandler for Forward {
     }
 }
 
-const NEW_PROMPT: &str = r#"{"type":"user","sessionId":"s1","promptId":"p9","isSidechain":false,"timestamp":"2026-09-11T05:00:00.000Z","message":{"role":"user","content":"câu hỏi mới"}}"#;
+const NEW_PROMPT: &str = r#"{"type":"user","sessionId":"s1","promptId":"p9","isSidechain":false,"timestamp":"2026-09-11T05:00:00.000Z","message":{"role":"user","content":"new question"}}"#;
 
 fn copy_dir(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
@@ -72,11 +72,11 @@ fn appended_line_and_limits_change_reach_the_handler() {
     let mut f = std::fs::OpenOptions::new().append(true).open(root.join("-home-u-proj/s1.jsonl")).unwrap();
     writeln!(f, "{NEW_PROMPT}").unwrap();
     let latency = wait_for(&seen_rx, |s| matches!(s, Seen::Ingest(r) if r.summary.touched_prompts.contains(&"p9".to_string())));
-    println!("độ trễ ghi log → handler: {latency:?}");
-    assert!(latency.is_some(), "không nhận được lần hỏi mới");
+    println!("log write → handler latency: {latency:?}");
+    assert!(latency.is_some(), "did not receive the new prompt");
 
     std::fs::write(&limits, b"{}").unwrap();
-    assert!(wait_for(&seen_rx, |s| matches!(s, Seen::Limits)).is_some(), "không nhận được thay đổi limits");
+    assert!(wait_for(&seen_rx, |s| matches!(s, Seen::Limits)).is_some(), "did not receive the limits change");
 
     tx.send(HostMsg::Shutdown).unwrap();
     host.join().unwrap();

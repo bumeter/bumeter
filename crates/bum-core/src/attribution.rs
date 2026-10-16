@@ -1,4 +1,4 @@
-//! Gán skill cho từng lần hỏi: trực tiếp / làm tiếp / lệnh (spec mục 4.3).
+//! Attribute skills to each turn: direct / continued / command (spec section 4.3).
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
@@ -26,7 +26,7 @@ fn ts(s: &str) -> Option<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(s).ok().map(|t| t.with_timezone(&Utc))
 }
 
-/// `prompts`: (key, ts) của một phiên; `uses`: (prompt_key, skill, kind); `compactions`: ts.
+/// `prompts`: (key, ts) of a session; `uses`: (prompt_key, skill, kind); `compactions`: ts.
 pub fn attribute(
     prompts: &[(String, String)],
     uses: &[(String, String, SkillKind)],

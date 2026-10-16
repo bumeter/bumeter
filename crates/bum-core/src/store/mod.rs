@@ -1,4 +1,4 @@
-//! SQLite: nơi duy nhất lưu dữ liệu đã phân tích (spec mục 4.6, 5).
+//! SQLite: the single place where parsed data is stored (spec sections 4.6, 5).
 mod schema;
 pub mod notes;
 pub mod queries;
@@ -26,7 +26,7 @@ pub struct FileOffset {
     pub ctx_json: String,
 }
 
-/// Những gì một lô sự kiện vừa thay đổi, dùng để quyết định cảnh báo.
+/// What a batch of events just changed, used to decide alerts.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ApplySummary {
     pub touched_prompts: Vec<String>,
@@ -59,12 +59,12 @@ impl Store {
         Self::init(Connection::open_in_memory()?)
     }
 
-    /// Kết nối chỉ đọc cho client (service, lệnh Tauri). Host vẫn là nơi duy nhất ghi.
+    /// Read-only connection for clients (service, Tauri commands). The host is still the only writer.
     pub fn open_readonly(path: &Path) -> rusqlite::Result<Self> {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
         conn.busy_timeout(Duration::from_secs(2))?;
-        // DB do bản cũ tạo (host cũ vẫn đang chạy): nâng schema một lần rồi mở lại chỉ đọc.
-        // Migration chỉ thêm bảng, an toàn khi host khác đang ghi (SQLite tự khóa).
+        // DB created by the old version (old host still running): upgrade the schema once, then reopen read-only.
+        // Migrations only add tables, safe while another host is writing (SQLite locks by itself).
         if schema::version(&conn)? < schema::CURRENT_VERSION {
             drop(conn);
             drop(Self::open(path)?);
@@ -95,7 +95,7 @@ impl Store {
             .optional()
     }
 
-    /// Xóa mọi dữ liệu sinh ra từ một file (khi file bị ghi đè / thay thế).
+    /// Delete all data produced from a file (when the file is overwritten / replaced).
     pub fn purge_file(&mut self, path: &str) -> rusqlite::Result<()> {
         let tx = self.conn.transaction()?;
         for table in ["prompts", "api_calls", "api_call_tools", "skill_uses", "compactions", "session_titles"] {
@@ -105,7 +105,7 @@ impl Store {
         tx.commit()
     }
 
-    /// Ghi một lô sự kiện và offset mới trong cùng một transaction.
+    /// Write a batch of events and the new offset in the same transaction.
     pub fn ingest_batch(&mut self, off: &FileOffset, events: &[RawEvent], parse_errors: u64) -> rusqlite::Result<ApplySummary> {
         let tx = self.conn.transaction()?;
         let mut sum = ApplySummary::default();
@@ -129,7 +129,7 @@ impl Store {
                     push_unique(&mut sum.touched_prompts, key);
                 }
                 RawEvent::ApiCall { request_id, session_id, prompt_key, ts, model, usage, tool_uses, sidechain } => {
-                    // Cùng requestId xuất hiện ở nhiều dòng: giữ giá trị lớn nhất (spec mục 2).
+                    // Same requestId appears on multiple lines: keep the largest value (spec section 2).
                     tx.execute(
                         "INSERT INTO api_calls(request_id, session_id, prompt_key, ts, model, input, cw5, cw1h, cache_read, output, sidechain, source_file)
                          VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
@@ -205,7 +205,7 @@ impl Store {
         Ok(sum)
     }
 
-    /// Trả về `true` nếu `key` chưa từng được gửi (và đánh dấu đã gửi).
+    /// Return `true` if `key` has never been sent (and mark it as sent).
     pub fn alert_once(&mut self, key: &str, ts: &str) -> rusqlite::Result<bool> {
         Ok(self.conn.execute("INSERT OR IGNORE INTO alerts_sent(key, ts) VALUES(?1, ?2)", params![key, ts])? == 1)
     }

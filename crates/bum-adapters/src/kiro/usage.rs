@@ -1,4 +1,4 @@
-//! Hạn mức credit Kiro qua `kiro-cli chat --no-interactive "/usage"` (chạy cục bộ, không gọi model, không tạo phiên).
+//! Kiro credit limits via `kiro-cli chat --no-interactive "/usage"` (runs locally, does not call the model, does not create a session).
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -15,7 +15,7 @@ pub struct KiroUsage {
 
 pub const TIMEOUT: Duration = Duration::from_secs(20);
 
-/// Bỏ mã ANSI (CSI `ESC [ … chữ`, OSC `ESC ] … BEL/ESC \`, và `ESC` + 1 ký tự).
+/// Strip ANSI codes (CSI `ESC [ … letter`, OSC `ESC ] … BEL/ESC \`, and `ESC` + 1 char).
 pub fn strip_ansi(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut it = s.chars().peekable();
@@ -50,7 +50,7 @@ fn num(s: &str) -> Option<f64> {
     v.is_finite().then_some(v)
 }
 
-/// Đọc text `/usage`; thiếu/hỏng phần nào thì `None`.
+/// Parse the `/usage` text; `None` if any part is missing or malformed.
 pub fn parse(raw: &str) -> Option<KiroUsage> {
     let text = strip_ansi(raw);
     let lower = text.to_lowercase();
@@ -74,13 +74,13 @@ pub fn parse(raw: &str) -> Option<KiroUsage> {
     (limit > 0.0 && used >= 0.0).then_some(KiroUsage { used, limit, resets_on, plan })
 }
 
-/// Tìm `kiro-cli` trong PATH.
+/// Find `kiro-cli` in PATH.
 pub fn find_cli() -> Option<PathBuf> {
     let name = if cfg!(windows) { "kiro-cli.exe" } else { "kiro-cli" };
     std::env::split_paths(&std::env::var_os("PATH")?).map(|d| d.join(name)).find(|p| p.is_file())
 }
 
-/// Chạy `bin args…` với hạn giờ; trả `(thoát thành công, stdout + stderr)`. Không chạy được hoặc hết giờ → `None`.
+/// Run `bin args…` with a timeout; returns `(exited successfully, stdout + stderr)`. Cannot run or timed out → `None`.
 fn run_capture(bin: &Path, args: &[&str], timeout: Duration) -> Option<(bool, String)> {
     let mut child = Command::new(bin)
         .args(args)
@@ -92,7 +92,7 @@ fn run_capture(bin: &Path, args: &[&str], timeout: Duration) -> Option<(bool, St
         .ok()?;
     let (mut out, mut err) = (child.stdout.take()?, child.stderr.take()?);
     let (tx, rx) = std::sync::mpsc::channel();
-    // Đọc ở luồng riêng: lệnh treo (hoặc con cháu giữ pipe) thì không chặn người gọi.
+    // Read on a separate thread: a hung command (or descendants holding the pipe) must not block the caller.
     std::thread::spawn(move || {
         use std::io::Read;
         let mut s = String::new();
@@ -114,13 +114,13 @@ fn run_capture(bin: &Path, args: &[&str], timeout: Duration) -> Option<(bool, St
     }
 }
 
-/// Chạy `bin chat --no-interactive /usage`; lỗi, hết giờ hay không đọc được → `None`.
+/// Run `bin chat --no-interactive /usage`; error, timeout, or unreadable output → `None`.
 pub fn run_with(bin: &Path, timeout: Duration) -> Option<KiroUsage> {
     parse(&run_capture(bin, &["chat", "--no-interactive", "/usage"], timeout)?.1)
 }
 
-/// `bin whoami` báo đã đăng nhập (thoát 0, có dòng "Logged in", không có "not logged in").
-/// Chưa đăng nhập thì không hỏi `/usage`: lệnh có thể báo lỗi hoặc đòi đăng nhập.
+/// `bin whoami` reports logged in (exit 0, has a "Logged in" line, and no "not logged in").
+/// If not logged in, do not ask for `/usage`: the command may error or demand a login.
 pub fn logged_in_with(bin: &Path, timeout: Duration) -> bool {
     match run_capture(bin, &["whoami"], timeout) {
         Some((true, text)) => {
@@ -131,7 +131,7 @@ pub fn logged_in_with(bin: &Path, timeout: Duration) -> bool {
     }
 }
 
-/// Hỏi `/usage` chỉ khi đã đăng nhập.
+/// Ask for `/usage` only when logged in.
 pub fn fetch_with(bin: &Path, timeout: Duration) -> Option<KiroUsage> {
     if !logged_in_with(bin, timeout) {
         return None;
@@ -139,7 +139,7 @@ pub fn fetch_with(bin: &Path, timeout: Duration) -> Option<KiroUsage> {
     run_with(bin, timeout)
 }
 
-/// Lấy hạn mức chỉ khi máy có `kiro-cli` và đã đăng nhập; không thì không làm gì.
+/// Fetch limits only when the machine has `kiro-cli` and is logged in; otherwise do nothing.
 pub fn fetch() -> Option<KiroUsage> {
     fetch_with(&find_cli()?, TIMEOUT)
 }

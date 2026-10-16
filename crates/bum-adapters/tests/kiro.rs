@@ -49,14 +49,14 @@ fn engine_reingests_a_rewritten_file_without_double_counting() {
     e.full_scan().unwrap();
     let before = e.store().usage_totals().unwrap().total();
     assert_eq!(before, 125_000 + 500_000 + 20_000);
-    // Kiro ghi đè file (thêm khoảng trắng để đổi kích thước) → đọc lại, không cộng dồn
+    // Kiro overwrites the file (adds whitespace to change its size) → re-read, no double counting
     let p = dir.path().join("k1.json");
     let mut s = std::fs::read_to_string(&p).unwrap();
     s.push(' ');
     std::fs::write(&p, s).unwrap();
     e.ingest_path(&p).unwrap();
     assert_eq!(e.store().usage_totals().unwrap().total(), before);
-    assert!(e.full_scan().unwrap().lines == 0, "không đổi thì không đọc lại");
+    assert!(e.full_scan().unwrap().lines == 0, "no change means no re-read");
 }
 
 #[test]
@@ -75,13 +75,13 @@ fn registry_describes_each_tool_and_its_capabilities() {
     assert_eq!(root, &PathBuf::from("/c"));
     let kiro = &r[1].0;
     assert_eq!((kiro.letter.as_str(), kiro.real_tokens, kiro.composition, kiro.credits, kiro.transcript), ("K", false, false, true, true));
-    // Logo và màu theo thương hiệu; UI tải từ `tool-icons/<icon>`.
+    // Logo and color follow the brand; the UI loads them from `tool-icons/<icon>`.
     assert_eq!((claude.icon.as_deref(), claude.color.as_str()), (Some("claude_code.svg"), "#d77655"));
     assert_eq!((kiro.icon.as_deref(), kiro.color.as_str()), (Some("kiro.svg"), "#9046ff"));
 }
 
-/// Kiro CLI (từ ~06/2026) ghi `session_created_reason: "subagent"` cho cả phiên người dùng chat;
-/// phiên có `.history` (lịch sử gõ) là phiên người dùng.
+/// Kiro CLI (since ~06/2026) writes `session_created_reason: "subagent"` for interactive chat sessions too;
+/// a session with a `.history` (typing history) is a user session.
 #[test]
 fn session_marked_subagent_but_with_history_is_a_user_session() {
     let ev = Kiro::new(root()).parse_file(&root().join("k3.json")).unwrap();
@@ -90,7 +90,7 @@ fn session_marked_subagent_but_with_history_is_a_user_session() {
     assert!(!ev.iter().any(|e| matches!(e, RawEvent::ApiCall { sidechain: true, .. })));
 }
 
-/// DB cũ đã đọc file Kiro bằng parser cũ (mất câu hỏi): mở DB bản mới phải đọc lại, không cộng dồn.
+/// A DB has already read Kiro files with the old parser (losing questions): opening it with the new version must re-read, without double counting.
 #[test]
 fn old_database_rereads_kiro_files_once_without_double_counting() {
     let dir = tempfile::tempdir().unwrap();
@@ -105,7 +105,7 @@ fn old_database_rereads_kiro_files_once_without_double_counting() {
         e.full_scan().unwrap();
         e.store().usage_totals().unwrap().total()
     };
-    // Giả lập trạng thái do parser cũ để lại: có offset, không có câu hỏi, schema v4.
+    // Simulate the state left by the old parser: has an offset, no questions, schema v4.
     rusqlite::Connection::open(&db).unwrap()
         .execute_batch("DELETE FROM prompts; DELETE FROM session_titles; PRAGMA user_version = 4;").unwrap();
 

@@ -1,4 +1,4 @@
-//! Quyết định khi nào gửi thông báo, chống gửi lặp qua bảng `alerts_sent` (spec mục 7.3).
+//! Decide when to send notifications, deduplicating via the `alerts_sent` table (spec section 7.3).
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
@@ -11,10 +11,10 @@ use crate::insight::{anomaly, explain, fmt_tokens, median};
 use crate::limits::LimitState;
 use crate::store::Store;
 
-/// Lần hỏi được coi là xong khi không có lượt gọi mới trong khoảng này
-/// (đủ dài để không cắt ngang một lệnh build/test đang chạy).
+/// A turn is considered finished when there are no new calls within this interval
+/// (long enough not to interrupt a running build/test command).
 const IDLE: Duration = Duration::from_secs(45);
-/// Thông báo "đã reset" chỉ khi giờ reset còn mới.
+/// Only send the "reset" notification when the reset time is still fresh.
 const RESET_FRESH_SECS: i64 = 600;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -98,7 +98,7 @@ fn rfc(t: DateTime<Utc>) -> String {
 }
 
 impl AlertEngine {
-    /// Chỉ dữ liệu phát sinh từ `started_at` mới được thông báo.
+    /// Only data produced at or after `started_at` is notified.
     pub fn new(cfg: Config, started_at: DateTime<Utc>) -> Self {
         Self { cfg, started_at: rfc(started_at), pending: HashMap::new() }
     }
@@ -148,11 +148,11 @@ impl AlertEngine {
                     continue;
                 }
                 let total = stats.usage.total();
-                // Chỉ báo khi tốn hơn hẳn trung vị; context lớn đơn thuần đã có cảnh báo Context riêng.
+                // Only alert when clearly above the median; a merely large context has its own Context alert.
                 let over_median = |a: &crate::insight::Anomaly| a.ratio.is_some_and(|r| r > self.cfg.anomaly_multiplier);
                 if let Some(a) = anomaly(total, stats.context_at_start, med, &self.cfg).filter(over_median) {
                     let explanation = explain(&stats.usage, stats.context_at_start);
-                    // Luôn ghi mốc bất thường (mặt Bum dùng); chỉ việc gửi thông báo phụ thuộc cờ `notify.anomaly`.
+                    // Always record the anomaly marker (used by the Bum face); sending the notification depends on the `notify.anomaly` flag.
                     let alert = Alert::Anomaly { prompt_key: key, text: stats.text, total, ratio: a.ratio, explanation };
                     if store.alert_once(&alert.key(), &rfc(now_utc))? && self.cfg.notify.anomaly {
                         out.push(alert);
@@ -172,7 +172,7 @@ impl AlertEngine {
         Ok(out)
     }
 
-    /// Chỉ báo mốc cao nhất vừa vượt, mỗi mốc một lần cho mỗi chu kỳ reset.
+    /// Only alert for the highest threshold just crossed, once per threshold per reset cycle.
     pub fn on_limits(&mut self, store: &mut Store, st: &LimitState) -> rusqlite::Result<Vec<Alert>> {
         let mut out = Vec::new();
         if st.stale || !self.cfg.notify.quota {

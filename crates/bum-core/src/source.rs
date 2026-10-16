@@ -1,43 +1,43 @@
-//! Hợp đồng giữa lõi và các adapter đọc log.
+//! Contract between the core and the log-reading adapters.
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::model::RawEvent;
 
-/// Trạng thái parse của một file, được lưu cùng offset để đọc tiếp sau khi khởi động lại.
+/// Parse state of a file, saved alongside the offset to resume after a restart.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParseCtx {
     pub current_prompt: Option<String>,
     pub session_emitted: bool,
 }
 
-/// Mô tả một công cụ AI cho UI: nhãn, ký hiệu, màu và những gì log của nó cho phép.
+/// Description of an AI tool for the UI: label, symbol, color, and what its logs support.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceInfo {
     pub id: String,
     pub label: String,
-    /// Một chữ cái hiển thị trong icon/tag.
+    /// A single letter shown in the icon/tag.
     pub letter: String,
-    /// Màu nhận diện (hex), theo màu thương hiệu của công cụ.
+    /// Identity color (hex), following the tool's brand color.
     pub color: String,
-    /// Tên file logo trong `app/ui/public/tool-icons/`; không có thì UI hiện ô chữ cái.
+    /// Logo filename in `app/ui/public/tool-icons/`; if absent, the UI shows a letter box.
     #[serde(default)]
     pub icon: Option<String>,
-    /// Log có số token thật (không chỉ ước lượng).
+    /// Logs have real token counts (not just estimates).
     pub real_tokens: bool,
-    /// Có Phân tích context theo lượt gọi.
+    /// Has per-call context breakdown.
     pub composition: bool,
-    /// Có quota 5 giờ/7 ngày.
+    /// Has 5-hour/7-day quota.
     pub limits: bool,
-    /// Chi phí tính bằng credit.
+    /// Costs are billed in credits.
     pub credits: bool,
-    /// Đọc được nội dung hỏi/đáp từ log.
+    /// Can read question/answer content from the logs.
     pub transcript: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("dòng log không hợp lệ: {0}")]
+#[error("invalid log line: {0}")]
 pub struct LineError(pub String);
 
 pub trait LogSource: Send {
@@ -47,12 +47,12 @@ pub trait LogSource: Send {
     fn accepts(&self, path: &Path) -> bool;
     fn parse_line(&self, path: &Path, ctx: &mut ParseCtx, line: &str) -> Result<Vec<RawEvent>, LineError>;
 
-    /// Nguồn ghi đè cả file mỗi lần (không nối dòng): engine đọc lại toàn bộ bằng `parse_file`.
+    /// Source overwrites the whole file each time (no line appending): the engine re-reads everything via `parse_file`.
     fn whole_file(&self) -> bool {
         false
     }
 
     fn parse_file(&self, _path: &Path) -> Result<Vec<RawEvent>, LineError> {
-        Err(LineError("nguồn này đọc theo dòng".into()))
+        Err(LineError("this source is read line by line".into()))
     }
 }

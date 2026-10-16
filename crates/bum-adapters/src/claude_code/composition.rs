@@ -1,6 +1,6 @@
-//! Phân tích một phiên: ước lượng thành phần context của từng lượt gọi (spec mục 6.1).
-//! Đọc thẳng file log khi mở (không lưu DB). Phần context không có trong log (system prompt,
-//! định nghĩa tool, CLAUDE.md, thinking bị ẩn) = `context` thật − phần đo được → nhóm Hệ thống.
+//! Analyze a session: estimate the context composition of each API call (spec section 6.1).
+//! Reads the log file directly on open (nothing stored in the DB). Context that is not in the log
+//! (system prompt, tool definitions, CLAUDE.md, hidden thinking) = real `context` − measured parts → the System group.
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -25,7 +25,7 @@ pub struct CallPoint {
     pub ts: String,
     pub context: u64,
     pub output: u64,
-    /// Theo thứ tự `ORDER`; tổng đúng bằng `context`.
+    /// In `ORDER` order; the sum equals `context` exactly.
     pub parts: Vec<(Category, u64)>,
 }
 
@@ -36,25 +36,25 @@ pub struct PromptMark { pub call_index: usize, pub key: String, pub text: String
 pub struct SessionAnalysis {
     pub calls: Vec<CallPoint>,
     pub prompts: Vec<PromptMark>,
-    /// Chỉ số lượt gọi đầu tiên sau mỗi lần compact.
+    /// Index of the first call after each compaction.
     pub compactions: Vec<usize>,
     pub suggestions: Vec<Suggestion>,
 }
 
-/// Gợi ý tối ưu dạng mã + tham số; UI tự dịch.
+/// Optimization suggestion as a code + parameters; the UI translates it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "code", rename_all = "snake_case")]
 pub enum Suggestion {
-    /// Một file bị đọc lại nhiều lần.
+    /// A file read repeatedly.
     RepeatedRead { file: String, times: u32, tokens: u64 },
-    /// Output của một tool call quá dài.
+    /// Output of a tool call that is too long.
     LongOutput { label: String, tokens: u64 },
-    /// Skill nạp nhiều token mỗi lần gọi.
+    /// A skill that loads many tokens per call.
     HeavySkill { skill: String, tokens: u64 },
 }
 
 impl Suggestion {
-    /// Câu gợi ý cho CLI (UI tự dịch từ mã).
+    /// Suggestion sentence for the CLI (the UI translates it from the code).
     pub fn text(&self, lang: bum_core::i18n::Lang) -> String {
         use bum_core::i18n::Lang::*;
         use bum_core::insight::fmt_tokens as f;
@@ -97,7 +97,7 @@ fn text_of(v: &Value) -> String {
     }
 }
 
-/// Tổng số ký tự của mọi chuỗi bên trong một giá trị JSON.
+/// Total number of characters of every string inside a JSON value.
 fn string_chars(v: &Value) -> usize {
     match v {
         Value::String(s) => s.chars().count(),
@@ -162,7 +162,7 @@ impl Walk {
         }
         let measured: u64 = sums.values().sum();
         if measured > context && measured > 0 {
-            // Ước lượng vượt số thật: co tỉ lệ, phần dư làm tròn dồn vào nhóm lớn nhất.
+            // Estimate exceeds the real number: scale proportionally, then push the rounding remainder into the largest group.
             let mut scaled: HashMap<Category, u64> = sums.iter().map(|(c, v)| (*c, v * context / measured)).collect();
             let rest = context - scaled.values().sum::<u64>();
             if let Some(big) = sums.iter().max_by_key(|(_, v)| **v).map(|(c, _)| *c) {
@@ -192,14 +192,14 @@ impl Walk {
 
     fn line(&mut self, v: &Value) {
         if v["isSidechain"].as_bool() == Some(true) {
-            return; // subagent có context riêng
+            return; // subagents have their own context
         }
         let ts = v["timestamp"].as_str().unwrap_or_default();
         match v["type"].as_str() {
             Some("attachment") => {
                 let a = &v["attachment"];
                 let kind = a["type"].as_str().unwrap_or("");
-                // Ảnh chụp system prompt lặp lại nhiều lần, không phải nội dung cộng thêm.
+                // The system prompt snapshot repeats many times; it is not additional content.
                 if kind == "prompt_snapshot" {
                     return;
                 }
@@ -213,7 +213,7 @@ impl Walk {
                     return;
                 }
                 let Some(rid) = v["requestId"].as_str().or(msg["id"].as_str()).map(str::to_string) else { return };
-                // Lượt gọi không có `usage` thì không vẽ (tránh điểm tụt về 0 giả).
+                // Skip calls without `usage` (avoids a fake drop to 0).
                 if !msg["usage"].is_object() {
                     return;
                 }
@@ -222,9 +222,9 @@ impl Walk {
                 }
                 for c in msg["content"].as_array().into_iter().flatten() {
                     match c["type"].as_str() {
-                        Some("text") => self.push(Category::Output, "trả lời".into(), c["text"].as_str().unwrap_or("").chars().count()),
+                        Some("text") => self.push(Category::Output, "response".into(), c["text"].as_str().unwrap_or("").chars().count()),
                         Some("thinking") => {
-                            // Nội dung thinking thường bị ẩn, nhưng chữ ký mã hoá vẫn được gửi lại trong context.
+                            // The thinking content is usually hidden, but the encrypted signature is still sent back in the context.
                             let text = c["thinking"].as_str().unwrap_or("");
                             let chars = if text.is_empty() { c["signature"].as_str().unwrap_or("").chars().count() } else { text.chars().count() };
                             self.push(Category::Thinking, "thinking".into(), chars);
@@ -249,7 +249,7 @@ impl Walk {
         if v["isCompactSummary"].as_bool() == Some(true) {
             self.blocks.clear();
             self.compactions.push(self.out.len());
-            self.push(Category::System, "tóm tắt compact".into(), text_of(content).chars().count());
+            self.push(Category::System, "compact summary".into(), text_of(content).chars().count());
             return;
         }
         let results: Vec<&Value> = content.as_array().into_iter().flatten().filter(|c| c["type"] == "tool_result").collect();
@@ -284,7 +284,7 @@ impl Walk {
             if let Some(key) = v["promptId"].as_str() {
                 self.pending_prompt = Some((key.to_string(), text.chars().take(200).collect()));
             }
-            self.push(Category::User, "câu hỏi".into(), text.chars().count());
+            self.push(Category::User, "question".into(), text.chars().count());
         } else {
             self.push(Category::System, "meta".into(), text.chars().count());
         }
@@ -292,7 +292,7 @@ impl Walk {
 }
 
 fn walk(path: &Path, snapshot_for: Option<&str>) -> std::io::Result<Walk> {
-    // Đọc từng dòng dạng byte: một byte UTF-8 hỏng (Claude đang ghi dở) chỉ làm hỏng dòng đó.
+    // Read line by line as bytes: one bad UTF-8 byte (Claude is mid-write) only corrupts that line.
     let bytes = std::fs::read(path)?;
     let text = String::from_utf8_lossy(&bytes);
     let mut w = Walk { snapshot_for: snapshot_for.map(str::to_string), ..Default::default() };
@@ -321,7 +321,7 @@ pub fn analyze_file(path: &Path) -> std::io::Result<SessionAnalysis> {
     Ok(SessionAnalysis { calls: w.out, prompts: w.prompts, compactions: w.compactions, suggestions })
 }
 
-/// Top khối nặng nhất trong context tại lượt gọi `request_id` và các tool call của lượt đó.
+/// Heaviest context blocks at call `request_id` and that call's tool calls.
 pub fn call_detail(path: &Path, request_id: &str) -> Option<CallDetail> {
     let w = walk(path, Some(request_id)).ok()?;
     let top_blocks = w.snapshot?;

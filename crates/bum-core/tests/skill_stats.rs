@@ -13,12 +13,12 @@ fn stats_count_direct_uses_and_include_continued_work_in_tokens() {
     let review = stats.iter().find(|x| x.name == "pj-review").unwrap();
     assert_eq!(review.uses, 1);
     assert_eq!(review.projects, 1);
-    assert_eq!(review.tokens, 2343 + 1206, "gồm cả lần hỏi làm tiếp");
+    assert_eq!(review.tokens, 2343 + 1206, "includes the follow-up prompt");
     assert_eq!(review.avg_tokens, Some(3549));
     assert_eq!(review.last_used.as_deref(), Some("2026-09-11T04:28:23.938Z"));
 
     let model = stats.iter().find(|x| x.name == "/model").unwrap();
-    assert_eq!(model.uses, 1, "slash command không gắn với lần hỏi vẫn được đếm");
+    assert_eq!(model.uses, 1, "slash commands not tied to a prompt are still counted");
     assert_eq!(model.avg_tokens, None);
     assert_eq!(model.last_used.as_deref(), Some("2026-09-11T04:36:00.000Z"));
 }

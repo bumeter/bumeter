@@ -116,7 +116,7 @@ fn active_days_count_local_days_with_prompts() {
     let (a, b) = ("2026-09-11T00:00:00.000Z", "2026-09-12T00:00:00.000Z");
     assert_eq!(s.active_days_between(a, b, 0).unwrap(), 1);
     assert_eq!(s.active_days_between(b, "2026-09-13T00:00:00.000Z", 0).unwrap(), 0);
-    // lệch múi giờ không làm hai lần hỏi cùng ngày tách thành hai ngày
+    // a timezone offset does not split two prompts on the same day into two days
     assert_eq!(s.active_days_between(a, b, 7 * 3600).unwrap(), 1);
 }
 

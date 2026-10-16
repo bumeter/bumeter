@@ -57,7 +57,7 @@ fn partial_line_is_read_only_once_complete() {
     f.write_all(b"\n").unwrap();
     e.ingest_path(&path).unwrap();
     assert_eq!(e.store().usage_totals().unwrap().total(), 3549 + 15);
-    assert_eq!(e.store().parse_errors().unwrap(), 1, "dòng ghi dở không được tính là lỗi");
+    assert_eq!(e.store().parse_errors().unwrap(), 1, "a partially written line must not be counted as an error");
 }
 
 #[test]
@@ -107,12 +107,12 @@ fn deleted_file_is_ignored_and_keeps_data() {
 fn unreadable_file_does_not_stop_the_scan() {
     use std::os::unix::fs::PermissionsExt;
     let (_d, root, mut e) = setup();
-    let bad = root.join("-a-first/x.jsonl"); // sắp xếp trước file fixture
+    let bad = root.join("-a-first/x.jsonl"); // sorts before the fixture file
     std::fs::create_dir_all(bad.parent().unwrap()).unwrap();
     std::fs::write(&bad, b"{}\n").unwrap();
     std::fs::set_permissions(&bad, std::fs::Permissions::from_mode(0o000)).unwrap();
     if std::fs::File::open(&bad).is_ok() {
-        return; // chạy bằng root: không kiểm được
+        return; // running as root: cannot test this
     }
     let report = e.full_scan().unwrap();
     assert_eq!(e.store().usage_totals().unwrap().total(), 3549);

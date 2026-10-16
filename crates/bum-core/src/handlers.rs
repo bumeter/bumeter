@@ -1,4 +1,4 @@
-//! Lớp xử lý dùng chung cho lệnh Tauri và bum-service (spec mục 14.4).
+//! Shared handling layer for Tauri commands and bum-service (spec section 14.4).
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -24,11 +24,11 @@ pub struct PromptRow {
     pub cost_usd: Option<f64>,
     pub starred: bool,
     pub anomalous: bool,
-    /// Tổng token / trung vị 30 ngày.
+    /// Total tokens / 30-day median.
     pub ratio: Option<f64>,
 }
 
-/// `from`/`to`: RFC3339 UTC, `to` không bao gồm.
+/// `from`/`to`: RFC3339 UTC, `to` is exclusive.
 pub fn today_summary(store: &Store, pricing: &Pricing, from: &str, to: &str) -> rusqlite::Result<TodaySummary> {
     let per_model = store.model_usage_between(from, to)?;
     let mut usage = Usage::default();
@@ -64,32 +64,32 @@ pub struct HandlerCtx<'a> {
     pub paths: &'a crate::paths::Paths,
 }
 
-/// Ghi ⭐/📝 qua một kết nối ghi ngắn hạn rồi sao lưu `notes.json`.
+/// Write ⭐/📝 through a short-lived write connection, then back up `notes.json`.
 pub fn set_note(paths: &crate::paths::Paths, key: &str, starred: bool, note: &str, now: chrono::DateTime<chrono::Utc>) -> anyhow::Result<()> {
     let mut store = Store::open(&paths.db())?;
     store.set_note(key, starred, note, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))?;
     crate::store::notes::export_notes(&store, &paths.notes())
 }
 
-/// Đầu ngày: nửa đêm, hoặc giờ hợp lệ đầu tiên nếu nửa đêm không tồn tại (DST lúc 00:00).
+/// Start of day: midnight, or the first valid hour if midnight does not exist (DST at 00:00).
 pub fn start_of_day<Tz: chrono::TimeZone>(
     midnight: chrono::LocalResult<chrono::DateTime<Tz>>,
     one_am: impl FnOnce() -> chrono::LocalResult<chrono::DateTime<Tz>>,
 ) -> chrono::DateTime<Tz> {
     match midnight.earliest() {
         Some(t) => t,
-        None => one_am().earliest().expect("01:00 luôn tồn tại khi 00:00 bị bỏ qua"),
+        None => one_am().earliest().expect("01:00 always exists when 00:00 is skipped"),
     }
 }
 
-/// 0h của ngày `d` theo giờ máy, dạng RFC3339 UTC.
+/// Midnight of day `d` in local time, as RFC3339 UTC.
 pub fn local_date_start(d: chrono::NaiveDate) -> String {
     use chrono::{Local, NaiveTime, SecondsFormat, TimeZone};
     let local = |h| Local.from_local_datetime(&d.and_time(NaiveTime::from_hms_opt(h, 0, 0).unwrap()));
     start_of_day(local(0), || local(1)).with_timezone(&chrono::Utc).to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
-/// Khoảng [0h hôm nay, 0h ngày mai) theo giờ máy, dạng RFC3339 UTC.
+/// Range [midnight today, midnight tomorrow) in local time, as RFC3339 UTC.
 pub fn local_day_bounds(now: chrono::DateTime<chrono::Utc>) -> (String, String) {
     let day = now.with_timezone(&chrono::Local).date_naive();
     (local_date_start(day), local_date_start(day.succ_opt().unwrap_or(day)))
@@ -117,12 +117,12 @@ pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now:
             let filter: PromptFilter = if params.is_null() {
                 PromptFilter::default()
             } else {
-                serde_json::from_value(params.clone()).map_err(|e| format!("bộ lọc không hợp lệ: {e}"))?
+                serde_json::from_value(params.clone()).map_err(|e| format!("invalid filter: {e}"))?
             };
             to_value(list_prompts(ctx.store, ctx.pricing, ctx.cfg, &filter).map(|l| serde_json::to_value(l).unwrap_or_default()))
         }
         "prompt_detail" => {
-            let key = params["key"].as_str().ok_or("thiếu 'key'")?;
+            let key = params["key"].as_str().ok_or("missing 'key'")?;
             to_value(prompt_detail(ctx.store, ctx.pricing, ctx.cfg, key).map(|d| serde_json::to_value(d).unwrap_or_default()))
         }
         "sidebar_counts" => to_value(sidebar_counts(ctx.store, ctx.cfg).map(|c| serde_json::to_value(c).unwrap_or_default())),
@@ -137,24 +137,24 @@ pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now:
             let filter: ConversationFilter = if params.is_null() {
                 ConversationFilter::default()
             } else {
-                serde_json::from_value(params.clone()).map_err(|e| format!("bộ lọc không hợp lệ: {e}"))?
+                serde_json::from_value(params.clone()).map_err(|e| format!("invalid filter: {e}"))?
             };
             let offset = chrono::Local::now().offset().local_minus_utc();
             to_value(list_conversations(ctx.store, ctx.pricing, ctx.cfg, &filter, offset).map(|l| serde_json::to_value(l).unwrap_or_default()))
         }
         "conversation_turns" => {
-            let sid = params["session_id"].as_str().ok_or("thiếu 'session_id'")?;
+            let sid = params["session_id"].as_str().ok_or("missing 'session_id'")?;
             to_value(conversation_turns(ctx.store, ctx.pricing, ctx.cfg, sid).map(|t| serde_json::to_value(t).unwrap_or_default()))
         }
         "latest_anomaly_ts" => to_value(ctx.store.latest_anomaly_ts(params["tool"].as_str()).map(|t| serde_json::json!(t))),
         "skill_stats" => to_value(skill_stats(ctx.store).map(|c| serde_json::to_value(c).unwrap_or_default())),
         "set_note" => {
-            let key = params["key"].as_str().ok_or("thiếu 'key'")?;
+            let key = params["key"].as_str().ok_or("missing 'key'")?;
             let starred = params["starred"].as_bool().unwrap_or(false);
             let note = params["note"].as_str().unwrap_or_default();
             set_note(ctx.paths, key, starred, note, now).map(|_| serde_json::json!(true)).map_err(|e| e.to_string())
         }
-        other => Err(format!("không có lệnh '{other}'")),
+        other => Err(format!("unknown command '{other}'")),
     }
 }
 
@@ -184,7 +184,7 @@ pub struct PromptFilter {
     pub from: Option<String>,
     pub to: Option<String>,
     pub quick: Option<Quick>,
-    /// Chỉ một công cụ (`claude_code`, `kiro`).
+    /// Only one tool (`claude_code`, `kiro`).
     pub tool: Option<String>,
     pub sort: Sort,
     pub limit: Option<u32>,
@@ -219,14 +219,14 @@ pub struct SidebarCounts {
     pub big_context: u64,
     pub interrupted: u64,
     pub starred: u64,
-    /// Số lần hỏi theo từng công cụ (claude_code, kiro, …) để UI lọc và hiển thị.
+    /// Turn counts per tool (claude_code, kiro, …) for the UI to filter and display.
     pub by_tool: HashMap<String, u64>,
 }
 
 const DEFAULT_LIMIT: u32 = 200;
 const MAX_LIMIT: u32 = 1000;
 
-/// Trung vị trong 30 ngày tính ngược từ lần hỏi mới nhất (không phụ thuộc giờ hiện tại).
+/// Median over the 30 days counting back from the most recent turn (independent of the current time).
 fn median_30d(items: &[crate::store::queries::PromptListItem]) -> Option<u64> {
     let newest = items.iter().map(|i| i.stats.ts.as_str()).max()?;
     let newest = chrono::DateTime::parse_from_rfc3339(newest).ok()?;
@@ -292,7 +292,7 @@ pub fn list_prompts(store: &Store, pricing: &Pricing, cfg: &crate::config::Confi
             let project = if f.sort == Sort::Time { r.stats.project.clone() } else { String::new() };
             groups.push(SessionGroup { session_id: group_key, project, first_ts: r.stats.ts.clone(), last_ts: r.stats.ts.clone(), total, prompts, rows: Vec::new() });
         }
-        let g = groups.last_mut().expect("vừa thêm");
+        let g = groups.last_mut().expect("just added");
         if r.stats.ts < g.first_ts { g.first_ts = r.stats.ts.clone(); }
         if r.stats.ts > g.last_ts { g.last_ts = r.stats.ts.clone(); }
         g.rows.push(r);
@@ -324,7 +324,7 @@ pub fn sidebar_counts(store: &Store, cfg: &crate::config::Config) -> rusqlite::R
 pub struct PromptDetail {
     pub row: PromptRow,
     pub calls: Vec<crate::store::queries::CallRow>,
-    /// Tỉ lệ token là đọc lại cache (context cũ).
+    /// Share of tokens that are cache re-reads (old context).
     pub reread_share: f64,
     pub explanation: crate::insight::Explain,
     pub duration_secs: Option<i64>,
@@ -363,10 +363,10 @@ pub fn prompt_detail(store: &Store, pricing: &Pricing, cfg: &crate::config::Conf
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SkillStat {
     pub name: String,
-    /// Số lần gọi trực tiếp (tool Skill / slash command).
+    /// Number of direct invocations (Skill tool / slash command).
     pub uses: u64,
     pub projects: u64,
-    /// Token của các lần hỏi gọi trực tiếp và làm tiếp.
+    /// Tokens of turns that use the skill directly or as a continuation.
     pub tokens: u64,
     pub avg_tokens: Option<u64>,
     pub last_used: Option<String>,
@@ -394,10 +394,10 @@ pub fn skill_stats(store: &Store) -> rusqlite::Result<Vec<SkillStat>> {
             }
         }
     }
-    // Lần dùng không gắn với lần hỏi nào (slash command gõ riêng, ví dụ /model).
+    // Uses not tied to any turn (a standalone slash command, e.g. /model).
     let orphans: Vec<_> = store.all_skill_uses()?.into_iter().filter(|u| !by_key.contains_key(u.0.as_str())).collect();
     for (prompt_key, session_id, ts, skill, kind) in &orphans {
-        // Gõ `/X` để gọi skill X: log ghi cả lệnh lẫn skill cùng promptId → chỉ đếm skill X.
+        // Typing `/X` to invoke skill X: the log records both the command and the skill with the same promptId → count only skill X.
         if *kind == crate::model::SkillKind::Command {
             let bare = skill.trim_start_matches('/');
             if orphans.iter().any(|o| &o.0 == prompt_key && o.4 == crate::model::SkillKind::Direct && o.3 == bare) {
@@ -444,12 +444,12 @@ pub struct ProjectStat {
     pub last_used: String,
 }
 
-/// Tổng hợp theo project/ticket, nhiều token nhất trước (spec mục 6, wireframe màn 5).
+/// Aggregate by project/ticket, most tokens first (spec section 6, screen 5 wireframe).
 pub fn project_stats(store: &Store, pricing: &Pricing) -> rusqlite::Result<Vec<ProjectStat>> {
     project_stats_for(store, pricing, None)
 }
 
-/// Như `project_stats` nhưng chỉ tính một công cụ (phạm vi đang chọn trên UI).
+/// Like `project_stats` but for a single tool (the scope selected in the UI).
 pub fn project_stats_for(store: &Store, pricing: &Pricing, tool: Option<&str>) -> rusqlite::Result<Vec<ProjectStat>> {
     #[derive(Default)]
     struct Acc { sessions: std::collections::HashSet<String>, prompts: u64, tokens: u64, per_model: HashMap<String, Usage>, skills: HashMap<String, u64>, priciest: Option<PriciestPrompt>, last: String }
@@ -503,9 +503,9 @@ pub fn project_stats_for(store: &Store, pricing: &Pricing, tool: Option<&str>) -
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct DayStat {
-    /// `YYYY-MM-DD` theo giờ địa phương.
+    /// `YYYY-MM-DD` in local time.
     pub day: String,
-    /// Khoảng RFC3339 UTC của ngày đó, để lọc danh sách lần hỏi.
+    /// RFC3339 UTC range of that day, for filtering the turn list.
     pub from: String,
     pub to: String,
     pub tokens: u64,
@@ -513,7 +513,7 @@ pub struct DayStat {
     pub cost_usd: f64,
 }
 
-/// Token/lần hỏi/chi phí theo ngày; `offset_secs` = lệch múi giờ so với UTC.
+/// Tokens/turns/cost per day; `offset_secs` = timezone offset from UTC.
 pub fn day_stats(store: &Store, pricing: &Pricing, offset_secs: i32) -> rusqlite::Result<Vec<DayStat>> {
     day_stats_for(store, pricing, offset_secs, None)
 }
@@ -555,13 +555,13 @@ pub fn day_stats_for(store: &Store, pricing: &Pricing, offset_secs: i32, tool: O
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ModelStat {
     pub model: String,
-    /// `claude_code` hoặc `kiro` (model Kiro có tiền tố `kiro:`).
+    /// `claude_code` or `kiro` (Kiro models are prefixed with `kiro:`).
     pub tool: String,
     pub calls: u64,
     pub prompts: u64,
     pub tokens: u64,
     pub output: u64,
-    /// `None` nếu model không có trong bảng giá (ví dụ Kiro tính bằng credit).
+    /// `None` if the model is not in the pricing table (e.g. Kiro is billed in credits).
     pub cost_usd: Option<f64>,
     pub credits: f64,
     pub last_used: String,
@@ -602,10 +602,10 @@ pub fn tool_stats(store: &Store) -> rusqlite::Result<Vec<ToolStat>> {
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct ConversationFilter {
-    /// Tìm trong tiêu đề và nội dung các lượt.
+    /// Search in titles and turn content.
     pub q: Option<String>,
     pub project: Option<String>,
-    /// Hội thoại có dùng ít nhất một model trong danh sách.
+    /// Conversations using at least one model from the list.
     pub models: Vec<String>,
     pub tool: Option<String>,
     pub from: Option<String>,
@@ -626,7 +626,7 @@ pub struct Conversation {
     pub tokens: u64,
     pub credits: f64,
     pub models: Vec<String>,
-    /// Context lớn nhất lúc bắt đầu một lượt.
+    /// Largest context at the start of a turn.
     pub peak_context: u64,
     pub interrupted: u32,
     pub anomalous: u32,
@@ -635,7 +635,7 @@ pub struct Conversation {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ConversationDay {
-    /// `YYYY-MM-DD` theo giờ địa phương, tính theo lượt cuối của hội thoại.
+    /// `YYYY-MM-DD` in local time, based on the conversation's last turn.
     pub day: String,
     pub tokens: u64,
     pub conversations: Vec<Conversation>,
@@ -673,8 +673,8 @@ fn turn_rows(store: &Store, cfg: &crate::config::Config, items: Vec<crate::store
         .collect())
 }
 
-/// Hội thoại (phiên) gom theo ngày, mới nhất trước. Số liệu luôn là của cả hội thoại;
-/// bộ lọc chỉ quyết định hội thoại nào được hiện.
+/// Conversations (sessions) grouped by day, newest first. The figures always cover the whole conversation;
+/// the filter only decides which conversations are shown.
 pub fn list_conversations(
     store: &Store,
     _pricing: &Pricing,
@@ -689,7 +689,7 @@ pub fn list_conversations(
     let titles = store.session_titles()?;
     let q = f.q.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(str::to_lowercase);
 
-    // Giữ thứ tự xuất hiện đầu tiên (items đã sắp mới → cũ).
+    // Preserve first-appearance order (items are already sorted newest → oldest).
     let mut order: Vec<String> = Vec::new();
     let mut by_session: HashMap<String, Vec<crate::store::queries::PromptListItem>> = HashMap::new();
     for it in items {
@@ -707,7 +707,7 @@ pub fn list_conversations(
         if !turns.iter().any(|t| in_range(&t.stats.ts)) {
             continue;
         }
-        let first = turns.last().expect("không rỗng");
+        let first = turns.last().expect("not empty");
         let title = titles.get(&sid).cloned().unwrap_or_else(|| fallback_title(&first.stats.text));
         if let Some(q) = &q {
             let hit = title.to_lowercase().contains(q.as_str()) || turns.iter().any(|t| t.stats.text.to_lowercase().contains(q.as_str()));
@@ -766,7 +766,7 @@ pub fn list_conversations(
         if days.last().is_none_or(|d| d.day != day) {
             days.push(ConversationDay { day, tokens: 0, conversations: Vec::new() });
         }
-        let d = days.last_mut().expect("vừa thêm");
+        let d = days.last_mut().expect("just added");
         d.tokens += c.tokens;
         d.conversations.push(c);
     }
@@ -779,7 +779,7 @@ pub struct ConversationTurns {
     pub turns: Vec<PromptRow>,
 }
 
-/// Tiêu đề và các lượt của một hội thoại, theo thứ tự thời gian.
+/// The title and turns of a conversation, in chronological order.
 pub fn conversation_turns(store: &Store, pricing: &Pricing, cfg: &crate::config::Config, session_id: &str) -> rusqlite::Result<ConversationTurns> {
     let all = store.prompt_items(None, None, None, None)?;
     let median = median_30d(&all);

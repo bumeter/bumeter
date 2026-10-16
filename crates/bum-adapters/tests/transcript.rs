@@ -9,7 +9,7 @@ fn fixture(p: &str) -> PathBuf {
 #[test]
 fn claude_transcript_pairs_questions_answers_and_tools() {
     let t = bum_adapters::claude_code::transcript::read(&fixture("claude_code/-home-u-proj/s1.jsonl")).unwrap();
-    assert_eq!(t.iter().map(|x| x.key.as_str()).collect::<Vec<_>>(), vec!["p1", "p2"], "lệnh /model, tóm tắt compact và meta không phải lượt");
+    assert_eq!(t.iter().map(|x| x.key.as_str()).collect::<Vec<_>>(), vec!["p1", "p2"], "the /model command, the compact summary, and meta are not turns");
     assert_eq!(t[0].question, "giờ bạn cập nhật tiến độ nhé");
     assert_eq!(t[0].items[0], TranscriptItem::Text { text: "ok".into() });
     assert_eq!(t[0].items[1], TranscriptItem::Tool { id: "tu_1".into(), name: "Skill".into(), input: "pj-review".into(), output: Some("loaded".into()), error: false });
@@ -30,7 +30,7 @@ fn kiro_transcript_uses_prompt_keys_of_the_parser() {
 
 #[test]
 fn clip_and_tool_summary() {
-    assert_eq!(clip("tiến độ", 4), "tiến…");
+    assert_eq!(clip("progress", 4), "prog…");
     assert_eq!(clip("abc", 3), "abc");
     assert_eq!(tool_input_summary(&serde_json::json!({"file_path": "/a/b.rs", "x": 1})), "/a/b.rs");
     assert_eq!(tool_input_summary(&serde_json::json!({})), "");

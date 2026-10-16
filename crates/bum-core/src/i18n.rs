@@ -1,4 +1,4 @@
-//! Ngôn ngữ cho các chuỗi backend tự sinh (thông báo, tray, statusline). UI tự dịch trong `i18n.ts`.
+//! Language for backend-generated strings (notifications, tray, statusline). The UI translates on its own in `i18n.ts`.
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

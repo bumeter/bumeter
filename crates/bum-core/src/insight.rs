@@ -1,4 +1,4 @@
-//! Đánh giá lần hỏi: bất thường hay không, và vì sao tốn (spec mục 4.4).
+//! Evaluate a turn: whether it is anomalous, and why it was costly (spec section 4.4).
 use serde::Serialize;
 
 use crate::config::Config;
@@ -25,14 +25,14 @@ pub fn anomaly(total: u64, context_at_start: u64, median: Option<u64>, cfg: &Con
     (over || big_context).then_some(Anomaly { ratio, big_context })
 }
 
-/// "Vì sao tốn" dạng mã + tham số; UI tự dịch, thông báo dùng `text()`.
+/// "Why costly" as a code plus parameters; the UI translates it, notifications use `text()`.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(tag = "code", rename_all = "snake_case")]
 pub enum Explain {
     None,
-    /// Phần lớn token là đọc lại context cũ.
+    /// Most tokens are re-reads of old context.
     Reread { pct: f64, context: u64 },
-    /// Phần lớn token là output.
+    /// Most tokens are output.
     Output,
     Context { context: u64 },
 }

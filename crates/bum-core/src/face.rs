@@ -1,5 +1,5 @@
-//! Chọn biểu cảm Bum cho icon tray (spec 3.4). Phải khớp từng ca với `bumStateFor`
-//! trong `app/ui/src/components/bum.ts`.
+//! Choose the Bum expression for the tray icon (spec 3.4). Each case must match `bumStateFor`
+//! in `app/ui/src/components/bum.ts`.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Face {
@@ -12,15 +12,15 @@ pub enum Face {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FaceInput {
-    /// Dữ liệu quota đã cũ.
+    /// Quota data is stale.
     pub stale: bool,
-    /// Số phút kể từ lượt hội thoại gần nhất; None nếu chưa từng có.
+    /// Minutes since the last conversation turn; None if there never was one.
     pub minutes_since_last_turn: Option<i64>,
-    /// % quota 5 giờ; None nếu không có.
+    /// 5-hour quota %; None if unavailable.
     pub quota_pct: Option<f64>,
-    /// (ngưỡng cảnh báo, ngưỡng nguy hiểm).
+    /// (warning threshold, danger threshold).
     pub thresholds: (u8, u8),
-    /// Số phút kể từ lượt tốn bất thường gần nhất.
+    /// Minutes since the most recent unusually costly turn.
     pub minutes_since_anomaly: Option<i64>,
     pub today_tokens: u64,
     pub avg_daily_tokens: Option<u64>,
@@ -29,7 +29,7 @@ pub struct FaceInput {
 const STALE_NO_TURN_MINUTES: i64 = 30;
 const ANOMALY_RECENT_MINUTES: i64 = 10;
 
-/// Thứ tự ưu tiên: sleep → blaze → worry → happy → calm.
+/// Priority order: sleep → blaze → worry → happy → calm.
 pub fn face_for(i: &FaceInput) -> Face {
     let no_turn_recently = i.minutes_since_last_turn.is_none_or(|m| m >= STALE_NO_TURN_MINUTES);
     let no_data_at_all = i.minutes_since_last_turn.is_none() && i.quota_pct.is_none() && i.today_tokens == 0;

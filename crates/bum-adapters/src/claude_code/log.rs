@@ -1,4 +1,4 @@
-//! Chuyển một dòng `.jsonl` của Claude Code thành `RawEvent` (spec mục 2, 4.1).
+//! Turn a Claude Code `.jsonl` line into `RawEvent`s (spec sections 2, 4.1).
 use std::path::Path;
 
 use serde_json::Value;
@@ -14,7 +14,7 @@ pub fn parse_line(root: &Path, path: &Path, ctx: &mut ParseCtx, line: &str) -> R
     let mut out = Vec::new();
 
     let Some(session_id) = v["sessionId"].as_str() else { return Ok(out) };
-    // `ai-title` không có timestamp: xử lý trước bước kiểm tra thời gian.
+    // `ai-title` has no timestamp: handle it before the time check.
     if v["type"] == "ai-title" {
         if let Some(title) = v["aiTitle"].as_str().filter(|t| !t.trim().is_empty()) {
             out.push(RawEvent::Title { session_id: session_id.into(), title: title.chars().take(200).collect() });
@@ -40,7 +40,7 @@ pub fn parse_line(root: &Path, path: &Path, ctx: &mut ParseCtx, line: &str) -> R
         ctx.session_emitted = true;
     }
 
-    // Dòng user nào cũng mang promptId của lượt hỏi; dòng assistant thì không.
+    // Every user line carries the promptId of its turn; assistant lines do not.
     let previous_prompt = ctx.current_prompt.clone();
     if let Some(pk) = v["promptId"].as_str() {
         ctx.current_prompt = Some(pk.to_string());
@@ -191,7 +191,7 @@ pub(super) fn command_name(text: &str) -> Option<String> {
     (!name.is_empty()).then(|| if name.starts_with('/') { name.to_string() } else { format!("/{name}") })
 }
 
-/// Tên project: thư mục cuối của `cwd`, không có thì tên thư mục ngay dưới root.
+/// Project name: the last directory component of `cwd`; otherwise the directory directly under root.
 fn project_label(root: &Path, path: &Path, cwd: Option<&str>) -> String {
     if let Some(name) = cwd.and_then(|c| Path::new(c).file_name()).and_then(|n| n.to_str()) {
         return name.to_string();

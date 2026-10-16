@@ -50,7 +50,7 @@ fn language_defaults_to_vietnamese_and_round_trips() {
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("config.toml");
     std::fs::write(&p, "anomaly_multiplier = 4.0\n").unwrap();
-    assert_eq!(Config::load(&p).language, Lang::Vi, "config cũ không có language");
+    assert_eq!(Config::load(&p).language, Lang::Vi, "old config has no language");
     let cfg = Config { language: Lang::En, ..Config::default() };
     cfg.save(&p).unwrap();
     assert!(std::fs::read_to_string(&p).unwrap().contains("language = \"en\""));
@@ -73,7 +73,7 @@ fn theme_defaults_to_system_and_round_trips() {
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("config.toml");
     std::fs::write(&p, "anomaly_multiplier = 4.0\n").unwrap();
-    assert_eq!(Config::load(&p).theme, Theme::System, "config cũ không có theme");
+    assert_eq!(Config::load(&p).theme, Theme::System, "old config has no theme");
     let cfg = Config { theme: Theme::Dark, ..Config::default() };
     cfg.save(&p).unwrap();
     assert!(std::fs::read_to_string(&p).unwrap().contains("theme = \"dark\""));

@@ -1,4 +1,4 @@
-//! Truy vấn đọc.
+//! Read queries.
 use rusqlite::{params, OptionalExtension, Row};
 use serde::Serialize;
 
@@ -8,11 +8,11 @@ use crate::model::{SkillKind, Usage};
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PromptStats {
     pub key: String,
-    /// Công cụ AI: `claude_code`, `kiro`…
+    /// AI tool: `claude_code`, `kiro`…
     pub tool: String,
-    /// Credit (công cụ tính phí theo credit, ví dụ Kiro).
+    /// Credits (tools billed in credits, e.g. Kiro).
     pub credits: f64,
-    /// Các model đã dùng trong lần hỏi.
+    /// Models used in the turn.
     pub models: Vec<String>,
     pub session_id: String,
     pub project: String,
@@ -31,7 +31,7 @@ fn split_models(s: &str) -> Vec<String> {
 
 const USAGE_SUMS: &str = "COALESCE(SUM(input),0), COALESCE(SUM(cw5),0), COALESCE(SUM(cw1h),0), COALESCE(SUM(cache_read),0), COALESCE(SUM(output),0)";
 
-/// SQLite chỉ có số nguyên có dấu; token luôn không âm.
+/// SQLite only has signed integers; tokens are always non-negative.
 pub(crate) fn u64_at(r: &Row, i: usize) -> rusqlite::Result<u64> {
     Ok(r.get::<_, i64>(i)?.max(0) as u64)
 }
@@ -74,7 +74,7 @@ impl Store {
         Ok(Some(PromptStats { key, tool, credits, models, session_id, project, ts, text, interrupted, usage, api_calls, context_at_start, last_call_ts }))
     }
 
-    /// Token theo model cho các lượt gọi thỏa `where_sql` (dùng để tính tiền).
+    /// Tokens per model for calls matching `where_sql` (used for costing).
     fn model_usage(&self, where_sql: &str, args: &[&dyn rusqlite::ToSql]) -> rusqlite::Result<Vec<(String, Usage)>> {
         let mut st = self.conn().prepare(&format!("SELECT model, {USAGE_SUMS} FROM api_calls WHERE {where_sql} GROUP BY model"))?;
         let rows = st.query_map(args, |r| Ok((r.get(0)?, usage_at(r, 1)?)))?;
@@ -93,18 +93,18 @@ impl Store {
         self.conn().query_row("SELECT COUNT(*) FROM prompts WHERE ts >= ?1 AND ts < ?2", params![from, to], |r| u64_at(r, 0))
     }
 
-    /// `ts` của lần hỏi mới nhất, None nếu chưa có.
+    /// `ts` of the most recent turn, None if none yet.
     pub fn latest_prompt_ts(&self) -> rusqlite::Result<Option<String>> {
         self.conn().query_row("SELECT MAX(ts) FROM prompts", [], |r| r.get(0))
     }
 
-    /// `ts` mới nhất trong `alerts_sent` của các key bắt đầu bằng `prefix`.
+    /// Most recent `ts` in `alerts_sent` among keys starting with `prefix`.
     pub fn latest_alert_ts(&self, prefix: &str) -> rusqlite::Result<Option<String>> {
         self.conn().query_row("SELECT MAX(ts) FROM alerts_sent WHERE substr(key, 1, length(?1)) = ?1", [prefix], |r| r.get(0))
     }
 
-    /// Mốc bất thường mới nhất (`ts` của key `anomaly:<prompt_key>` trong `alerts_sent`), lọc theo công cụ nếu có.
-    /// Nguồn chung cho mặt Bum ở tray và UI (spec 3.4).
+    /// Most recent anomaly marker (`ts` of the `anomaly:<prompt_key>` key in `alerts_sent`), filtered by tool if given.
+    /// Shared source for the Bum face in the tray and UI (spec 3.4).
     pub fn latest_anomaly_ts(&self, tool: Option<&str>) -> rusqlite::Result<Option<String>> {
         self.conn().query_row(
             "SELECT MAX(a.ts) FROM alerts_sent a
@@ -116,7 +116,7 @@ impl Store {
         )
     }
 
-    /// Số ngày (theo múi giờ lệch `offset_secs`) có ít nhất một lần hỏi trong [from, to).
+    /// Number of days (in the timezone offset by `offset_secs`) with at least one turn in [from, to).
     pub fn active_days_between(&self, from: &str, to: &str, offset_secs: i32) -> rusqlite::Result<u64> {
         let off = format!("{offset_secs} seconds");
         self.conn().query_row(
@@ -132,7 +132,7 @@ impl Store {
         rows.collect()
     }
 
-    /// Tổng token của từng lần hỏi từ `since` (để tính trung vị).
+    /// Total tokens per turn since `since` (to compute the median).
     pub fn prompt_totals_since(&self, since: &str) -> rusqlite::Result<Vec<u64>> {
         let mut st = self.conn().prepare(
             "SELECT COALESCE(SUM(a.input + a.cw5 + a.cw1h + a.cache_read + a.output), 0)
@@ -142,7 +142,7 @@ impl Store {
         rows.collect()
     }
 
-    /// Context hiện tại của phiên = context của lượt gọi chính (không phải subagent) mới nhất.
+    /// Current session context = context of the most recent main call (not a subagent).
     pub fn session_current_context(&self, session_id: &str) -> rusqlite::Result<Option<(u64, String)>> {
         self.conn().query_row(
             "SELECT input + cw5 + cw1h + cache_read, ts FROM api_calls WHERE session_id = ?1 AND sidechain = 0 ORDER BY ts DESC LIMIT 1",
@@ -163,7 +163,7 @@ impl Store {
         ).optional()
     }
 
-    /// Các lần hỏi của phiên theo thời gian.
+    /// A session's turns in chronological order.
     pub fn session_prompts(&self, session_id: &str) -> rusqlite::Result<Vec<(String, String)>> {
         let mut st = self.conn().prepare("SELECT key, ts FROM prompts WHERE session_id = ?1 ORDER BY ts")?;
         let rows = st.query_map([session_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
@@ -183,7 +183,7 @@ impl Store {
     }
 }
 
-/// Một dòng cho danh sách: số liệu lần hỏi + ⭐.
+/// One row for the list: turn stats + ⭐.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PromptListItem {
     pub stats: PromptStats,
@@ -196,7 +196,7 @@ fn like_pattern(q: &str) -> String {
 }
 
 impl Store {
-    /// Mọi lần hỏi thỏa điều kiện SQL (tìm kiếm, project, thời gian), mới nhất trước.
+    /// Every turn matching the SQL conditions (search, project, time), newest first.
     pub fn prompt_items(&self, q: Option<&str>, project: Option<&str>, from: Option<&str>, to: Option<&str>) -> rusqlite::Result<Vec<PromptListItem>> {
         self.prompt_items_for(q, project, from, to, None)
     }
@@ -270,7 +270,7 @@ pub struct CallRow {
 }
 
 impl Store {
-    /// Các lượt gọi API của một lần hỏi theo thời gian, kèm tên tool.
+    /// A turn's API calls in chronological order, with tool names.
     pub fn prompt_calls(&self, key: &str) -> rusqlite::Result<Vec<CallRow>> {
         let mut st = self.conn().prepare(
             "SELECT a.request_id, a.ts, a.model, a.input, a.cw5, a.cw1h, a.cache_read, a.output, a.sidechain,
@@ -296,7 +296,7 @@ impl Store {
 }
 
 impl Store {
-    /// Mọi lần dùng skill: (prompt_key, session_id, ts, skill, kind).
+    /// Every skill use: (prompt_key, session_id, ts, skill, kind).
     pub fn all_skill_uses(&self) -> rusqlite::Result<Vec<(String, String, String, String, SkillKind)>> {
         let mut st = self.conn().prepare("SELECT prompt_key, session_id, ts, skill, kind FROM skill_uses ORDER BY ts")?;
         let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, String>(4)?)))?;
@@ -305,7 +305,7 @@ impl Store {
 }
 
 impl Store {
-    /// File log chính của phiên (nơi có lần hỏi của người dùng, không phải file subagent).
+    /// The session's main log file (the one containing the user's turns, not a subagent file).
     pub fn session_file(&self, session_id: &str) -> rusqlite::Result<Option<String>> {
         self.conn()
             .query_row("SELECT source_file FROM prompts WHERE session_id = ?1 ORDER BY ts LIMIT 1", [session_id], |r| r.get(0))
@@ -314,7 +314,7 @@ impl Store {
 }
 
 impl Store {
-    /// Mọi lượt gọi: (ts, model, usage, session_id).
+    /// Every call: (ts, model, usage, session_id).
     pub fn calls_brief(&self) -> rusqlite::Result<Vec<(String, String, Usage, String)>> {
         let mut st = self.conn().prepare("SELECT ts, model, input, cw5, cw1h, cache_read, output, session_id FROM api_calls")?;
         let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, usage_at(r, 2)?, r.get(7)?)))?;
@@ -328,7 +328,7 @@ impl Store {
     }
 }
 
-/// Một dòng thống kê theo model.
+/// One per-model statistics row.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelRow {
     pub model: String,
@@ -356,7 +356,7 @@ impl Store {
 }
 
 impl Store {
-    /// (tool, số hội thoại có lượt hỏi, số lượt, lần hoạt động cuối).
+    /// (tool, number of conversations with turns, number of turns, last activity).
     pub fn tool_rows(&self) -> rusqlite::Result<Vec<(String, u64, u64, Option<String>)>> {
         let mut st = self.conn().prepare(
             "SELECT s.tool, COUNT(DISTINCT p.session_id), COUNT(p.key), MAX(p.ts) FROM sessions s LEFT JOIN prompts p ON p.session_id = s.id GROUP BY s.tool",
@@ -367,7 +367,7 @@ impl Store {
 }
 
 impl Store {
-    /// Toàn bộ tiêu đề hội thoại: session_id → tiêu đề.
+    /// All conversation titles: session_id → title.
     pub fn session_titles(&self) -> rusqlite::Result<std::collections::HashMap<String, String>> {
         let mut st = self.conn().prepare("SELECT session_id, title FROM session_titles")?;
         let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
@@ -382,7 +382,7 @@ impl Store {
 }
 
 impl Store {
-    /// session_id → công cụ.
+    /// session_id → tool.
     pub fn session_tools(&self) -> rusqlite::Result<std::collections::HashMap<String, String>> {
         let mut st = self.conn().prepare("SELECT id, tool FROM sessions")?;
         let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
@@ -390,7 +390,7 @@ impl Store {
     }
 }
 
-/// Hoạt động của một công cụ trong một khoảng thời gian.
+/// A tool's activity over a time range.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct ToolActivity {
     pub tool: String,
@@ -400,7 +400,7 @@ pub struct ToolActivity {
 }
 
 impl Store {
-    /// Tổng credit của công cụ `tool` trong [from, to).
+    /// Total credits for tool `tool` in [from, to).
     pub fn tool_credits_between(&self, tool: &str, from: &str, to: &str) -> rusqlite::Result<f64> {
         self.conn().query_row(
             "SELECT COALESCE(SUM(a.credits), 0) FROM api_calls a JOIN sessions s ON s.id = a.session_id
@@ -410,7 +410,7 @@ impl Store {
         )
     }
 
-    /// Token, credit, số lượt hỏi theo công cụ trong [from, to); công cụ không có hoạt động thì không có dòng.
+    /// Tokens, credits, and turn counts per tool in [from, to); a tool with no activity has no row.
     pub fn tool_activity_between(&self, from: &str, to: &str) -> rusqlite::Result<Vec<ToolActivity>> {
         let mut out: Vec<ToolActivity> = Vec::new();
         let mut st = self.conn().prepare(&format!(

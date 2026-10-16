@@ -1,4 +1,4 @@
-//! Vị trí file của app. `BUM_DATA_DIR` (hoặc `TK_DATA_DIR` cũ) ghi đè (dùng cho test).
+//! App file locations. `BUM_DATA_DIR` (or the legacy `TK_DATA_DIR`) overrides them (used for tests).
 use std::ffi::OsString;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -8,26 +8,26 @@ const MAX_SOCKET_PATH: usize = 100;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Paths {
     pub data_dir: PathBuf,
-    /// Đang dùng thư mục `thongke` cũ (không chuyển được): giữ tên file cũ để app vẫn chạy.
+    /// The legacy `thongke` directory is in use (migration failed): keep the old filenames so the app still runs.
     legacy: bool,
 }
 
 const NEW_DIR: &str = "bumeter";
 const OLD_DIR: &str = "thongke";
 
-/// Kết quả chuyển dữ liệu `thongke` → `bumeter`.
+/// Result of migrating data from `thongke` → `bumeter`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MigrateOutcome {
     AlreadyNew,
     Moved,
     NothingToMove,
-    /// Không đổi tên được thư mục cũ (lý do kèm theo): tiếp tục dùng thư mục cũ.
+    /// The legacy directory could not be renamed (reason attached): keep using the legacy directory.
     KeptLegacy(String),
 }
 
-/// Chuyển `base/thongke` → `base/bumeter` một lần. Không bao giờ đụng thư mục cũ nếu đã có thư mục mới.
-/// Đổi tên thư mục giữ nguyên fd đang mở (app cũ còn chạy), nên không làm hỏng DB.
-/// Nếu lần trước bị gián đoạn (thư mục đã đổi, file db chưa) thì hoàn tất ở lần gọi này.
+/// Migrate `base/thongke` → `base/bumeter` once. Never touch the legacy directory if the new one already exists.
+/// Renaming the directory preserves open fds (an old app may still be running), so it does not corrupt the DB.
+/// If the previous attempt was interrupted (directory renamed but db files not), finish it on this call.
 pub fn migrate_legacy(base: &Path) -> anyhow::Result<MigrateOutcome> {
     migrate_with(base, &|a, b| std::fs::rename(a, b))
 }
@@ -38,7 +38,7 @@ fn migrate_with(base: &Path, rename: RenameFn) -> anyhow::Result<MigrateOutcome>
     let new = base.join(NEW_DIR);
     let old = base.join(OLD_DIR);
     if new.exists() {
-        // Còn db cũ mà chưa có db mới: lần chuyển trước dở dang, làm nốt (không bao giờ mở db rỗng bên cạnh db cũ).
+        // Old db present but new db absent: the previous migration was incomplete, finish it (never open an empty db next to the old one).
         if new.join("thongke.db").exists() && !new.join("bumeter.db").exists() {
             return Ok(match move_db_files(&new, rename) {
                 Ok(()) => MigrateOutcome::Moved,
@@ -59,8 +59,8 @@ fn migrate_with(base: &Path, rename: RenameFn) -> anyhow::Result<MigrateOutcome>
     })
 }
 
-/// Đổi `thongke.db*` → `bumeter.db*`: `-wal`, `-shm` trước, db chính sau cùng (có `bumeter.db` thì chắc chắn đủ file đi kèm).
-/// Lỗi thì trả lại các file đã đổi để còn nguyên bộ tên cũ.
+/// Rename `thongke.db*` → `bumeter.db*`: `-wal`, `-shm` first, the main db last (once `bumeter.db` exists the sidecar files are guaranteed).
+/// On error, revert the already-renamed files so the legacy filename set stays intact.
 fn move_db_files(dir: &Path, rename: RenameFn) -> io::Result<()> {
     let mut done: Vec<(PathBuf, PathBuf)> = Vec::new();
     for suffix in ["-wal", "-shm", ""] {
@@ -70,7 +70,7 @@ fn move_db_files(dir: &Path, rename: RenameFn) -> io::Result<()> {
         }
         let to = dir.join(format!("bumeter.db{suffix}"));
         if let Err(e) = rename(&from, &to) {
-            // Hai tiến trình cùng chuyển: nguồn đã biến mất nhưng đích đã có = tiến trình kia đã làm, đi tiếp.
+            // Two processes migrating at once: the source vanished but the destination exists = the other process did it, continue.
             if e.kind() == io::ErrorKind::NotFound && to.exists() {
                 continue;
             }
@@ -94,7 +94,7 @@ impl Paths {
         Self::resolve_with(std::env::var_os("BUM_DATA_DIR"), std::env::var_os("TK_DATA_DIR"), default_base)
     }
 
-    /// `BUM_DATA_DIR` thắng `TK_DATA_DIR`; chỉ khi không đặt biến nào mới dùng thư mục mặc định (và chuyển dữ liệu cũ).
+    /// `BUM_DATA_DIR` beats `TK_DATA_DIR`; only when neither is set is the default directory used (and legacy data migrated).
     fn resolve_with(bum: Option<OsString>, tk: Option<OsString>, default_base: impl FnOnce() -> PathBuf) -> Self {
         Self::resolve_with_rename(bum, tk, default_base, &|a, b| std::fs::rename(a, b))
     }
@@ -107,23 +107,23 @@ impl Paths {
         match migrate_with(&base, rename) {
             Ok(MigrateOutcome::KeptLegacy(reason)) => {
                 let new = base.join(NEW_DIR);
-                // Tiến trình khác đã chuyển xong trong lúc ta chuyển: dùng db mới.
+                // Another process finished migrating while we were: use the new db.
                 if new.join("bumeter.db").exists() {
                     return Self::new(new);
                 }
-                eprintln!("bumeter: không chuyển được dữ liệu cũ ({reason}); tiếp tục dùng tên file cũ");
-                // Thư mục đã đổi tên (chỉ file db chưa) thì ở thư mục mới, nếu không thì ở thư mục cũ.
+                eprintln!("bumeter: could not migrate legacy data ({reason}); continuing with the old filenames");
+                // If the directory was renamed (only the db files left), we are in the new directory; otherwise in the old one.
                 Self { data_dir: if new.exists() { new } else { base.join(OLD_DIR) }, legacy: true }
             }
             Ok(_) => Self::new(base.join(NEW_DIR)),
             Err(e) => {
-                eprintln!("bumeter: lỗi khi chuyển dữ liệu cũ: {e}");
+                eprintln!("bumeter: error migrating legacy data: {e}");
                 Self { data_dir: base.join(OLD_DIR), legacy: true }
             }
         }
     }
 
-    /// Tạo data dir, chỉ user hiện tại được truy cập.
+    /// Create the data dir, accessible only to the current user.
     pub fn ensure(&self) -> io::Result<()> {
         std::fs::create_dir_all(&self.data_dir)?;
         #[cfg(unix)]
@@ -136,11 +136,11 @@ impl Paths {
 
     pub fn db(&self) -> PathBuf { self.data_dir.join(if self.legacy { "thongke.db" } else { "bumeter.db" }) }
     pub fn limits(&self) -> PathBuf { self.data_dir.join("limits.json") }
-    /// Hạn mức công cụ tự báo (vd Kiro `/usage`), lần lấy gần nhất.
+    /// Tool self-reported quota (e.g. Kiro `/usage`), most recent fetch.
     pub fn tool_quotas(&self) -> PathBuf { self.data_dir.join("tool_quotas.json") }
     pub fn lock(&self) -> PathBuf { self.data_dir.join("host.lock") }
-    /// Socket Unix bị giới hạn ~108 byte (`sun_path`); data dir dài thì chuyển sang
-    /// `$XDG_RUNTIME_DIR` (riêng từng user) với tên băm theo data dir.
+    /// Unix sockets are limited to ~108 bytes (`sun_path`); if the data dir is long, switch to
+    /// `$XDG_RUNTIME_DIR` (per-user) with a name hashed from the data dir.
     pub fn socket(&self) -> PathBuf {
         let preferred = self.data_dir.join("host.sock");
         if preferred.as_os_str().len() <= MAX_SOCKET_PATH {
@@ -180,7 +180,7 @@ mod tests {
             assert!(new.join(f).exists(), "{f}");
         }
         assert!(!new.join("thongke.db").exists() && !new.join("thongke.db-wal").exists());
-        // Chạy lại: đã có thư mục mới.
+        // Run again: the new directory already exists.
         assert_eq!(migrate_legacy(t.path()).unwrap(), MigrateOutcome::AlreadyNew);
     }
 
@@ -208,7 +208,7 @@ mod tests {
         let base = t.path().join("share");
         touch(&base.join("thongke/thongke.db"));
         std::fs::set_permissions(&base, std::fs::Permissions::from_mode(0o555)).unwrap();
-        // root bỏ qua quyền ghi: không mô phỏng được.
+        // root ignores write permissions: cannot simulate.
         let can_write = std::fs::create_dir(base.join("probe")).is_ok();
         if can_write {
             std::fs::remove_dir(base.join("probe")).unwrap();
@@ -241,13 +241,13 @@ mod tests {
         assert_eq!(p.data_dir, PathBuf::from("/b"));
         let p = Paths::resolve_with(None, Some("/t".into()), || t.path().to_path_buf());
         assert_eq!(p.data_dir, PathBuf::from("/t"));
-        assert!(t.path().join("thongke").exists(), "không chuyển khi đặt biến môi trường");
+        assert!(t.path().join("thongke").exists(), "no migration when the environment variable is set");
     }
 
     fn fail_on(name: &'static str) -> impl Fn(&Path, &Path) -> io::Result<()> {
         move |a, b| {
             if b.file_name().unwrap() == name {
-                Err(io::Error::new(io::ErrorKind::PermissionDenied, "giả lập lỗi"))
+                Err(io::Error::new(io::ErrorKind::PermissionDenied, "simulated error"))
             } else {
                 std::fs::rename(a, b)
             }
@@ -266,13 +266,13 @@ mod tests {
         legacy_dir(t.path());
         let r = migrate_with(t.path(), &fail_on("bumeter.db")).unwrap();
         assert!(matches!(r, MigrateOutcome::KeptLegacy(_)));
-        // Hoàn tác: đủ bộ tên cũ, không có bumeter.db* nào.
+        // Rolled back: full legacy name set present, no bumeter.db*.
         let new = t.path().join("bumeter");
         for f in ["thongke.db", "thongke.db-wal", "thongke.db-shm"] {
             assert!(new.join(f).exists(), "{f}");
         }
         assert!(!new.join("bumeter.db").exists() && !new.join("bumeter.db-wal").exists());
-        // Lần mở sau (lần này đổi tên được): hoàn tất, db thật được dùng, không mở db rỗng.
+        // Next open (this time the rename succeeds): migration completes, the real db is used, no empty db is opened.
         let p = Paths::resolve_with(None, None, || t.path().to_path_buf());
         assert_eq!(p.db(), new.join("bumeter.db"));
         assert!(p.db().exists());
@@ -296,7 +296,7 @@ mod tests {
     #[test]
     fn interrupted_migration_is_completed_next_resolve() {
         let t = tempfile::tempdir().unwrap();
-        // Thư mục đã đổi, file chưa (và -wal đã sang tên mới: dở giữa chừng).
+        // Directory renamed but files not (and -wal already under the new name: interrupted midway).
         touch(&t.path().join("bumeter/thongke.db"));
         touch(&t.path().join("bumeter/thongke.db-shm"));
         touch(&t.path().join("bumeter/bumeter.db-wal"));
@@ -323,7 +323,7 @@ mod tests {
         assert!(p.socket().file_name().unwrap().to_string_lossy().starts_with("bumeter-"));
         assert_eq!(p.db().file_name().unwrap(), "bumeter.db");
     }
-    /// Tiến trình khác vừa đổi tên giúp (rename báo NotFound nhưng đích đã có): coi như xong, không hoàn tác.
+    /// Another process just renamed it for us (rename reports NotFound but the destination exists): treat as done, no rollback.
     #[test]
     fn concurrent_process_moved_db_files_is_not_rolled_back() {
         let t = tempfile::tempdir().unwrap();
@@ -331,7 +331,7 @@ mod tests {
         let other_did_it = |a: &Path, b: &Path| {
             if b.file_name().unwrap().to_string_lossy().starts_with("bumeter.db") {
                 std::fs::rename(a, b).unwrap();
-                Err(io::Error::new(io::ErrorKind::NotFound, "đã bị tiến trình khác chuyển"))
+                Err(io::Error::new(io::ErrorKind::NotFound, "moved by another process"))
             } else {
                 std::fs::rename(a, b)
             }
@@ -344,7 +344,7 @@ mod tests {
         assert!(!new.join("thongke.db").exists());
     }
 
-    /// Tiến trình khác chuyển xong cả thư mục trong lúc ta định đổi tên: dùng `bumeter/bumeter.db`, không rơi về tên cũ.
+    /// Another process migrated the whole directory while we were about to rename: use `bumeter/bumeter.db`, do not fall back to the old name.
     #[test]
     fn kept_legacy_but_new_db_exists_uses_new_db() {
         let t = tempfile::tempdir().unwrap();
@@ -356,7 +356,7 @@ mod tests {
                 for suffix in ["-wal", "-shm", ""] {
                     std::fs::rename(b.join(format!("thongke.db{suffix}")), b.join(format!("bumeter.db{suffix}"))).unwrap();
                 }
-                Err(io::Error::new(io::ErrorKind::NotFound, "thư mục cũ đã biến mất"))
+                Err(io::Error::new(io::ErrorKind::NotFound, "the legacy directory disappeared"))
             } else {
                 std::fs::rename(a, b)
             }

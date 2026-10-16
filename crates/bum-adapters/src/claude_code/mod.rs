@@ -1,4 +1,4 @@
-//! Adapter cho Claude Code: đọc `~/.claude/projects/**/*.jsonl`.
+//! Adapter for Claude Code: reads `~/.claude/projects/**/*.jsonl`.
 mod log;
 pub mod composition;
 pub mod statusline;
@@ -20,7 +20,7 @@ impl ClaudeCode {
         Self { root: root.into() }
     }
 
-    /// `BUM_CLAUDE_DIR` (hoặc `TK_CLAUDE_DIR`) nếu có, không thì `~/.claude/projects`.
+    /// `BUM_CLAUDE_DIR` (or `TK_CLAUDE_DIR`) if set, otherwise `~/.claude/projects`.
     pub fn default_root() -> PathBuf {
         if let Some(dir) = std::env::var_os("BUM_CLAUDE_DIR").or_else(|| std::env::var_os("TK_CLAUDE_DIR")) {
             return PathBuf::from(dir);

@@ -1,11 +1,11 @@
-//! Danh mục skill: cá nhân, đã tắt, synced (spec mục 8.1). Plugin nằm ở `plugins.rs`.
+//! Skill catalog: personal, disabled, synced (spec section 8.1). Plugins live in `plugins.rs`.
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
 use crate::frontmatter;
 
-/// Ký tự trên mỗi token khi ước lượng.
+/// Characters per token when estimating.
 const CHARS_PER_TOKEN: f64 = 3.5;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -13,9 +13,9 @@ const CHARS_PER_TOKEN: f64 = 3.5;
 pub enum Source {
     Personal,
     Plugin { plugin: String },
-    /// Đồng bộ từ claude.ai; chỉ đọc.
+    /// Synced from claude.ai; read-only.
     Synced,
-    /// Slash command chỉ thấy trong log.
+    /// Slash commands only seen in the log.
     Command,
 }
 
@@ -28,22 +28,22 @@ pub enum SkillState {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SkillEntry {
-    /// Tên dùng trong log (skill plugin: `plugin:skill`).
+    /// Name used in the log (plugin skill: `plugin:skill`).
     pub name: String,
-    /// Công cụ sở hữu skill: `claude_code` hoặc `kiro`.
+    /// Tool that owns the skill: `claude_code` or `kiro`.
     pub tool: String,
     pub description: String,
     pub source: Source,
     pub state: SkillState,
     pub path: Option<PathBuf>,
     pub symlink: bool,
-    /// Thời điểm cài (mtime của thư mục/link), để không gợi ý tắt skill vừa cài.
+    /// Install time (mtime of the directory/link), so a newly installed skill is not suggested for disabling.
     pub installed_at: Option<String>,
     pub always_on_tokens: Option<u64>,
     pub on_invoke_tokens: Option<u64>,
-    /// Chi phí là ước lượng (không lấy từ `claude plugin details`).
+    /// Cost is an estimate (not taken from `claude plugin details`).
     pub estimated: bool,
-    /// App được phép tắt/bật/gỡ.
+    /// The app is allowed to disable/enable/remove it.
     pub managed: bool,
 }
 
@@ -85,7 +85,7 @@ pub fn scan_personal(claude_dir: &Path) -> Vec<SkillEntry> {
     scan_personal_for(claude_dir, "claude_code")
 }
 
-/// Cùng bố cục `skills/`, `skills-disabled/` cho công cụ khác (ví dụ `~/.kiro`).
+/// Same `skills/`, `skills-disabled/` layout for other tools (for example `~/.kiro`).
 pub fn scan_personal_for(claude_dir: &Path, tool: &str) -> Vec<SkillEntry> {
     let mut out = Vec::new();
     for d in subdirs(&claude_dir.join("skills")) {

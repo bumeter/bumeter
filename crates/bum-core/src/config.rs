@@ -1,4 +1,4 @@
-//! Cấu hình người dùng (`config.toml` trong data dir), thiếu thì dùng mặc định.
+//! User configuration (`config.toml` in the data dir); missing values fall back to defaults.
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -18,7 +18,7 @@ impl Default for Notify {
     }
 }
 
-/// Giao diện sáng/tối; `System` theo hệ điều hành.
+/// Light/dark theme; `System` follows the operating system.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Theme {
@@ -28,13 +28,13 @@ pub enum Theme {
     Dark,
 }
 
-/// Hạn mức do người dùng tự nhập cho một công cụ (vd Kiro không lưu hạn mức credit trên máy).
+/// User-entered quota for a tool (e.g. Kiro does not store credit quota locally).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ToolLimit {
-    /// Credit mỗi kỳ (tháng); `None` = không theo dõi.
+    /// Credits per period (month); `None` = not tracked.
     pub monthly_credits: Option<f64>,
-    /// Ngày reset trong tháng, 1–28.
+    /// Reset day of the month, 1–28.
     pub reset_day: u32,
 }
 
@@ -47,21 +47,21 @@ impl Default for ToolLimit {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
-    /// Lần hỏi bị coi là bất thường khi tốn hơn N lần trung vị 30 ngày.
+    /// A turn is considered anomalous when it costs more than N times the 30-day median.
     pub anomaly_multiplier: f64,
-    /// Ngưỡng context (token) cho cảnh báo "context lớn" và lọc 🧠.
+    /// Context threshold (tokens) for the "large context" alert and the 🧠 filter.
     pub context_threshold: u64,
-    /// Các mốc % quota sẽ thông báo.
+    /// Quota % thresholds that trigger notifications.
     pub quota_thresholds: Vec<u8>,
     pub notify: Notify,
     pub claude_projects_dir: Option<PathBuf>,
-    /// Thư mục phiên Kiro CLI (mặc định `~/.kiro/sessions/cli`).
+    /// Kiro CLI sessions directory (default `~/.kiro/sessions/cli`).
     pub kiro_sessions_dir: Option<PathBuf>,
-    /// Ngôn ngữ giao diện và thông báo.
+    /// UI and notification language.
     pub language: crate::i18n::Lang,
-    /// Giao diện sáng/tối (mặc định theo hệ thống).
+    /// Light/dark theme (default follows the system).
     pub theme: Theme,
-    /// Hạn mức theo công cụ (id nguồn → hạn mức), vd `[tool_limits.kiro]`.
+    /// Per-tool quota (source id → quota), e.g. `[tool_limits.kiro]`.
     pub tool_limits: std::collections::BTreeMap<String, ToolLimit>,
 }
 

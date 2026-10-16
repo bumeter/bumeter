@@ -7,23 +7,23 @@ use bum_core::paths::Paths;
 
 use crate::protocol::{socket_name, Request, Response};
 
-/// Thời gian chờ mặc định cho một lệnh.
+/// Default timeout for a command.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(1);
 
-/// Gọi một lệnh trên host. Lỗi ngay nếu không có host, lỗi sau `DEFAULT_TIMEOUT` nếu host treo.
+/// Call a command on the host. Fails immediately if there is no host, fails after `DEFAULT_TIMEOUT` if the host hangs.
 pub fn call(paths: &Paths, method: &str, params: Value) -> io::Result<Value> {
     call_timeout(paths, method, params, DEFAULT_TIMEOUT)
 }
 
-/// Như `call` nhưng tự chọn thời gian chờ (statusline dùng thời gian ngắn).
+/// Like `call` but with a custom timeout (statusline uses a short one).
 pub fn call_timeout(paths: &Paths, method: &str, params: Value, timeout: Duration) -> io::Result<Value> {
     let (tx, rx) = std::sync::mpsc::channel();
     let (paths, method) = (paths.clone(), method.to_string());
-    // Socket đồng bộ không có read timeout đa nền tảng; chạy trên thread riêng và bỏ nếu quá giờ.
+    // Synchronous sockets have no cross-platform read timeout; run on a separate thread and discard it on timeout.
     std::thread::spawn(move || {
         let _ = tx.send(call_blocking(&paths, &method, params));
     });
-    rx.recv_timeout(timeout).unwrap_or_else(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "host không trả lời")))
+    rx.recv_timeout(timeout).unwrap_or_else(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "host did not respond")))
 }
 
 fn call_blocking(paths: &Paths, method: &str, params: Value) -> io::Result<Value> {

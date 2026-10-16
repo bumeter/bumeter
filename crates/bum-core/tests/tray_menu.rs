@@ -35,7 +35,7 @@ fn tray_rows_have_header_per_tool_then_metric_lines_without_bars() {
     assert!(t.rows[1].text.starts_with("5 giờ · 21% · reset "), "{}", t.rows[1].text);
     assert_eq!(t.rows[1].icon, ring(Some(21.0), false));
     assert!(t.rows[2].text.starts_with("7 ngày · 86% · reset "), "{}", t.rows[2].text);
-    assert_eq!(t.rows[2].text.chars().rev().nth(2), Some('/'), "7 ngày hiện dd/mm: {}", t.rows[2].text);
+    assert_eq!(t.rows[2].text.chars().rev().nth(2), Some('/'), "7 days shows dd/mm: {}", t.rows[2].text);
     assert_eq!(t.rows[3], TrayRow { tool: "kiro".into(), text: "Kiro".into(), icon: TrayIcon::Logo });
     assert_eq!(t.rows[4].text, "Tháng · 27% · 271/1000 credit · reset 01/11");
     assert_eq!(t.rows[4].tool, "kiro");
@@ -72,7 +72,7 @@ fn tool_without_percent_gets_one_today_line_without_icon_and_no_title() {
     let st = state(None, None, 0);
     let t = render_tray(&sources(), &st, &snap(None, vec![act("kiro", 9_000, 12.34, 54)]), 0, Lang::Vi);
     assert_eq!(t.rows[4], TrayRow { tool: "kiro".into(), text: "Kiro · hôm nay 12.3 credit · 54 lượt".into(), icon: TrayIcon::None });
-    // Claude Code chưa có limits.json: không có % nào → không có title.
+    // Claude Code has no limits.json yet: no % → no title.
     assert_eq!(t.title, None);
     let t = render_tray(&[src("other", "Other", false, false)], &st, &snap(None, vec![]), 0, Lang::En);
     assert_eq!(t.rows[1].text, "Other · today 0 tokens · 0 turns");
@@ -91,7 +91,7 @@ fn title_is_highest_percent_rounded_including_over_limit() {
 #[test]
 fn ring_key_quantizes_and_picks_tone_by_threshold_and_staleness() {
     assert_eq!(ring_key(Some(21.4), false, 70), (21, RingTone::Normal));
-    assert_eq!(ring_key(Some(69.6), false, 70), (70, RingTone::Normal), "so ngưỡng trên số thật");
+    assert_eq!(ring_key(Some(69.6), false, 70), (70, RingTone::Normal), "compares the threshold against the real number");
     assert_eq!(ring_key(Some(70.0), false, 70), (70, RingTone::Alert));
     assert_eq!(ring_key(Some(86.0), false, 70), (86, RingTone::Alert));
     assert_eq!(ring_key(Some(150.0), false, 70), (100, RingTone::Alert));

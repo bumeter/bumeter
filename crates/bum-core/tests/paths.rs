@@ -26,6 +26,6 @@ fn socket_path_fits_unix_sun_path_even_for_long_data_dirs() {
     let p = Paths::new(&long);
     assert!(p.socket().as_os_str().len() <= 100, "{:?}", p.socket());
     let other = Paths::new(format!("/tmp/{}", "e".repeat(150)));
-    assert_ne!(p.socket(), other.socket(), "mỗi data dir một socket riêng");
+    assert_ne!(p.socket(), other.socket(), "each data dir gets its own socket");
     assert_eq!(Paths::new("/tmp/short").socket(), std::path::PathBuf::from("/tmp/short/host.sock"));
 }

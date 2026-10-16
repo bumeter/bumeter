@@ -1,4 +1,4 @@
-//! Gộp các thay đổi dồn dập thành tối đa một sự kiện cho UI mỗi `every`.
+//! Coalesce rapid changes into at most one UI event per `every`.
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -33,7 +33,7 @@ impl Coalescer {
         push_all(&mut self.pending.session_ids, session_ids);
     }
 
-    /// Lấy thay đổi đang chờ nếu đã đủ khoảng cách với lần phát trước.
+    /// Take the pending change if enough time has passed since the last emit.
     pub fn take(&mut self, now: Instant) -> Option<Change> {
         if self.pending == Change::default() {
             return None;

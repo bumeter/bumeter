@@ -1,7 +1,7 @@
-//! Mô hình dữ liệu chung, không phụ thuộc công cụ AI cụ thể.
+//! Shared data model, independent of any specific AI tool.
 use serde::{Deserialize, Serialize};
 
-/// Token của một lượt gọi API (hoặc tổng của nhiều lượt).
+/// Tokens of one API call (or the total across several).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Usage {
     pub input: u64,
@@ -16,7 +16,7 @@ impl Usage {
         self.cache_write_5m + self.cache_write_1h
     }
 
-    /// Số token phải "đọc" ở lượt gọi này (mọi thứ trừ output).
+    /// Number of tokens that had to be "read" in this call (everything except output).
     pub fn context(&self) -> u64 {
         self.input + self.cache_write() + self.cache_read
     }
@@ -37,9 +37,9 @@ impl Usage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SkillKind {
-    /// Skill được gọi trong chính lần hỏi (tool `Skill` hoặc `attributionSkill`).
+    /// Skill invoked within the turn itself (tool `Skill` or `attributionSkill`).
     Direct,
-    /// Slash command người dùng gõ (`/model`, `/pj-review`…).
+    /// Slash command typed by the user (`/model`, `/pj-review`…).
     Command,
 }
 
@@ -66,7 +66,7 @@ pub struct ToolUse {
     pub name: String,
 }
 
-/// Sự kiện mà adapter sinh ra từ một dòng log. Thời gian là RFC3339 UTC.
+/// Event produced by an adapter from a log line. Times are RFC3339 UTC.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RawEvent {
     Session {
@@ -114,12 +114,12 @@ pub enum RawEvent {
         limit_type: String,
         resets_at: i64,
     },
-    /// Tiêu đề hội thoại (Claude `ai-title`, Kiro `title`); cái sau cùng thắng.
+    /// Conversation title (Claude `ai-title`, Kiro `title`); the last one wins.
     Title {
         session_id: String,
         title: String,
     },
-    /// Chi phí tính bằng credit của công cụ (ví dụ Kiro), gắn vào một lượt gọi.
+    /// Cost in the tool's credits (e.g. Kiro), attached to a call.
     Metered {
         request_id: String,
         credits: f64,

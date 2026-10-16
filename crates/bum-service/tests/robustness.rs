@@ -22,7 +22,7 @@ fn client_gives_up_on_a_host_that_never_answers() {
     let dir = tempfile::tempdir().unwrap();
     let paths = Paths::new(dir.path().join("d"));
     paths.ensure().unwrap();
-    let _listener = listen(socket_name(&paths).unwrap()).unwrap(); // chấp nhận kết nối nhưng không bao giờ trả lời
+    let _listener = listen(socket_name(&paths).unwrap()).unwrap(); // accept connections but never answer
     let start = Instant::now();
     assert!(client::call_timeout(&paths, "ping", Value::Null, Duration::from_millis(300)).is_err());
     assert!(start.elapsed() < Duration::from_secs(1), "{:?}", start.elapsed());
@@ -33,7 +33,7 @@ fn takeover_times_out_cleanly_when_lock_holder_has_no_socket() {
     let dir = tempfile::tempdir().unwrap();
     let paths = Paths::new(dir.path().join("d"));
     paths.ensure().unwrap();
-    let _held = HostLock::try_acquire(&paths.lock()).unwrap().unwrap(); // giống `bum scan` đang chạy
+    let _held = HostLock::try_acquire(&paths.lock()).unwrap().unwrap(); // like `bum scan` currently running
     let cfg = Config { claude_projects_dir: Some(fixture()), kiro_sessions_dir: Some(std::path::PathBuf::from("/nonexistent-kiro")), ..Config::default() };
     let r = start_host_taking_over(&paths, &cfg, || Box::new(Quiet), Duration::from_millis(600));
     assert!(matches!(r, Err(StartError::AlreadyRunning)));
@@ -46,7 +46,7 @@ fn takeover_replaces_a_running_host() {
     let cfg = Config { claude_projects_dir: Some(fixture()), kiro_sessions_dir: Some(std::path::PathBuf::from("/nonexistent-kiro")), ..Config::default() };
     let first = start_host_taking_over(&paths, &cfg, || Box::new(Quiet), Duration::from_secs(1)).unwrap();
     let second = start_host_taking_over(&paths, &cfg, || Box::new(Quiet), Duration::from_secs(5)).unwrap();
-    assert!(first.wait_timeout(Duration::from_secs(3)), "host cũ phải tắt");
+    assert!(first.wait_timeout(Duration::from_secs(3)), "old host must shut down");
     assert_eq!(client::call(&paths, "ping", Value::Null).unwrap(), Value::from("pong"));
     second.shutdown();
     assert!(second.wait_timeout(Duration::from_secs(3)));

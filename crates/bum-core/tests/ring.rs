@@ -9,7 +9,7 @@ fn px(img: &[u8], x: usize, y: usize) -> [u8; 4] {
     [img[i], img[i + 1], img[i + 2], img[i + 3]]
 }
 
-/// Pixel nằm giữa nét vòng ở góc `deg` (theo chiều kim đồng hồ từ 12 giờ).
+/// Pixel at the middle of the ring stroke at angle `deg` (clockwise from 12 o'clock).
 fn on_ring(img: &[u8], deg: f64) -> [u8; 4] {
     let a = deg.to_radians();
     let r = 12.5;
@@ -27,8 +27,8 @@ fn ring_is_32x32_rgba_with_transparent_center_and_corners() {
         let img = ring_rgba(pct, tone);
         assert_eq!(RING_SIZE, 32);
         assert_eq!(img.len(), 32 * 32 * 4);
-        assert_eq!(px(&img, 16, 16)[3], 0, "tâm trong suốt");
-        assert_eq!(px(&img, 0, 0)[3], 0, "góc trong suốt");
+        assert_eq!(px(&img, 16, 16)[3], 0, "transparent center");
+        assert_eq!(px(&img, 0, 0)[3], 0, "transparent corner");
     }
 }
 
@@ -37,10 +37,10 @@ fn zero_percent_shows_only_translucent_track() {
     let img = ring_rgba(0, RingTone::Normal);
     for deg in [0.0, 90.0, 180.0, 270.0] {
         let p = on_ring(&img, deg);
-        assert!(p[3] > 40 && p[3] < 140, "track mờ: {p:?}");
-        assert!(p[0] == p[1] && p[1] == p[2], "track xám trung tính: {p:?}");
+        assert!(p[3] > 40 && p[3] < 140, "faint track: {p:?}");
+        assert!(p[0] == p[1] && p[1] == p[2], "neutral gray track: {p:?}");
     }
-    assert!(img.chunks(4).all(|p| p[3] < 140), "không có pixel cung đậm");
+    assert!(img.chunks(4).all(|p| p[3] < 140), "no strong arc pixel");
 }
 
 #[test]
@@ -50,12 +50,12 @@ fn full_ring_at_100_and_arc_starts_at_12_oclock_clockwise() {
         assert!(opaque(on_ring(&img, deg as f64), RED), "{deg}°");
     }
     let img = ring_rgba(21, RingTone::Normal);
-    assert!(opaque(px(&img, 16, 3), ORANGE), "12 giờ có màu cung");
-    assert!(opaque(on_ring(&img, 40.0), ORANGE), "trong cung (21% ≈ 76°)");
+    assert!(opaque(px(&img, 16, 3), ORANGE), "12 o'clock has the arc color");
+    assert!(opaque(on_ring(&img, 40.0), ORANGE), "inside the arc (21% ≈ 76°)");
     let after = on_ring(&img, 120.0);
-    assert!(after[3] < 140, "ngoài cung chỉ còn track: {after:?}");
+    assert!(after[3] < 140, "outside the arc only the track remains: {after:?}");
     let ccw = on_ring(&img, 300.0);
-    assert!(ccw[3] < 140, "cung đi theo chiều kim đồng hồ: {ccw:?}");
+    assert!(ccw[3] < 140, "the arc goes clockwise: {ccw:?}");
 }
 
 #[test]
@@ -68,10 +68,10 @@ fn tone_picks_arc_color() {
 #[test]
 fn edges_are_antialiased() {
     let img = ring_rgba(100, RingTone::Normal);
-    assert!(img.chunks(4).any(|p| p[3] > 0 && p[3] < 255), "có pixel bán trong suốt ở mép");
+    assert!(img.chunks(4).any(|p| p[3] > 0 && p[3] < 255), "there is a semi-transparent pixel at the edge");
 }
 
-/// Ghi 3 PNG mẫu cho người xem: `RING_SAMPLES_DIR=… cargo test -p bum-core --test ring -- --ignored`.
+/// Write 3 sample PNGs for viewing: `RING_SAMPLES_DIR=… cargo test -p bum-core --test ring -- --ignored`.
 #[test]
 #[ignore]
 fn write_sample_pngs() {

@@ -1,4 +1,4 @@
-//! Mức dùng theo công cụ cho menu tray / `bum status`: thanh %, kỳ credit, dòng "Hôm nay".
+//! Per-tool usage for the tray menu / `bum status`: % bar, credit period, "Today" line.
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -14,15 +14,15 @@ use crate::store::{Store, ToolActivity};
 
 pub use crate::ring::{ring_key, ring_png, ring_rgba, RingTone, RING_SIZE};
 
-/// Kỳ credit chứa `today`: (ngày reset gần nhất ≤ hôm nay, ngày reset kế tiếp). `reset_day` kẹp 1–28.
+/// Credit period containing `today`: (most recent reset day ≤ today, next reset day). `reset_day` is clamped to 1–28.
 pub fn credit_period(today: NaiveDate, reset_day: u32) -> (NaiveDate, NaiveDate) {
     let day = reset_day.clamp(1, 28);
-    let this_month = today.with_day(day).expect("ngày 1–28 luôn có");
+    let this_month = today.with_day(day).expect("day 1-28 always exists");
     let start = if today.day() >= day { this_month } else { this_month - Months::new(1) };
     (start, start + Months::new(1))
 }
 
-/// Hạn mức công cụ tự báo (vd Kiro `/usage`), kèm thời điểm lấy (epoch giây).
+/// Tool self-reported quota (e.g. Kiro `/usage`), with the fetch time (epoch seconds).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolQuota {
     pub used: f64,
@@ -32,33 +32,33 @@ pub struct ToolQuota {
     pub fetched_at: i64,
 }
 
-/// Số liệu tự báo cũ hơn ngưỡng này thì bỏ, dùng hạn mức người dùng nhập.
+/// Self-reported data older than this is discarded; the user-entered quota is used instead.
 pub const QUOTA_MAX_AGE_SECS: i64 = 3600;
-/// Cũ hơn ngưỡng này thì ghi chú "cập nhật … trước".
+/// Older than this gets the "updated … ago" note.
 pub const QUOTA_NOTE_AFTER_SECS: i64 = 20 * 60;
 
 pub fn read_quotas(path: &Path) -> BTreeMap<String, ToolQuota> {
     std::fs::read(path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
 }
 
-/// Ghi ra file tạm rồi đổi tên.
+/// Write to a temp file then rename.
 pub fn write_quotas(path: &Path, q: &BTreeMap<String, ToolQuota>) -> std::io::Result<()> {
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, serde_json::to_vec(q)?)?;
     std::fs::rename(&tmp, path)
 }
 
-/// Credit đã dùng / hạn mức của kỳ hiện tại.
+/// Credits used / limit for the current period.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CreditMeter {
     pub used: f64,
     pub limit: f64,
     pub next_reset: NaiveDate,
-    /// Có khi số liệu lấy từ công cụ (không phải tự tính từ log).
+    /// Set when the data came from the tool (rather than being computed from logs).
     pub fetched_at: Option<i64>,
 }
 
-/// Chọn nguồn: số công cụ tự báo còn mới → hạn mức người dùng nhập + credit tính từ log (`log_credits(from, to)`) → không có.
+/// Pick the source: fresh tool-reported data → user-entered quota + credits computed from logs (`log_credits(from, to)`) → none.
 pub fn pick_credit(
     quota: Option<&ToolQuota>,
     user: Option<&ToolLimit>,
@@ -75,7 +75,7 @@ pub fn pick_credit(
     Ok(Some(CreditMeter { used, limit, next_reset: next, fetched_at: None }))
 }
 
-/// Dữ liệu cho menu: credit theo công cụ (chỉ công cụ có hạn mức) và hoạt động hôm nay.
+/// Menu data: per-tool credits (only tools with a quota) and today's activity.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Snapshot {
     pub credits: BTreeMap<String, CreditMeter>,
@@ -93,7 +93,7 @@ pub fn snapshot(store: &Store, cfg: &Config, quotas: &BTreeMap<String, ToolQuota
     Ok(Snapshot { credits, today: store.tool_activity_between(&from, &to)? })
 }
 
-/// Thanh 10 ô; có dùng thì ít nhất 1 ô, chỉ đầy khi ≥ 100%.
+/// A 10-cell bar; any usage fills at least 1 cell, full only at ≥ 100%.
 pub fn bar(pct: f64) -> String {
     let n = if pct.is_nan() || pct <= 0.0 {
         0
@@ -105,10 +105,10 @@ pub fn bar(pct: f64) -> String {
     "▰".repeat(n) + &"▱".repeat(10 - n)
 }
 
-/// Ký tự đệm cột tên (rộng bằng chữ số, gần bề rộng chữ trong font tỉ lệ).
+/// Padding character for the name column (digit width, close to glyph width in a proportional font).
 pub const NAME_PAD: char = '\u{2007}';
 
-/// Số dòng menu của một công cụ: quota 5 giờ/7 ngày thì 2, còn lại 1.
+/// Number of menu lines for a tool: 2 with 5-hour/7-day quota, otherwise 1.
 pub fn line_count(info: &SourceInfo) -> usize {
     if info.limits { 2 } else { 1 }
 }
@@ -134,7 +134,7 @@ fn pct_str(p: f64) -> String {
     format!("{p:.0}%")
 }
 
-/// Credit: ≥ 100 không lẻ, nhỏ hơn thì 1 chữ số lẻ (bỏ ".0").
+/// Credit: no decimals at ≥ 100, otherwise 1 decimal (dropping ".0").
 pub fn fmt_credit(x: f64) -> String {
     if x.abs() >= 100.0 {
         format!("{x:.0}")
@@ -152,7 +152,7 @@ fn token_unit(lang: Lang) -> &'static str {
     lang.pick("token", "tokens")
 }
 
-/// Số liệu một cửa sổ quota: %, giờ/ngày reset, ghi chú dữ liệu cũ. `by_date`: cửa sổ dài (7 ngày) hiện ngày reset thay vì giờ.
+/// A quota window's figures: %, reset time/date, stale-data note. `by_date`: a long window (7 days) shows the reset date instead of the time.
 fn window_parts(w: Window, by_date: bool, limits: &LimitState, now: i64, lang: Lang) -> (f64, String, String) {
     let local = DateTime::from_timestamp(w.resets_at, 0).map(|t| t.with_timezone(&chrono::Local));
     let when = local.map(|t| if by_date { reset_date(t.date_naive(), lang) } else { t.format("%H:%M").to_string() }).unwrap_or_default();
@@ -184,7 +184,7 @@ fn reset_date(d: NaiveDate, lang: Lang) -> String {
     }
 }
 
-/// %, phần "used/limit credit · reset …", ghi chú cũ (số /usage quá 20 phút).
+/// %, the "used/limit credit · reset …" part, stale note (/usage data older than 20 minutes).
 fn credit_parts(c: &CreditMeter, now: i64, lang: Lang) -> (f64, String, String) {
     let pct = c.used / c.limit * 100.0;
     let note = c.fetched_at.filter(|t| now - t > QUOTA_NOTE_AFTER_SECS).map(|t| updated(now - t, lang)).unwrap_or_default();
@@ -202,7 +202,7 @@ fn today_usage(s: &SourceInfo, snap: &Snapshot, lang: Lang) -> String {
     format!("{} {} · {} {}", lang.pick("hôm nay", "today"), amount(s, a, lang), a.prompts, lang.pick("lượt", "turns"))
 }
 
-/// Lượng dùng hôm nay của một công cụ: credit nếu tính bằng credit, còn lại token.
+/// A tool's usage today: credits if billed in credits, otherwise tokens.
 fn amount(info: &SourceInfo, a: &ToolActivity, lang: Lang) -> String {
     if info.credits {
         format!("{} {}", fmt_credit(a.credits), credit_unit(lang))
@@ -211,7 +211,7 @@ fn amount(info: &SourceInfo, a: &ToolActivity, lang: Lang) -> String {
     }
 }
 
-/// Text menu: các dòng theo công cụ (đúng thứ tự `sources`, `line_count` dòng mỗi công cụ) và dòng "Hôm nay".
+/// Menu text: per-tool lines (in `sources` order, `line_count` lines per tool) and the "Today" line.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MenuText {
     pub tools: Vec<String>,
@@ -246,18 +246,18 @@ fn today_line(sources: &[SourceInfo], snap: &Snapshot, lang: Lang) -> String {
     format!("{}: {body}", lang.pick("Hôm nay", "Today"))
 }
 
-/// Icon của một dòng menu tray.
+/// Icon for a tray menu row.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TrayIcon {
-    /// Không icon (dòng không có %).
+    /// No icon (row without %).
     None,
-    /// Logo công cụ (dòng tiêu đề).
+    /// Tool logo (header row).
     Logo,
-    /// Vòng %: `pct` None = chưa có dữ liệu; `stale` = số cũ.
+    /// % ring: `pct` None = no data yet; `stale` = stale figure.
     Ring { pct: Option<f64>, stale: bool },
 }
 
-/// Một dòng menu tray thuộc công cụ `tool`.
+/// A tray menu row belonging to tool `tool`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TrayRow {
     pub tool: String,
@@ -265,8 +265,8 @@ pub struct TrayRow {
     pub icon: TrayIcon,
 }
 
-/// Menu tray: dòng theo công cụ (đúng thứ tự `sources`, `tray_row_count` dòng mỗi công cụ), dòng "Hôm nay",
-/// và chữ cạnh icon trên thanh trên cùng (% cao nhất, None nếu không có %).
+/// Tray menu: per-tool rows (in `sources` order, `tray_row_count` rows per tool), the "Today" line,
+/// and the text next to the icon on the top bar (highest %, None if no %).
 #[derive(Debug, Clone, PartialEq)]
 pub struct TrayText {
     pub rows: Vec<TrayRow>,
@@ -274,7 +274,7 @@ pub struct TrayText {
     pub title: Option<String>,
 }
 
-/// Số dòng menu tray của một công cụ: 1 tiêu đề + `line_count`.
+/// Number of tray menu rows for a tool: 1 header + `line_count`.
 pub fn tray_row_count(info: &SourceInfo) -> usize {
     1 + line_count(info)
 }

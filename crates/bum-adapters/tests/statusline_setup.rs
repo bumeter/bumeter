@@ -7,7 +7,7 @@ use std::process::{Command, Stdio};
 use serde_json::{json, Value};
 use bum_adapters::claude_code::statusline::{Status, StatuslineSetup};
 
-/// `tk` giả: chuyển stdin ra stdout như `tk statusline --tee`.
+/// Fake `tk`: forwards stdin to stdout like `tk statusline --tee`.
 fn fake_tk(dir: &Path, name: &str) -> String {
     let p = dir.join(name);
     std::fs::create_dir_all(p.parent().unwrap()).unwrap();
@@ -96,9 +96,9 @@ fn changed_tk_path_rehooks_from_the_original_and_keeps_first_backup() {
     a.apply(&a.plan().unwrap()).unwrap();
 
     let b = setup_with(dir.path(), fake_tk(dir.path(), "bin-b/tk"));
-    assert!(matches!(b.status().unwrap(), Status::Hooked { .. }), "vẫn nhận ra là đã hook");
+    assert!(matches!(b.status().unwrap(), Status::Hooked { .. }), "still recognized as already hooked");
     let plan = b.plan().unwrap();
-    assert!(!plan.is_noop(), "đường dẫn tk đổi thì phải cập nhật");
+    assert!(!plan.is_noop(), "a changed tk path must be updated");
     b.apply(&plan).unwrap();
     let cmd = command(dir.path());
     assert!(cmd.contains("bin-b/tk") && !cmd.contains("bin-a/tk"), "{cmd}");
@@ -195,7 +195,7 @@ fn legacy_tk_hook_is_rewritten_to_bum_with_backup_and_is_idempotent() {
     let now = command(dir.path());
     assert_eq!(now, format!("\"{}/bin-a/bum\" statusline --tee | {{ bash ~/.claude/sl.sh; }}", dir.path().display()));
     assert_eq!(read(&settings(dir.path()))["model"], "x");
-    assert!(dir.path().join("backups/statusline-backup.json").exists(), "phải có bản sao lưu");
+    assert!(dir.path().join("backups/statusline-backup.json").exists(), "a backup must exist");
 
     let before = std::fs::read(settings(dir.path())).unwrap();
     assert!(!s.migrate_legacy_hook().unwrap());
@@ -230,7 +230,7 @@ fn legacy_hook_falls_back_to_current_bum_when_sibling_is_missing() {
     let dir = tempfile::tempdir().unwrap();
     let current = fake_tk(dir.path(), "bin-b/bum");
     let s = setup_with(dir.path(), current.clone());
-    // Thư mục của tk cũ không có bum bên cạnh.
+    // The old tk directory has no bum next to it.
     let old = format!("\"{}/gone/tk\" statusline", dir.path().display());
     write_settings(dir.path(), &json!({"statusLine": {"type": "command", "command": old}}).to_string());
     assert!(s.migrate_legacy_hook().unwrap());
@@ -249,7 +249,7 @@ fn legacy_hook_unchanged_when_no_bum_exists_anywhere() {
     assert_eq!(command(dir.path()), old);
 }
 
-/// Bản sao lưu từ phiên bản đầu chỉ có `settings_path`/`existed`/`content`.
+/// A backup from the first version only has `settings_path`/`existed`/`content`.
 #[test]
 fn legacy_hook_migrates_with_old_format_backup_and_undo_restores_original() {
     let dir = tempfile::tempdir().unwrap();
@@ -272,7 +272,7 @@ fn legacy_hook_migrates_with_old_format_backup_and_undo_restores_original() {
 #[test]
 fn missing_binary_error_names_bum_not_tk() {
     let t = tempfile::tempdir().unwrap();
-    let s = setup_with(t.path(), "/khong-co/bum".into());
+    let s = setup_with(t.path(), "/nonexistent/bum".into());
     let msg = s.plan().unwrap_err().to_string();
     assert!(msg.contains("bum"), "{msg}");
     assert!(!msg.split(|c: char| !c.is_alphanumeric()).any(|w| w == "tk"), "{msg}");

@@ -1,4 +1,4 @@
-//! Bảo đảm chỉ một host ghi DB và theo dõi log.
+//! Ensure only one host writes the DB and watches the logs.
 use std::fs::{File, OpenOptions, TryLockError};
 use std::io;
 use std::path::Path;
@@ -8,7 +8,7 @@ pub struct HostLock {
 }
 
 impl HostLock {
-    /// `Ok(None)` nếu đã có tiến trình khác giữ lock.
+    /// `Ok(None)` if another process already holds the lock.
     pub fn try_acquire(path: &Path) -> io::Result<Option<Self>> {
         let file = OpenOptions::new().create(true).write(true).truncate(false).open(path)?;
         match file.try_lock() {

@@ -11,7 +11,7 @@ fn loaded() -> Store {
     s.ingest_batch(&offset(MAIN), &main_events(), 0).unwrap();
     let kiro = vec![
         RawEvent::Session { session_id: "k1".into(), tool: "kiro".into(), project: "TICKET-203".into(), cwd: None, version: None, ts: "2026-09-12T01:00:00.000Z".into() },
-        RawEvent::Prompt { key: "kp1".into(), session_id: "k1".into(), ts: "2026-09-12T01:00:00.000Z".into(), text: "đọc dự án".into() },
+        RawEvent::Prompt { key: "kp1".into(), session_id: "k1".into(), ts: "2026-09-12T01:00:00.000Z".into(), text: "read the project".into() },
         RawEvent::ApiCall { request_id: "kiro:k1:0".into(), session_id: "k1".into(), prompt_key: Some("kp1".into()), ts: "2026-09-12T01:00:07.000Z".into(), model: "kiro:claude-opus-4.6".into(), usage: u(125_000, 0, 0, 0), tool_uses: vec![], sidechain: false },
         RawEvent::Metered { request_id: "kiro:k1:0".into(), credits: 0.13 },
     ];
@@ -27,7 +27,7 @@ fn credits_and_tool_reach_prompt_stats_and_kiro_is_not_priced_as_claude() {
     assert!((p.credits - 0.13).abs() < 1e-9);
     let l = list_prompts(&s, &Pricing::default_table(), &Config::default(), &PromptFilter::default()).unwrap();
     let row = l.groups.iter().flat_map(|g| &g.rows).find(|r| r.stats.key == "kp1").unwrap();
-    assert_eq!(row.cost_usd, None, "Kiro tính bằng credit, không quy ra $");
+    assert_eq!(row.cost_usd, None, "Kiro is billed in credits, not converted to $");
     assert_eq!(s.prompt_stats("p1").unwrap().unwrap().tool, "claude_code");
 }
 
@@ -57,7 +57,7 @@ fn model_stats_group_calls_by_model_with_cost_or_credits() {
     assert_eq!(kiro.tool, "kiro");
     assert_eq!(kiro.cost_usd, None);
     assert!((kiro.credits - 0.13).abs() < 1e-9);
-    assert_eq!(m[0].model, "kiro:claude-opus-4.6", "nhiều token nhất trước");
+    assert_eq!(m[0].model, "kiro:claude-opus-4.6", "most tokens first");
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn prompt_rows_list_the_models_they_used() {
 #[test]
 fn tool_stats_count_sessions_prompts_and_last_activity() {
     let mut s = loaded();
-    // Phiên subagent của Kiro không có lượt hỏi: không tính là hội thoại.
+    // A Kiro subagent session has no prompts: it does not count as a conversation.
     let sub = bum_core::model::RawEvent::Session { session_id: "k-sub".into(), tool: "kiro".into(), project: "x".into(), cwd: None, version: None, ts: "2026-09-12T01:00:00.000Z".into() };
     s.ingest_batch(&offset("/kiro/k-sub.json"), &[sub], 0).unwrap();
     let t = bum_core::handlers::tool_stats(&s).unwrap();

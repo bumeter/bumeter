@@ -1,4 +1,4 @@
-//! Vòng lặp của host: gom sự kiện file, đọc log, gọi handler (spec mục 5, 14.3).
+//! Host loop: batch file events, read logs, call handlers (spec sections 5, 14.3).
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use crate::engine::{Engine, IngestReport};
 
-/// Gom các sự kiện đến gần nhau để đọc một lần.
+/// Batch events that arrive close together to read them once.
 const DEBOUNCE: Duration = Duration::from_millis(30);
 const TICK: Duration = Duration::from_secs(1);
 
@@ -44,7 +44,7 @@ pub fn run_host(engine: &mut Engine, rx: &Receiver<HostMsg>, limits_file: &Path,
                     } else {
                         match engine.ingest_path(&p) {
                             Ok(r) => report.merge(r),
-                            Err(e) => eprintln!("bumeter: lỗi đọc {}: {e}", p.display()),
+                            Err(e) => eprintln!("bumeter: failed to read {}: {e}", p.display()),
                         }
                     }
                 }
@@ -58,13 +58,13 @@ pub fn run_host(engine: &mut Engine, rx: &Receiver<HostMsg>, limits_file: &Path,
             Err(RecvTimeoutError::Timeout) => {}
         }
         handler.on_tick(engine);
-        // Quét đối chiếu để bắt các sự kiện bị lỡ (máy ngủ, inotify tràn).
+        // Reconciliation scan to catch missed events (machine sleep, inotify overflow).
         if last_rescan.elapsed() >= rescan_every {
             last_rescan = Instant::now();
             match engine.full_scan() {
                 Ok(r) if r.lines > 0 => handler.on_ingest(engine, &r),
                 Ok(_) => {}
-                Err(e) => eprintln!("bumeter: lỗi quét: {e}"),
+                Err(e) => eprintln!("bumeter: scan failed: {e}"),
             }
         }
     }

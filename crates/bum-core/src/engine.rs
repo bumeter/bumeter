@@ -1,4 +1,4 @@
-//! Nối adapter → store: đọc tiếp từng file theo offset đã lưu.
+//! Adapter → store pipeline: incrementally read each file from its saved offset.
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -10,7 +10,7 @@ use crate::tailer;
 pub struct IngestReport {
     pub summary: ApplySummary,
     pub parse_errors: u64,
-    /// File không đọc được (quyền, bị xóa giữa chừng…); đã bỏ qua, quét tiếp file khác.
+    /// File could not be read (permissions, deleted mid-read, …); it was skipped and scanning continues with other files.
     pub file_errors: u64,
     pub lines: u64,
 }
@@ -54,7 +54,7 @@ impl Engine {
         let Some(src) = self.sources.iter().position(|s| s.accepts(path)) else { return Ok(IngestReport::default()) };
         let meta = match std::fs::metadata(path) {
             Ok(m) => m,
-            // File bị xóa: giữ dữ liệu đã có.
+            // File deleted: keep the existing data.
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(IngestReport::default()),
             Err(e) => return Err(e.into()),
         };
@@ -73,7 +73,7 @@ impl Engine {
                 (prev.offset, serde_json::from_str::<ParseCtx>(&prev.ctx_json).unwrap_or_default())
             }
             Some(_) => {
-                // File bị ghi đè nhỏ hơn hoặc bị thay thế: đọc lại từ đầu.
+                // File overwritten to a smaller size or replaced: re-read from the start.
                 self.store.purge_file(&key)?;
                 (0, ParseCtx::default())
             }
@@ -82,7 +82,7 @@ impl Engine {
 
         let (lines, offset) = match tailer::read_complete_lines(path, start) {
             Ok(r) => r,
-            // Bị xóa giữa lúc stat và lúc mở.
+            // Deleted between stat and open.
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(IngestReport::default()),
             Err(e) => return Err(e.into()),
         };
@@ -99,7 +99,7 @@ impl Engine {
         Ok(IngestReport { summary, parse_errors, file_errors: 0, lines: lines.len() as u64 })
     }
 
-    /// Nguồn ghi đè cả file: bỏ qua nếu không đổi, không thì xoá dữ liệu cũ của file rồi nạp lại.
+    /// Whole-file source: skip if unchanged, otherwise delete the file's old data and re-ingest.
     fn ingest_whole(&mut self, src: usize, path: &Path, key: String, file_id: String, size: u64, mtime: i64) -> anyhow::Result<IngestReport> {
         if let Some(prev) = self.store.get_offset(&key)? {
             if prev.file_id == file_id && prev.size == size && prev.mtime == mtime {
@@ -117,7 +117,7 @@ impl Engine {
         Ok(IngestReport { summary, parse_errors, file_errors: 0, lines })
     }
 
-    /// Quét mọi file của mọi nguồn; file không đổi sẽ bị bỏ qua nhờ offset.
+    /// Scan every file of every source; unchanged files are skipped thanks to the offset.
     pub fn full_scan(&mut self) -> anyhow::Result<IngestReport> {
         let mut files = Vec::new();
         for root in self.watch_roots() {
@@ -130,7 +130,7 @@ impl Engine {
             match self.ingest_path(f) {
                 Ok(r) => report.merge(r),
                 Err(e) => {
-                    eprintln!("bumeter: bỏ qua {}: {e}", f.display());
+                    eprintln!("bumeter: skipping {}: {e}", f.display());
                     report.file_errors += 1;
                 }
             }

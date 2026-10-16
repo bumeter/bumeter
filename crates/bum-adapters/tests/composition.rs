@@ -25,16 +25,16 @@ fn categories_accumulate_and_reset_after_compaction() {
     let c1 = &a.calls[0];
     assert_eq!(part(c1, Category::User), 10);
     assert_eq!(part(c1, Category::FileRead), 0);
-    assert_eq!(part(c1, Category::Thinking), 0, "thinking của r1 chỉ vào context từ lượt sau");
-    assert_eq!(part(c1, Category::System), 1010 - 10 - part(c1, Category::ToolIo), "phần không đo được thuộc Hệ thống");
-    assert_eq!(part(&a.calls[1], Category::Thinking), 200, "thinking ẩn: ước lượng từ độ dài chữ ký");
+    assert_eq!(part(c1, Category::Thinking), 0, "r1's thinking enters the context only from the next call");
+    assert_eq!(part(c1, Category::System), 1010 - 10 - part(c1, Category::ToolIo), "the unmeasured part belongs to System");
+    assert_eq!(part(&a.calls[1], Category::Thinking), 200, "hidden thinking: estimated from the signature length");
     let c4 = &a.calls[3];
-    assert_eq!(part(c4, Category::FileRead), 3000, "3 lần đọc a.rs");
+    assert_eq!(part(c4, Category::FileRead), 3000, "a.rs read 3 times");
     let c5 = &a.calls[4];
     assert_eq!(part(c5, Category::Skill), 200);
     let c6 = &a.calls[5];
-    assert_eq!(part(c6, Category::FileRead), 0, "compact xoá context cũ");
-    assert!(part(c6, Category::System) >= 200, "tóm tắt compact tính vào Hệ thống");
+    assert_eq!(part(c6, Category::FileRead), 0, "compact clears old context");
+    assert!(part(c6, Category::System) >= 200, "the compact summary counts toward System");
     assert_eq!(a.compactions, vec![5]);
     let prompts: Vec<_> = a.prompts.iter().map(|p| (p.call_index, p.key.as_str())).collect();
     assert_eq!(prompts, vec![(0, "p1"), (5, "p2")]);
@@ -84,8 +84,8 @@ fn invalid_utf8_missing_usage_and_huge_commands_are_tolerated() {
          {{\"type\":\"assistant\",\"sessionId\":\"s9\",\"timestamp\":\"t\",\"requestId\":\"rY\",\"message\":{{\"id\":\"mY\",\"model\":\"claude-opus-5\",\"content\":[{{\"type\":\"tool_use\",\"id\":\"tY\",\"name\":\"Bash\",\"input\":{{\"command\":\"cat {long}\"}}}}],\"usage\":{{\"input_tokens\":1,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":9000,\"output_tokens\":1}}}}}}\n").as_bytes());
     bytes.extend_from_slice(b"{\"type\":\"user\",\"x\":\"\xff\xfe\"}\n");
     std::fs::write(&p, bytes).unwrap();
-    let a = analyze_file(&p).expect("byte UTF-8 hỏng không được làm hỏng cả phiên");
-    assert!(a.calls.iter().all(|c| c.request_id != "rX"), "lượt gọi thiếu usage bị bỏ qua");
+    let a = analyze_file(&p).expect("a bad UTF-8 byte must not break the whole session");
+    assert!(a.calls.iter().all(|c| c.request_id != "rX"), "calls missing usage are skipped");
     let d = call_detail(&p, "rY").unwrap();
-    assert!(d.tools[0].summary.chars().count() <= 161, "nhãn được cắt ngắn");
+    assert!(d.tools[0].summary.chars().count() <= 161, "the label is truncated");
 }

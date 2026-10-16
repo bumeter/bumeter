@@ -1,4 +1,4 @@
-//! Ghép danh mục skill với mức dùng thật và đưa ra gợi ý (spec mục 8.1).
+//! Combine the skill catalog with real usage and make suggestions (spec section 8.1).
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +6,7 @@ use crate::catalog::{SkillEntry, SkillState, Source};
 
 const UNUSED_DAYS: i64 = 30;
 
-/// Mức dùng một skill, lấy từ log (bum-core `skill_stats`).
+/// Usage of a skill, taken from the log (bum-core `skill_stats`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Usage {
     pub name: String,
@@ -25,25 +25,25 @@ pub struct SkillRow {
     pub tokens: u64,
     pub avg_tokens: Option<u64>,
     pub last_used: Option<String>,
-    /// Đang bật, có chi phí nền, nhưng 30 ngày chưa dùng.
+    /// Enabled, has an always-on cost, but unused for 30 days.
     pub unused_30d: bool,
-    /// Có số liệu dùng không (log Kiro không ghi lần gọi skill).
+    /// Whether usage data is available (the Kiro log does not record skill invocations).
     pub usage_known: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SkillReport {
     pub rows: Vec<SkillRow>,
-    /// Slash command và skill chỉ còn thấy trong log (đã gỡ).
+    /// Slash commands and skills only still seen in the log (already removed).
     pub commands: Vec<SkillRow>,
-    /// Tổng chi phí nền của các skill đang bật (token mỗi phiên).
+    /// Total always-on cost of enabled skills (tokens per session).
     pub total_always_on: u64,
     pub unused: Vec<String>,
     pub unused_always_on: u64,
     pub warnings: Vec<String>,
 }
 
-/// Skill cài trong 30 ngày gần đây thì chưa đủ lâu để coi là "không dùng".
+/// A skill installed within the last 30 days has not been around long enough to count as "unused".
 fn recently_installed(installed_at: Option<&str>, now: DateTime<Utc>) -> bool {
     installed_at.and_then(|t| DateTime::parse_from_rfc3339(t).ok()).is_some_and(|t| (now - t.to_utc()).num_days() <= UNUSED_DAYS)
 }
@@ -55,7 +55,7 @@ fn stale(last: Option<&str>, now: DateTime<Utc>) -> bool {
     }
 }
 
-/// `/tên` (slash command) của một skill đã cài được tính chung với skill đó.
+/// A skill's `/name` (slash command) is counted together with that skill.
 fn merge_commands(entries: &[SkillEntry], usage: Vec<Usage>) -> Vec<Usage> {
     let installed: std::collections::HashSet<&str> = entries.iter().filter(|e| e.tool == "claude_code").map(|e| e.name.as_str()).collect();
     let mut out: Vec<Usage> = Vec::new();
@@ -80,18 +80,18 @@ fn merge_commands(entries: &[SkillEntry], usage: Vec<Usage>) -> Vec<Usage> {
     out
 }
 
-/// `usage = None`: chưa đọc được mức dùng (DB chưa có) → không gợi ý tắt skill nào.
+/// `usage = None`: usage data could not be read (no DB yet) → do not suggest disabling any skill.
 pub fn build(entries: Vec<SkillEntry>, usage: Option<Vec<Usage>>, mut warnings: Vec<String>, now: DateTime<Utc>) -> SkillReport {
     let have_usage = usage.is_some();
     if !have_usage {
-        warnings.push("Chưa đọc được mức dùng (dữ liệu chưa sẵn sàng), tạm không gợi ý tắt skill.".into());
+        warnings.push("Could not read usage data (data not ready yet); not suggesting any skill to disable for now.".into());
     }
     let usage = merge_commands(&entries, usage.unwrap_or_default());
     let find = |name: &str| usage.iter().find(|u| u.name == name);
     let mut rows: Vec<SkillRow> = entries
         .into_iter()
         .map(|entry| {
-            // Chỉ log Claude Code ghi lần gọi skill; skill Kiro trùng tên không mượn số liệu này.
+            // Only the Claude Code log records skill invocations; a Kiro skill with the same name does not borrow this data.
             let usage_known = entry.tool == "claude_code";
             let u = if usage_known { find(&entry.name) } else { None };
             let last_used = u.and_then(|u| u.last_used.clone());

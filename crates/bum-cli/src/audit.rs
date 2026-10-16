@@ -1,4 +1,4 @@
-//! `bum audit`: so tổng token của pipeline với một cách đếm độc lập, đọc thẳng từ log (spec mục 12).
+//! `bum audit`: compares the pipeline's total token count against an independent count, read straight from the log (spec section 12).
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -7,7 +7,7 @@ use bum_adapters::claude_code::ClaudeCode;
 use bum_core::engine::Engine;
 use bum_core::store::Store;
 
-/// [input, cache_creation, cache_read, output], lấy max theo requestId.
+/// [input, cache_creation, cache_read, output], taking the max per requestId.
 fn independent_totals(root: &Path) -> [u64; 4] {
     let mut by_request: HashMap<String, [u64; 4]> = HashMap::new();
     let mut files = Vec::new();
@@ -62,14 +62,14 @@ pub fn run(root: &Path) -> anyhow::Result<bool> {
     let ours = [u.input, u.cache_write(), u.cache_read, u.output];
     let theirs = independent_totals(root);
 
-    println!("Thư mục: {}", root.display());
-    println!("Quét: {} dòng, {} lỗi parse, {:?}", report.lines, report.parse_errors, scan_time);
+    println!("Directory: {}", root.display());
+    println!("Scanned: {} lines, {} parse errors, {:?}", report.lines, report.parse_errors, scan_time);
     let labels = ["input", "cache_write", "cache_read", "output"];
     for i in 0..4 {
-        let mark = if ours[i] == theirs[i] { "OK" } else { "LỆCH" };
-        println!("  {:<12} app={:>14} độc lập={:>14}  {mark}", labels[i], ours[i], theirs[i]);
+        let mark = if ours[i] == theirs[i] { "OK" } else { "MISMATCH" };
+        println!("  {:<12} app={:>14} independent={:>14}  {mark}", labels[i], ours[i], theirs[i]);
     }
     let ok = ours == theirs;
-    println!("Tổng: app={} độc lập={}  {}", u.total(), theirs.iter().sum::<u64>(), if ok { "OK" } else { "LỆCH" });
+    println!("Total: app={} independent={}  {}", u.total(), theirs.iter().sum::<u64>(), if ok { "OK" } else { "MISMATCH" });
     Ok(ok)
 }

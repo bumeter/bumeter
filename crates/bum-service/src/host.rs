@@ -1,4 +1,4 @@
-//! Khởi động host: lock → quét lần đầu → watcher → service → vòng lặp (spec mục 3.2.1).
+//! Start the host: lock → initial scan → watcher → service → loop (spec section 3.2.1).
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::Arc;
@@ -26,7 +26,7 @@ const DEGRADED_RESCAN: Duration = Duration::from_secs(5);
 
 #[derive(Debug, thiserror::Error)]
 pub enum StartError {
-    #[error("đã có host khác đang chạy")]
+    #[error("another host is already running")]
     AlreadyRunning,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
@@ -43,7 +43,7 @@ impl HostHandle {
         let _ = self.tx.send(HostMsg::Shutdown);
     }
 
-    /// Chờ host dừng hẳn; `false` nếu quá thời gian.
+    /// Wait for the host to stop completely; `false` if it times out.
     pub fn wait_timeout(mut self, timeout: Duration) -> bool {
         let stopped = self.done.recv_timeout(timeout).is_ok();
         if stopped {
@@ -76,22 +76,22 @@ pub fn start_host(paths: Paths, cfg: Config, mut handler: Box<dyn HostHandler + 
 
     let root = claude_root(&cfg);
     let mut store = Store::open(&paths.db()).map_err(anyhow::Error::from)?;
-    // DB mới tạo lại: khôi phục ⭐/📝 từ bản sao lưu.
+    // Newly recreated DB: restore ⭐/📝 from the backup.
     let _ = bum_core::store::notes::import_notes(&mut store, &paths.notes());
     let mut engine = Engine::new(store, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro_root(&cfg)))]);
     let started = Instant::now();
     let report = engine.full_scan()?;
-    eprintln!("bumeter: quét lần đầu {} dòng trong {:?}", report.lines, started.elapsed());
+    eprintln!("bumeter: initial scan of {} lines in {:?}", report.lines, started.elapsed());
 
     let (tx, rx) = mpsc::channel::<HostMsg>();
     let mut dirs = engine.watch_roots();
     dirs.push(paths.data_dir.clone());
     let (watcher, unwatched) = spawn_watcher(&dirs, &paths.limits(), tx.clone()).map_err(anyhow::Error::from)?;
-    // Không theo dõi được thì quét dày hơn để vẫn gần realtime.
+    // If watching is impossible, rescan more often to stay close to real time.
     let rescan = if unwatched.is_empty() { RESCAN } else { DEGRADED_RESCAN };
 
     #[cfg(unix)]
-    let _ = std::fs::remove_file(paths.socket()); // socket cũ sau crash; đã giữ lock nên an toàn
+    let _ = std::fs::remove_file(paths.socket()); // stale socket after a crash; safe because we hold the lock
     let listener = listen(socket_name(&paths).map_err(anyhow::Error::from)?).map_err(anyhow::Error::from)?;
     #[cfg(unix)]
     {
@@ -111,7 +111,7 @@ pub fn start_host(paths: Paths, cfg: Config, mut handler: Box<dyn HostHandler + 
         let _watcher = watcher;
         run_host(&mut engine, &rx, &limits, handler.as_mut(), rescan);
         stop.store(true, Ordering::SeqCst);
-        let _ = client::call_timeout(&paths, "ping", Value::Null, Duration::from_millis(300)); // đánh thức accept()
+        let _ = client::call_timeout(&paths, "ping", Value::Null, Duration::from_millis(300)); // wake up accept()
         let _ = service.join();
         drop(_lock);
         let _ = done_tx.send(());
@@ -119,8 +119,8 @@ pub fn start_host(paths: Paths, cfg: Config, mut handler: Box<dyn HostHandler + 
     Ok(HostHandle { tx, done: done_rx, join: Some(join) })
 }
 
-/// Khởi động host; nếu đã có host khác thì yêu cầu nó tắt (gửi lại mỗi lần thử) cho tới `timeout`.
-/// Trả `AlreadyRunning` nếu bên giữ lock không chịu nhả (ví dụ `bum scan` không có socket).
+/// Start the host; if another host is already running, ask it to shut down (resent on each attempt) until `timeout`.
+/// Returns `AlreadyRunning` if the lock holder refuses to release (for example `bum scan` with no socket).
 pub fn start_host_taking_over(
     paths: &Paths,
     cfg: &Config,

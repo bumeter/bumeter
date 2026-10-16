@@ -1,4 +1,4 @@
-//! ⭐/📝 của người dùng. Sao lưu ra `notes.json` để sống sót khi DB phải tạo lại (spec mục 11).
+//! User ⭐/📝. Backed up to `notes.json` to survive a DB rebuild (spec section 11).
 use std::path::Path;
 
 use rusqlite::{params, OptionalExtension};
@@ -48,7 +48,7 @@ pub fn export_notes(store: &Store, path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Chỉ thêm ghi chú chưa có; không ghi đè ghi chú đang có trong DB. Trả về số ghi chú đã thêm.
+/// Only add notes that don't exist yet; do not overwrite notes already in the DB. Returns the number of notes added.
 pub fn import_notes(store: &mut Store, path: &Path) -> anyhow::Result<usize> {
     let Ok(raw) = std::fs::read(path) else { return Ok(0) };
     let notes: Vec<Note> = serde_json::from_slice(&raw)?;

@@ -23,6 +23,6 @@ fn bum_skills_lists_personal_and_plugin_skills_read_only() {
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     assert!(text.contains("pj-review"), "{text}");
-    assert!(text.contains("Chi phí nền"), "{text}");
-    assert!(home.path().join(".claude/skills/pj-review/SKILL.md").exists(), "không được đụng vào skill");
+    assert!(text.contains("Always-on cost"), "{text}");
+    assert!(home.path().join(".claude/skills/pj-review/SKILL.md").exists(), "must not touch the skill");
 }

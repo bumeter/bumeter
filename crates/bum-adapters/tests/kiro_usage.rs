@@ -26,9 +26,9 @@ fn parse_is_tolerant_of_case_spacing_and_thousands_separators() {
 fn broken_output_is_none() {
     assert_eq!(parse(""), None);
     assert_eq!(parse("error: not logged in"), None);
-    assert_eq!(parse("Estimated Usage | resets on 2026-13-45 | X\nCredits (1 of 10 covered)"), None, "ngày sai");
-    assert_eq!(parse("Estimated Usage | resets on 2026-11-01 | X\nCredits (abc of 10)"), None, "số sai");
-    assert_eq!(parse("Estimated Usage | resets on 2026-11-01 | X\nCredits (5 of 0 covered)"), None, "hạn mức 0");
+    assert_eq!(parse("Estimated Usage | resets on 2026-13-45 | X\nCredits (1 of 10 covered)"), None, "bad date");
+    assert_eq!(parse("Estimated Usage | resets on 2026-11-01 | X\nCredits (abc of 10)"), None, "bad number");
+    assert_eq!(parse("Estimated Usage | resets on 2026-11-01 | X\nCredits (5 of 0 covered)"), None, "zero limit");
 }
 
 #[cfg(unix)]
@@ -50,9 +50,9 @@ fn run_with_reads_stdout_and_handles_missing_or_slow_command() {
     let slow = script("slow", "sleep 5");
     let t = std::time::Instant::now();
     assert_eq!(run_with(&slow, Duration::from_millis(300)), None);
-    assert!(t.elapsed() < Duration::from_secs(3), "hết giờ thì bỏ, không chờ");
+    assert!(t.elapsed() < Duration::from_secs(3), "give up on timeout, do not wait");
     assert_eq!(run_with(&dir.path().join("nope"), Duration::from_secs(1)), None);
-    assert_eq!(run_with(&script("bad", "echo lỗi; exit 1"), Duration::from_secs(5)), None);
+    assert_eq!(run_with(&script("bad", "echo error; exit 1"), Duration::from_secs(5)), None);
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn store_quotas_merges_and_skips_empty() {
     assert_eq!((all["other"].fetched_at, all["kiro"].fetched_at), (1, 2));
 }
 
-/// Chỉ hỏi `/usage` khi `kiro-cli whoami` cho biết đã đăng nhập; không thì không chạy gì thêm.
+/// Ask for `/usage` only when `kiro-cli whoami` reports a login; otherwise run nothing else.
 #[cfg(unix)]
 #[test]
 fn usage_is_fetched_only_when_logged_in() {
@@ -79,7 +79,7 @@ fn usage_is_fetched_only_when_logged_in() {
     let data = dir.path().join("out.txt");
     std::fs::write(&data, SAMPLE).unwrap();
     let asked = dir.path().join("asked-usage");
-    // kiro-cli giả: `whoami` theo kịch bản; `chat … /usage` ghi dấu rồi in SAMPLE.
+    // Fake kiro-cli: `whoami` follows the scenario; `chat … /usage` drops a marker then prints SAMPLE.
     let fake = |name: &str, whoami: &str| {
         let p = dir.path().join(name);
         std::fs::write(&p, format!(
@@ -100,12 +100,12 @@ fn usage_is_fetched_only_when_logged_in() {
         let bin = fake(name, whoami);
         assert!(!logged_in_with(&bin, Duration::from_millis(500)), "{name}");
         assert_eq!(fetch_with(&bin, Duration::from_millis(500)), None, "{name}");
-        assert!(!asked.exists(), "{name}: chưa đăng nhập thì không được chạy /usage");
+        assert!(!asked.exists(), "{name}: /usage must not run when not logged in");
     }
-    assert!(!logged_in_with(&dir.path().join("nope"), t), "không có kiro-cli");
+    assert!(!logged_in_with(&dir.path().join("nope"), t), "kiro-cli not installed");
 }
 
-/// Tray chỉ hiện công cụ có thư mục log trên máy (máy không cài Kiro thì không có dòng Kiro).
+/// The tray shows only tools whose log directory exists on this machine (no Kiro row when Kiro is not installed).
 #[test]
 fn installed_keeps_only_tools_whose_log_dir_exists() {
     let dir = tempfile::tempdir().unwrap();

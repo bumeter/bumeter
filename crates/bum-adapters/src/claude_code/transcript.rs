@@ -1,4 +1,4 @@
-//! Đọc lại hỏi/đáp của một phiên Claude Code từ file `.jsonl` chính (bỏ subagent).
+//! Re-read the Q&A of a Claude Code session from its main `.jsonl` file (skipping subagents).
 use std::path::Path;
 
 use serde_json::Value;

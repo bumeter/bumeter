@@ -1,4 +1,4 @@
-//! JSON-RPC tối giản: mỗi dòng là một request hoặc response.
+//! Minimal JSON-RPC: each line is one request or response.
 use interprocess::local_socket::{prelude::*, GenericFilePath, Name};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -31,7 +31,7 @@ impl Response {
     }
 }
 
-/// Unix: file socket trong data dir (quyền 0600). Windows: named pipe theo tên user.
+/// Unix: socket file in the data dir (permissions 0600). Windows: named pipe based on the user name.
 #[cfg(unix)]
 pub fn socket_name(paths: &Paths) -> std::io::Result<Name<'static>> {
     paths.socket().to_fs_name::<GenericFilePath>()

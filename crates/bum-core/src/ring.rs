@@ -1,9 +1,9 @@
-//! Icon vòng % cho menu tray: ảnh RGBA 32×32 vẽ thuần Rust (khử răng cưa bằng lấy mẫu 4×4 mỗi pixel).
+//! % ring icon for the tray menu: a 32×32 RGBA image drawn in pure Rust (anti-aliased by 4×4 sampling per pixel).
 
-/// Cạnh ảnh vòng (px).
+/// Ring image side length (px).
 pub const RING_SIZE: usize = 32;
 
-/// Màu cung: dưới ngưỡng cảnh báo 1 / từ ngưỡng 1 trở lên / dữ liệu cũ hoặc chưa có.
+/// Arc color: below warning threshold 1 / at or above threshold 1 / stale or missing data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RingTone {
     Normal,
@@ -21,16 +21,16 @@ impl RingTone {
     }
 }
 
-/// Nền vòng xám trung tính, mờ để hợp cả menu sáng lẫn tối.
+/// Neutral gray ring track, translucent to suit both light and dark menus.
 const TRACK_RGB: f64 = 138.0; // #8a8a8a
 const TRACK_ALPHA: f64 = 90.0 / 255.0;
 const CENTER: f64 = RING_SIZE as f64 / 2.0;
-/// Bán kính giữa nét và nửa bề rộng nét (nét 5px).
+/// Radius at the middle of the stroke, and half the stroke width (5px stroke).
 const MID_R: f64 = 12.5;
 const HALF_W: f64 = 2.5;
 const SS: usize = 4;
 
-/// Lượng tử hoá % về số nguyên 0–100 (>100 → đầy) và chọn màu: stale/không có số → xám, ≥ ngưỡng → đỏ.
+/// Quantize % to an integer 0–100 (>100 → full) and pick the color: stale/missing → gray, ≥ threshold → red.
 pub fn ring_key(pct: Option<f64>, stale: bool, threshold: u8) -> (u8, RingTone) {
     let p = pct.filter(|p| !p.is_nan()).unwrap_or(0.0);
     let q = p.round().clamp(0.0, 100.0) as u8;
@@ -44,13 +44,13 @@ pub fn ring_key(pct: Option<f64>, stale: bool, threshold: u8) -> (u8, RingTone) 
     (q, tone)
 }
 
-/// Góc theo chiều kim đồng hồ từ 12 giờ, trong [0, 2π).
+/// Angle clockwise from 12 o'clock, within [0, 2π).
 fn angle(dx: f64, dy: f64) -> f64 {
     let a = dx.atan2(-dy);
     if a < 0.0 { a + std::f64::consts::TAU } else { a }
 }
 
-/// Ảnh RGBA `RING_SIZE`² (hàng trên xuống, không nhân trước alpha): track xám + cung `pct`% đầu nét tròn.
+/// `RING_SIZE`² RGBA image (top-down rows, non-premultiplied alpha): gray track + `pct`% arc with round caps.
 pub fn ring_rgba(pct: u8, tone: RingTone) -> Vec<u8> {
     let sweep = pct.min(100) as f64 / 100.0 * std::f64::consts::TAU;
     let full = pct >= 100;
@@ -76,7 +76,7 @@ pub fn ring_rgba(pct: u8, tone: RingTone) -> Vec<u8> {
             let n = (SS * SS) as f64;
             let a = arc as f64 / n;
             let t = band as f64 / n * TRACK_ALPHA;
-            // Cung chồng lên track (source-over).
+            // Arc composited over the track (source-over).
             let oa = a + t * (1.0 - a);
             let i = (py * RING_SIZE + px) * 4;
             if oa > 0.0 {
@@ -90,7 +90,7 @@ pub fn ring_rgba(pct: u8, tone: RingTone) -> Vec<u8> {
     out
 }
 
-/// PNG (không nén) của vòng — để xem thử / lưu mẫu.
+/// Uncompressed PNG of the ring — for previewing / saving samples.
 pub fn ring_png(pct: u8, tone: RingTone) -> Vec<u8> {
     encode_png(&ring_rgba(pct, tone), RING_SIZE as u32, RING_SIZE as u32)
 }
@@ -106,7 +106,7 @@ fn crc32(data: &[u8]) -> u32 {
     !c
 }
 
-/// PNG RGBA 8-bit tối giản: zlib với các khối "stored".
+/// Minimal 8-bit RGBA PNG: zlib with "stored" blocks.
 fn encode_png(rgba: &[u8], w: u32, h: u32) -> Vec<u8> {
     let mut raw = Vec::with_capacity(rgba.len() + h as usize);
     for row in rgba.chunks(w as usize * 4) {

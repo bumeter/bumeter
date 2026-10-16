@@ -17,7 +17,7 @@ fn dispatch_serves_list_detail_and_counts() {
     let ctx = HandlerCtx { store: &s, pricing: &pricing, cfg: &cfg, paths: &paths };
     let now = chrono::Utc::now();
 
-    let list = dispatch(&ctx, "list_prompts", &json!({"q": "ntn"}), now).unwrap();
+    let list = dispatch(&ctx, "list_prompts", &json!({"q": "mean"}), now).unwrap();
     assert_eq!(list["groups"][0]["rows"][0]["stats"]["key"], "p2");
     let detail = dispatch(&ctx, "prompt_detail", &json!({"key": "p1"}), now).unwrap();
     assert_eq!(detail["calls"].as_array().unwrap().len(), 2);
@@ -33,11 +33,11 @@ fn set_note_writes_db_and_backup_file() {
     let dir = tempfile::tempdir().unwrap();
     let paths = Paths::new(dir.path());
     Store::open(&paths.db()).unwrap();
-    set_note(&paths, "p1", true, "xem lại", chrono::Utc::now()).unwrap();
+    set_note(&paths, "p1", true, "review", chrono::Utc::now()).unwrap();
     let s = Store::open_readonly(&paths.db()).unwrap();
     assert!(s.get_note("p1").unwrap().unwrap().starred);
     let backup = std::fs::read_to_string(paths.notes()).unwrap();
-    assert!(backup.contains("xem lại"));
+    assert!(backup.contains("review"));
 }
 
 #[test]

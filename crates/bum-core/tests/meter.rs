@@ -13,7 +13,7 @@ fn sources() -> Vec<SourceInfo> {
     vec![src("claude_code", "Claude Code", true, false), src("kiro", "Kiro", false, true)]
 }
 
-/// Tên công cụ được đệm (khoảng trắng chữ số) tới tên dài nhất, rồi 2 khoảng trắng.
+/// Tool names are padded (with digit-width spaces) to the longest name, then two spaces.
 fn col(label: &str) -> String {
     format!("{label}{}  ", NAME_PAD.to_string().repeat(11 - label.chars().count()))
 }
@@ -24,7 +24,7 @@ fn bar_has_10_cells_rounded_and_clamped() {
     assert_eq!(bar(47.0), "▰▰▰▰▰▱▱▱▱▱");
     assert_eq!(bar(79.0), "▰▰▰▰▰▰▰▰▱▱");
     assert_eq!(bar(21.2), "▰▰▱▱▱▱▱▱▱▱");
-    // Có dùng thì ít nhất 1 ô; chưa tới 100% thì không đầy.
+    // If used, at least 1 cell; below 100% it is not full.
     assert_eq!(bar(0.4), "▰▱▱▱▱▱▱▱▱▱");
     assert_eq!(bar(99.0), "▰▰▰▰▰▰▰▰▰▱");
     assert_eq!(bar(100.0), "▰▰▰▰▰▰▰▰▰▰");
@@ -49,10 +49,10 @@ fn menu_has_two_window_lines_for_limits_tool_and_credit_bar_for_kiro() {
     let m = render(&sources(), &st, &snap, 10_000, Lang::Vi);
     assert_eq!(m.tools.len(), 3);
     assert!(m.tools[0].starts_with(&format!("{}▰▰▰▰▰▱▱▱▱▱  47% · 5 giờ · reset ", col("Claude Code"))), "{}", m.tools[0]);
-    assert!(!m.tools[0].contains("cập nhật"), "dữ liệu mới thì không ghi chú: {}", m.tools[0]);
+    assert!(!m.tools[0].contains("cập nhật"), "fresh data has no note: {}", m.tools[0]);
     assert!(m.tools[1].starts_with(&format!("{}▰▰▰▰▰▰▰▰▱▱  79% · 7 ngày · reset ", NAME_PAD.to_string().repeat(11) + "  ")), "{}", m.tools[1]);
     let tail: Vec<char> = m.tools[1].chars().rev().take(5).collect();
-    assert_eq!(tail[2], '/', "7 ngày hiện ngày reset dd/mm: {}", m.tools[1]);
+    assert_eq!(tail[2], '/', "7 days shows the reset date dd/mm: {}", m.tools[1]);
     assert_eq!(m.tools[2], format!("{}▰▰▱▱▱▱▱▱▱▱  21% · 212/1000 credit · reset 01/11", col("Kiro")));
     assert_eq!(m.today, "Hôm nay: Claude Code 114.0M token · Kiro 12.3 credit");
     for line in m.tools.iter().chain([&m.today]) {
@@ -89,7 +89,7 @@ fn tool_without_percent_shows_today_usage_and_today_line_skips_idle_tools() {
     let m = render(&sources(), &st, &snapshot(None, vec![act("kiro", 9_000, 12.34, 54)]), 0, Lang::Vi);
     assert_eq!(m.tools[2], format!("{}hôm nay 12.3 credit · 54 lượt", col("Kiro")));
     assert_eq!(m.today, "Hôm nay: Kiro 12.3 credit");
-    // Công cụ tính token (không có quota) thì hiện token.
+    // A token-based tool (no quota) shows tokens.
     let srcs = vec![src("other", "Other", false, false)];
     let m = render(&srcs, &st, &snapshot(None, vec![act("other", 2_100_000, 0.0, 3)]), 0, Lang::En);
     assert_eq!(m.tools, vec!["Other  today 2.1M tokens · 3 turns".to_string()]);
@@ -123,13 +123,13 @@ fn credit_meter_prefers_fresh_kiro_usage_then_user_limit() {
     let q = |age_min: i64| ToolQuota { used: 270.69, limit: 1000.0, resets_on: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), plan: "KIRO PRO".into(), fetched_at: now.timestamp() - age_min * 60 };
     let user = ToolLimit { monthly_credits: Some(500.0), reset_day: 20 };
     let log_used = || Ok::<f64, rusqlite::Error>(42.0);
-    // /usage mới (< 1 giờ) thắng.
+    // Newer /usage (< 1 hour) wins.
     let c = pick_credit(Some(&q(10)), Some(&user), now, |_, _| log_used()).unwrap().unwrap();
     assert_eq!((c.used, c.limit, c.fetched_at), (270.69, 1000.0, Some(now.timestamp() - 600)));
-    // /usage cũ → hạn mức người dùng nhập + credit từ log, kỳ theo ngày reset.
+    // Older /usage → user-entered limit + credits from the log, period based on the reset day.
     let c = pick_credit(Some(&q(61)), Some(&user), now, |_, _| log_used()).unwrap().unwrap();
     assert_eq!((c.used, c.limit, c.next_reset, c.fetched_at), (42.0, 500.0, NaiveDate::from_ymd_opt(2026, 10, 20).unwrap(), None));
-    // Không có gì / hạn mức trống → None.
+    // Nothing / empty limit → None.
     assert!(pick_credit(None, None, now, |_, _| log_used()).unwrap().is_none());
     assert!(pick_credit(Some(&q(61)), Some(&ToolLimit::default()), now, |_, _| log_used()).unwrap().is_none());
 }

@@ -1,4 +1,4 @@
-//! Đọc frontmatter YAML tối giản của `SKILL.md` (chỉ `name`, `description`).
+//! Read the minimal YAML frontmatter of `SKILL.md` (only `name`, `description`).
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Frontmatter {
@@ -32,7 +32,7 @@ pub fn parse(text: &str) -> Frontmatter {
         }
         let Some((key, value)) = line.split_once(':') else { continue };
         let value = value.trim();
-        // `key: >` hoặc `key: |`: nối các dòng thụt vào phía sau.
+        // `key: >` or `key: |`: join the indented lines that follow.
         let value = if value == ">" || value == "|" || value == ">-" || value == "|-" {
             let mut parts = Vec::new();
             while i < block.len() && (block[i].starts_with(' ') || block[i].starts_with('\t') || block[i].trim().is_empty()) {

@@ -1,8 +1,8 @@
-//! Tìm skill trên skills.sh và chọn đúng thư mục skill trong repo đã clone.
+//! Find skills on skills.sh and pick the right skill directory inside the cloned repo.
 //!
-//! Cách làm theo skills-manager (MIT, © 2026 Tianliang Zhang, github.com/xingkongliang/skills-manager):
-//! skills.sh chỉ là danh mục; cài = clone `github.com/<source>` rồi lấy thư mục của `skillId`.
-//! Không gửi telemetry, không đọc HTML bảng xếp hạng (dễ hỏng) — chỉ dùng API tìm kiếm.
+//! Approach follows skills-manager (MIT, © 2026 Tianliang Zhang, github.com/xingkongliang/skills-manager):
+//! skills.sh is only a catalog; installing = clone `github.com/<source>` then take the directory for `skillId`.
+//! No telemetry, no scraping the leaderboard HTML (fragile) — only the search API is used.
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -15,7 +15,7 @@ use crate::frontmatter;
 pub const SEARCH_URL: &str = "https://skills.sh/api/search";
 const MAX_LIMIT: u32 = 50;
 const TIMEOUT_SECS: &str = "15";
-/// Độ sâu tối đa khi tìm thư mục skill trong repo.
+/// Maximum depth when searching for a skill directory inside the repo.
 const MAX_DEPTH: usize = 6;
 const SKIP_DIRS: [&str; 2] = [".git", "node_modules"];
 
@@ -23,14 +23,14 @@ const SKIP_DIRS: [&str; 2] = [".git", "node_modules"];
 pub struct Hit {
     /// `owner/repo/skillId`.
     pub id: String,
-    /// `owner/repo` trên GitHub.
+    /// `owner/repo` on GitHub.
     pub source: String,
     pub skill_id: String,
     pub name: String,
     pub installs: u64,
 }
 
-/// `owner/repo`: hai đoạn chữ, số, `-`, `_`, `.`; không bắt đầu bằng `-` hay `.`.
+/// `owner/repo`: two segments of letters, digits, `-`, `_`, `.`; not starting with `-` or `.`.
 pub fn valid_source(s: &str) -> bool {
     let parts: Vec<&str> = s.split('/').collect();
     parts.len() == 2
@@ -43,7 +43,7 @@ pub fn valid_source(s: &str) -> bool {
         })
 }
 
-/// Mã hoá phần trăm cho query (giữ nguyên ký tự không dành riêng theo RFC 3986).
+/// Percent-encode the query (leave unreserved characters per RFC 3986 as-is).
 pub fn encode_query(q: &str) -> String {
     let mut out = String::new();
     for b in q.bytes() {
@@ -56,7 +56,7 @@ pub fn encode_query(q: &str) -> String {
     out
 }
 
-/// Đọc kết quả `api/search`: mảng hoặc `{ "skills": [...] }`. Mục thiếu hoặc không an toàn bị bỏ.
+/// Read an `api/search` result: an array or `{ "skills": [...] }`. Missing or unsafe items are dropped.
 pub fn parse_search(v: &Value) -> Vec<Hit> {
     let items = v.as_array().or_else(|| v["skills"].as_array());
     items
@@ -79,7 +79,7 @@ pub fn parse_search(v: &Value) -> Vec<Hit> {
         .collect()
 }
 
-/// Tìm trên skills.sh bằng `curl` có sẵn trên máy.
+/// Search skills.sh using the `curl` available on the machine.
 pub fn search(query: &str, limit: u32) -> anyhow::Result<Vec<Hit>> {
     let q = query.trim();
     if q.is_empty() {
@@ -90,15 +90,15 @@ pub fn search(query: &str, limit: u32) -> anyhow::Result<Vec<Hit>> {
         .args(["-fsS", "--max-time", TIMEOUT_SECS, "-H", "Accept: application/json", "--"])
         .arg(&url)
         .output()
-        .context("không chạy được curl")?;
+        .context("could not run curl")?;
     if !out.status.success() {
-        bail!("skills.sh không trả lời: {}", String::from_utf8_lossy(&out.stderr).trim());
+        bail!("skills.sh did not respond: {}", String::from_utf8_lossy(&out.stderr).trim());
     }
-    let v: Value = serde_json::from_slice(&out.stdout).context("kết quả từ skills.sh không đọc được")?;
+    let v: Value = serde_json::from_slice(&out.stdout).context("could not read the result from skills.sh")?;
     Ok(parse_search(&v))
 }
 
-/// Thư mục thật (không phải symlink) có file SKILL.md thật.
+/// A real directory (not a symlink) containing a real SKILL.md file.
 fn is_skill_dir(p: &Path) -> bool {
     let real_dir = std::fs::symlink_metadata(p).map(|m| m.is_dir()).unwrap_or(false);
     real_dir

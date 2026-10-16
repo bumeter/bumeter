@@ -1,4 +1,4 @@
-//! Lệnh `tk`: statusline, audit, scan, daemon, status.
+//! The `tk` command: statusline, audit, scan, daemon, status.
 mod audit;
 mod daemon;
 mod statusline;
@@ -16,7 +16,7 @@ use bum_service::host::claude_root;
 use bum_service::lock::HostLock;
 
 #[derive(Parser)]
-#[command(name = "bum", about = "Bumeter: thống kê sử dụng AI")]
+#[command(name = "bum", about = "Bumeter: AI usage statistics")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -24,26 +24,26 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Đọc JSON statusline của Claude Code từ stdin, ghi limits.json, in dòng trạng thái.
+    /// Read Claude Code's statusline JSON from stdin, write limits.json, print the status line.
     Statusline {
-        /// Chỉ ghi file, không in gì.
+        /// Only write the file, print nothing.
         #[arg(long)]
         quiet: bool,
-        /// Ghi file rồi chuyển nguyên JSON đầu vào ra stdout, để nối tiếp vào statusline có sẵn.
+        /// Write the file, then pass the input JSON through to stdout unchanged, so it can be chained into an existing statusline.
         #[arg(long, conflicts_with = "quiet")]
         tee: bool,
     },
-    /// So tổng token của app với một cách đếm độc lập.
+    /// Compare the app's total token count against an independent count.
     Audit,
-    /// Quét log vào DB (khi không có host chạy).
+    /// Scan logs into the DB (when no host is running).
     Scan,
-    /// Chạy host không giao diện.
+    /// Run the headless host.
     Daemon,
-    /// Xem tóm tắt hôm nay từ host đang chạy.
+    /// View today's summary from the running host.
     Status,
-    /// Phân tích thành phần context của một phiên (chỉ đọc).
+    /// Analyze the context composition of a session (read-only).
     Session { session_id: String },
-    /// Liệt kê skill: chi phí nền và mức dùng (chỉ đọc).
+    /// List skills: always-on cost and usage (read-only).
     Skills {
         #[arg(long)]
         json: bool,
@@ -82,25 +82,25 @@ fn main() -> ExitCode {
 fn scan(paths: &Paths) -> anyhow::Result<bool> {
     paths.ensure()?;
     let Some(_lock) = HostLock::try_acquire(&paths.lock())? else {
-        anyhow::bail!("host đang chạy và đã tự quét; không cần bum scan");
+        anyhow::bail!("host is running and has already scanned; bum scan is not needed");
     };
     let root = claude_root(&config(paths));
     let kiro = bum_service::host::kiro_root(&config(paths));
     let mut engine = Engine::new(Store::open(&paths.db())?, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro))]);
     let started = std::time::Instant::now();
     let r = engine.full_scan()?;
-    eprintln!("quét trong {:?}", started.elapsed());
-    println!("Đã quét {} dòng ({} lỗi parse), {} lần hỏi mới/cập nhật", r.lines, r.parse_errors, r.summary.touched_prompts.len());
+    eprintln!("scanned in {:?}", started.elapsed());
+    println!("Scanned {} lines ({} parse errors), {} new/updated prompts", r.lines, r.parse_errors, r.summary.touched_prompts.len());
     Ok(true)
 }
 
 fn status(paths: &Paths) -> anyhow::Result<bool> {
     let today = bum_service::client::call(paths, "today_summary", Value::Null)
-        .map_err(|_| anyhow::anyhow!("không kết nối được host (chạy app hoặc `bum daemon` trước)"))?;
+        .map_err(|_| anyhow::anyhow!("could not connect to host (run the app or `bum daemon` first)"))?;
     let lang = config(paths).language;
     let tokens = bum_core::insight::fmt_tokens(today["total"].as_u64().unwrap_or(0));
     println!("{}: {} {}, {tokens} token", lang.pick("Hôm nay", "Today"), today["prompts"], lang.pick("lượt", "turns"));
-    // Như statusline: % quota từ limits.json (host đang chạy nên file luôn mới nhất).
+    // Like statusline: % quota from limits.json (the host is running, so the file is always up to date).
     let st = bum_core::limits::state(bum_core::limits::read(&paths.limits()), None, chrono::Utc::now().timestamp());
     println!("{}: {}", lang.pick("Giới hạn", "Limits"), bum_core::limits::render_line(&st, None, lang));
     for line in tool_lines(paths, &st, chrono::Utc::now()) {
@@ -109,7 +109,7 @@ fn status(paths: &Paths) -> anyhow::Result<bool> {
     Ok(true)
 }
 
-/// Các dòng theo công cụ như menu tray (thanh %, credit/hạn mức), đọc DB chỉ đọc. Lỗi DB → không in.
+/// Per-tool lines like the tray menu (percent bar, credit/limit), reading the DB read-only. DB error → print nothing.
 fn tool_lines(paths: &Paths, limits: &bum_core::limits::LimitState, now: chrono::DateTime<chrono::Utc>) -> Vec<String> {
     let Ok(store) = Store::open_readonly(&paths.db()) else { return vec![] };
     let cfg = config(paths);
@@ -136,29 +136,29 @@ fn skills(paths: &Paths, json: bool) -> anyhow::Result<bool> {
         println!("{}", serde_json::to_string_pretty(&r)?);
         return Ok(true);
     }
-    println!("Chi phí nền: ~{} tok/phiên · {} chưa dùng 30 ngày (~{} tok)", r.total_always_on, r.unused.len(), r.unused_always_on);
+    println!("Always-on cost: ~{} tok/session · {} unused for 30 days (~{} tok)", r.total_always_on, r.unused.len(), r.unused_always_on);
     for w in &r.warnings {
         println!("⚠ {w}");
     }
-    println!("{:<34} {:>7} {:>8} {:>5} {:>10}  {}", "SKILL", "NỀN", "/LẦN", "DÙNG", "TB/LẦN", "CUỐI");
+    println!("{:<34} {:>7} {:>8} {:>5} {:>10}  {}", "SKILL", "BASE", "/CALL", "USES", "AVG/CALL", "LAST");
     for row in r.rows.iter().chain(&r.commands) {
         let e = &row.entry;
         let mark = if e.state == SkillState::Enabled { "●" } else { "○" };
         let opt = |v: Option<u64>| v.map(|n| n.to_string()).unwrap_or_else(|| "—".into());
         println!("{mark} {:<32} {:>7} {:>8} {:>5} {:>10}  {}{}", e.name, opt(e.always_on_tokens), opt(e.on_invoke_tokens), row.uses,
-            opt(row.avg_tokens), row.last_used.as_deref().map(|t| t.get(..10).unwrap_or(t)).unwrap_or("—"), if row.unused_30d { "  💡 chưa dùng 30 ngày" } else { "" });
+            opt(row.avg_tokens), row.last_used.as_deref().map(|t| t.get(..10).unwrap_or(t)).unwrap_or("—"), if row.unused_30d { "  💡 unused for 30 days" } else { "" });
     }
     Ok(true)
 }
 
 fn session(paths: &Paths, id: &str) -> anyhow::Result<bool> {
     let store = Store::open_readonly(&paths.db())?;
-    let file = store.session_file(id)?.ok_or_else(|| anyhow::anyhow!("không có phiên {id}"))?;
+    let file = store.session_file(id)?.ok_or_else(|| anyhow::anyhow!("no session {id}"))?;
     let t = std::time::Instant::now();
     let a = bum_adapters::claude_code::composition::analyze_file(std::path::Path::new(&file))?;
-    println!("{} lần hỏi · {} lượt gọi · {} lần compact · phân tích {:?}", a.prompts.len(), a.calls.len(), a.compactions.len(), t.elapsed());
+    println!("{} prompts · {} calls · {} compactions · analyzed in {:?}", a.prompts.len(), a.calls.len(), a.compactions.len(), t.elapsed());
     if let Some(peak) = a.calls.iter().max_by_key(|c| c.context) {
-        println!("Context lớn nhất {} tại {}:", peak.context, peak.request_id);
+        println!("Largest context {} at {}:", peak.context, peak.request_id);
         for (cat, v) in &peak.parts {
             println!("  {:<10} {:>9} ({:.0}%)", format!("{cat:?}"), v, *v as f64 * 100.0 / peak.context.max(1) as f64);
         }

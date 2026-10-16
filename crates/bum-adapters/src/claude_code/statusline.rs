@@ -1,6 +1,6 @@
-//! Thiết lập statusline để lấy % quota (spec mục 7.1).
-//! Không sửa script của người dùng: chỉ đổi `statusLine.command` trong `~/.claude/settings.json`
-//! thành `"<tk>" statusline --tee | { <lệnh cũ>; }`. Luôn sao lưu trước, hoàn tác được.
+//! Set up the statusline to capture the quota % (spec section 7.1).
+//! Does not modify the user's script: only changes `statusLine.command` in `~/.claude/settings.json`
+//! to `"<tk>" statusline --tee | { <old command>; }`. Always backs up first and can be undone.
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context};
@@ -18,7 +18,7 @@ pub enum Status {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Plan {
-    /// Mô tả để hiện trong hộp xác nhận.
+    /// Description to show in the confirmation dialog.
     pub description: String,
     new_command: Option<String>,
 }
@@ -33,25 +33,25 @@ impl Plan {
 struct Backup {
     settings_path: PathBuf,
     existed: bool,
-    /// Nội dung gốc trước lần bật đầu tiên.
+    /// Original content before the first enable.
     content: String,
-    /// `statusLine` gốc (null nếu chưa có). Bản sao lưu đời đầu không có trường này:
-    /// `read_backup` lấy lại từ `content`.
+    /// Original `statusLine` (null if absent). First-generation backups lack this field:
+    /// `read_backup` recovers it from `content`.
     #[serde(default)]
     previous_status_line: Option<Value>,
-    /// Lệnh ta đã ghi lần gần nhất, để biết người dùng có sửa sau đó không.
+    /// The command we wrote last time, to tell whether the user edited it afterwards.
     #[serde(default)]
     written_command: String,
 }
 
-/// Nhận ra lệnh do tk ghi, bất kể đường dẫn tk là gì.
+/// Recognize a command written by tk, whatever tk's path is.
 fn is_hook(cmd: &str) -> bool {
     cmd.contains(TEE) || cmd.ends_with("\" statusline") || cmd.contains("tk statusline") || cmd.contains("bum statusline")
 }
 
-/// Thay tên chương trình `tk` đứng ngay trước ` statusline` bằng `bum` (giữ nguyên thư mục).
-/// Chỉ dùng đường dẫn đã đổi nếu file đó tồn tại; không thì dùng `current_bum` (nếu tồn tại); không có cả hai: `None`.
-/// `None` nếu không có gì để đổi. Nhận cả `"/path/tk" statusline` lẫn `/path/tk statusline`.
+/// Replace the `tk` program name immediately before ` statusline` with `bum` (directory unchanged).
+/// Use the rewritten path only if that file exists; otherwise use `current_bum` (if it exists); if neither: `None`.
+/// `None` if there is nothing to change. Accepts both `"/path/tk" statusline` and `/path/tk statusline`.
 fn rewrite_legacy_bin(cmd: &str, current_bum: &str) -> Option<String> {
     let mut out = String::with_capacity(cmd.len());
     let mut rest = cmd;
@@ -95,7 +95,7 @@ fn rewrite_legacy_bin(cmd: &str, current_bum: &str) -> Option<String> {
     changed.then_some(out)
 }
 
-/// Lệnh gốc bên trong một hook `"<tk>" statusline --tee | { <gốc>; }`.
+/// The original command inside a `"<tk>" statusline --tee | { <original>; }` hook.
 fn unwrap_hook(cmd: &str) -> Option<String> {
     let inner = &cmd[cmd.find(TEE)? + TEE.len()..];
     let inner = inner.strip_prefix("{ ").and_then(|s| s.strip_suffix("; }"))
@@ -115,7 +115,7 @@ impl StatuslineSetup {
         Self { claude_dir, backup_dir, tk_bin }
     }
 
-    /// `~/.claude` mặc định.
+    /// Defaults to `~/.claude`.
     pub fn default_claude_dir() -> PathBuf {
         dirs::home_dir().unwrap_or_default().join(".claude")
     }
@@ -132,7 +132,7 @@ impl StatuslineSetup {
         format!("\"{}\" statusline", self.tk_bin)
     }
 
-    /// Nhóm lệnh gốc để `|` không làm đổi nghĩa lệnh có `;` / `&&`.
+    /// Group the original command so `|` does not change the meaning of commands containing `;` / `&&`.
     fn wrap(&self, original: &str) -> String {
         if cfg!(windows) {
             format!("{} --tee | ( {original} )", self.marker())
@@ -160,7 +160,7 @@ impl StatuslineSetup {
         let p = self.settings_path();
         match std::fs::read_to_string(&p) {
             Ok(s) => {
-                let v = serde_json::from_str(&s).with_context(|| format!("{} không phải JSON hợp lệ", p.display()))?;
+                let v = serde_json::from_str(&s).with_context(|| format!("{} is not valid JSON", p.display()))?;
                 Ok(Some((s, v)))
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -177,13 +177,13 @@ impl StatuslineSetup {
         })
     }
 
-    /// Hook cũ trỏ `tk` (đổi tên thành `bum`): viết lại sang `bum`, có sao lưu (như `apply`).
-    /// Trả `true` nếu đã sửa; chạy lại không đổi gì nữa.
+    /// Legacy hook pointing at `tk` (renamed to `bum`): rewrite it to `bum`, with a backup (like `apply`).
+    /// Returns `true` if it changed something; running again changes nothing.
     pub fn migrate_legacy_hook(&self) -> anyhow::Result<bool> {
         let Status::Hooked { command } = self.status()? else { return Ok(false) };
         let Some(new) = rewrite_legacy_bin(&command, &self.tk_bin) else {
             if command.contains("tk statusline") || command.contains("tk\" statusline") {
-                eprintln!("bumeter: hook statusline còn trỏ tk nhưng không tìm thấy bum; giữ nguyên");
+                eprintln!("bumeter: statusline hook still points at tk but no bum was found; leaving it unchanged");
             }
             return Ok(false);
         };
@@ -194,18 +194,18 @@ impl StatuslineSetup {
     pub fn plan(&self) -> anyhow::Result<Plan> {
         let tk = Path::new(&self.tk_bin);
         if !tk.is_absolute() || !tk.is_file() {
-            bail!("không tìm thấy chương trình bum ở '{}'; hãy build/cài bum trước", self.tk_bin);
+            bail!("no bum program found at '{}'; build/install bum first", self.tk_bin);
         }
         let path = self.settings_path();
         let describe = |before: &str, after: &str| {
-            format!("Sẽ đổi statusLine.command trong {}:\n  trước: {before}\n  sau:   {after}\nStatusline hiện tại vẫn hiển thị như cũ. File gốc được sao lưu.", path.display())
+            format!("Will change statusLine.command in {}:\n  before: {before}\n  after:  {after}\nThe current statusline still displays as before. The original file is backed up.", path.display())
         };
         Ok(match self.status()? {
             Status::Hooked { command } if command.starts_with(&self.marker()) => {
-                Plan { description: "Đã bật theo dõi giới hạn, không cần thay đổi.".into(), new_command: None }
+                Plan { description: "Limit tracking is already enabled; no change needed.".into(), new_command: None }
             }
             Status::Hooked { command } => {
-                // Đường dẫn tk đã đổi: dựng lại từ lệnh gốc, không bọc thêm lớp nữa.
+                // The tk path changed: rebuild from the original command instead of wrapping again.
                 let original = match self.read_backup()? {
                     Some(b) => b.previous_status_line.as_ref().and_then(|p| p["command"].as_str()).map(str::to_string),
                     None => unwrap_hook(&command),
@@ -215,7 +215,7 @@ impl StatuslineSetup {
             }
             Status::NotConfigured => {
                 let cmd = self.marker();
-                Plan { description: format!("Sẽ thêm statusLine vào {}:\n  {cmd}\nFile gốc được sao lưu, có thể gỡ lại.", path.display()), new_command: Some(cmd) }
+                Plan { description: format!("Will add statusLine to {}:\n  {cmd}\nThe original file is backed up and can be removed again.", path.display()), new_command: Some(cmd) }
             }
             Status::Custom { command } => {
                 let new = self.wrap(&command);
@@ -230,10 +230,10 @@ impl StatuslineSetup {
         let current = self.read_settings()?;
         let mut v = current.as_ref().map(|(_, v)| v.clone()).unwrap_or_else(|| json!({}));
         if !v.is_object() {
-            bail!("{} không phải object JSON", path.display());
+            bail!("{} is not a JSON object", path.display());
         }
         std::fs::create_dir_all(&self.backup_dir)?;
-        // Chỉ sao lưu lần đầu: các lần sau (đổi đường dẫn tk) giữ nguyên bản gốc.
+        // Back up only on the first time: later runs (tk path changes) keep the original.
         let backup = match self.read_backup()? {
             Some(b) => Backup { written_command: cmd.clone(), ..b },
             None => Backup {
@@ -251,14 +251,14 @@ impl StatuslineSetup {
         write_json(&path, &v)
     }
 
-    /// Trả `statusLine` về như trước khi bật, giữ các thay đổi khác người dùng làm sau đó.
+    /// Restore `statusLine` to before it was enabled, keeping other changes the user made afterwards.
     pub fn undo(&self) -> anyhow::Result<()> {
-        let b = self.read_backup()?.context("chưa có bản sao lưu để hoàn tác")?;
+        let b = self.read_backup()?.context("no backup to undo")?;
         match self.read_settings()? {
             None => {}
             Some((_, mut v)) => {
                 if v["statusLine"]["command"].as_str() != Some(b.written_command.as_str()) {
-                    bail!("statusLine đã bị sửa sau khi bật, không tự hoàn tác để tránh mất thay đổi của bạn");
+                    bail!("statusLine was edited after enabling; not undoing automatically to avoid losing your changes");
                 }
                 match b.previous_status_line.as_ref().unwrap_or(&Value::Null) {
                     Value::Null => { v.as_object_mut().map(|o| o.remove("statusLine")); }
@@ -266,7 +266,7 @@ impl StatuslineSetup {
                 }
                 let original: Option<Value> = b.existed.then(|| serde_json::from_str(&b.content).ok()).flatten();
                 if original.as_ref() == Some(&v) {
-                    write_atomic(&resolve(&b.settings_path), b.content.as_bytes())?; // khôi phục đúng từng byte
+                    write_atomic(&resolve(&b.settings_path), b.content.as_bytes())?; // restore byte-for-byte
                 } else if !b.existed && v.as_object().is_some_and(|o| o.is_empty()) {
                     std::fs::remove_file(&b.settings_path)?;
                 } else {
@@ -279,7 +279,7 @@ impl StatuslineSetup {
     }
 }
 
-/// Ghi vào file thật nếu `path` là symlink (dotfiles quản lý bằng stow/home-manager).
+/// Write to the real file if `path` is a symlink (dotfiles managed by stow/home-manager).
 fn resolve(path: &Path) -> PathBuf {
     std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
@@ -290,7 +290,7 @@ fn write_json(path: &Path, v: &Value) -> anyhow::Result<()> {
     write_atomic(&resolve(path), out.as_bytes())
 }
 
-/// Ghi file tạm rồi đổi tên; giữ nguyên quyền của file cũ.
+/// Write a temp file then rename it; preserving the old file's permissions.
 fn write_atomic(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
     let tmp = path.with_extension("tk-tmp");
     std::fs::write(&tmp, bytes)?;

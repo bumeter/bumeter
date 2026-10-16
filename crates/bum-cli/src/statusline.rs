@@ -1,4 +1,4 @@
-//! `bum statusline`: không bao giờ thất bại, vì lỗi ở đây sẽ làm hỏng statusline của Claude Code.
+//! `bum statusline`: never fails, because an error here would break Claude Code's statusline.
 use std::io::Read;
 
 use bum_core::limits;
@@ -24,7 +24,7 @@ pub fn run(quiet: bool, tee: bool) {
         return;
     }
     let st = limits::state(limits::read(&paths.limits()), None, now);
-    // Số token hôm nay chỉ có khi host đang chạy; không có thì bỏ qua.
+    // Today's token count is only available when the host is running; skip it otherwise.
     let today = bum_service::client::call(&paths, "today_summary", serde_json::Value::Null)
         .ok()
         .and_then(|v| v["total"].as_u64());
