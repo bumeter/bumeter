@@ -1,0 +1,20 @@
+[package]
+name = "bumeter"
+version.workspace = true
+edition.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = ["tray-icon", "image-png"] }
+tauri-plugin-notification = "2"
+tauri-plugin-single-instance = "2"
+bum-core = { path = "../../crates/bum-core" }
+bum-service = { path = "../../crates/bum-service" }
+bum-adapters = { path = "../../crates/bum-adapters" }
+bum-skills = { path = "../../crates/bum-skills" }
+serde_json.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+dirs.workspace = true

@@ -1,0 +1,33 @@
+//! `bum statusline`: never fails, because an error here would break Claude Code's statusline.
+use std::io::Read;
+
+use bum_core::limits;
+use bum_core::paths::Paths;
+
+pub fn run(quiet: bool, tee: bool) {
+    let mut raw = String::new();
+    let _ = std::io::stdin().read_to_string(&mut raw);
+    let now = chrono::Utc::now().timestamp();
+    let paths = Paths::resolve();
+
+    if let Some(file) = serde_json::from_str(&raw).ok().and_then(|v| limits::from_statusline(&v, now)) {
+        if paths.ensure().is_ok() {
+            let _ = limits::write_atomic(&paths.limits(), &file);
+        }
+    }
+    if tee {
+        use std::io::Write;
+        let _ = std::io::stdout().write_all(raw.as_bytes());
+        return;
+    }
+    if quiet {
+        return;
+    }
+    let st = limits::state(limits::read(&paths.limits()), None, now);
+    // Today's token count is only available when the host is running; skip it otherwise.
+    let today = bum_service::client::call(&paths, "today_summary", serde_json::Value::Null)
+        .ok()
+        .and_then(|v| v["total"].as_u64());
+    let lang = bum_core::config::Config::load(&paths.config()).language;
+    println!("{}", limits::render_line(&st, today, lang));
+}

@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["crates/bum-core", "crates/bum-adapters", "crates/bum-service", "crates/bum-cli", "crates/bum-skills", "app/src-tauri"]
+
+[workspace.package]
+version = "1.0.1"
+edition = "2021"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6"
+toml = "0.9"
+rusqlite = { version = "0.40", features = ["bundled"] }
+notify = "8"
+interprocess = "2"
+clap = { version = "4", features = ["derive"] }
+tempfile = "3"

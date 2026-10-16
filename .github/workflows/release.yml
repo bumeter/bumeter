@@ -1,0 +1,110 @@
+# Build installers for Linux, macOS, Windows.
+# - Run manually (workflow_dispatch): the installers appear under the run's Artifacts.
+# - Push a v* tag (e.g. v1.0.2): creates a draft GitHub Release with the installers attached.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-22.04 # glibc 2.35: runs from Ubuntu 22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
+          - name: macOS Apple Silicon
+            os: macos-latest
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+          - name: macOS Intel
+            os: macos-latest
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+          - name: Windows x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis,msi
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+
+      - name: System libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev file
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/ui/package-lock.json
+
+      # `bum` ships with the app (externalBin "binaries/bum" → bum-<target>[.exe]).
+      - name: Build bum (sidecar)
+        run: |
+          cargo build --release --locked -p bum-cli --target ${{ matrix.target }}
+          ext=""; [ "$RUNNER_OS" = "Windows" ] && ext=".exe"
+          mkdir -p app/src-tauri/binaries
+          cp "target/${{ matrix.target }}/release/bum$ext" "app/src-tauri/binaries/bum-${{ matrix.target }}$ext"
+
+      - name: Build UI
+        working-directory: app/ui
+        run: npm ci && npm run build
+
+      - name: Build installers
+        working-directory: app
+        run: ./ui/node_modules/.bin/tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - name: Collect installers
+        run: |
+          mkdir -p dist
+          b="target/${{ matrix.target }}/release/bundle"
+          shopt -s nullglob
+          for f in "$b"/deb/*.deb "$b"/appimage/*.AppImage "$b"/dmg/*.dmg "$b"/nsis/*.exe "$b"/msi/*.msi; do
+            cp "$f" dist/
+          done
+          ls -la dist
+          [ -n "$(ls dist)" ] || { echo "No installers found"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bumeter-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: dist/*

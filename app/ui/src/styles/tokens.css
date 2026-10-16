@@ -1,0 +1,167 @@
+/* Design tokens — Bumeter style: warm orange, friendly, flat (spec sections 2, 3.1). */
+:root {
+  --font: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+
+  /* New tokens (from the standard mockup bumeter-ui-mascot.html, light `.u`) */
+  --bg: #faf7f4;
+  --surf: #ffffff;
+  --sunk: #f4efea;
+  --line: #efe8e1;
+  --ink: #221a15;
+  --ink2: #6b5f57;
+  --ink3: #9a8d84;
+  --acc: #ff7a1a;
+  --acc2: #e8640a;
+  --tint: #fff0e3;
+  --red: #ff4b2b;
+  --grn: #22a05a;
+
+  /* Bum mascot (components/bum.ts) — light by default. */
+  --bum-body: #ff7a1a;
+  --bum-face: #3a1c0c;
+  --bum-cheek: #ffb27a;
+  --bum-blaze: #ff4b2b;
+  --bum-sweat: #5ab4ff;
+
+  --r-panel: 16px;
+  --r-box: 12px;
+  --r-ctl: 10px;
+  --r-tag: 5px;
+  --sp: 4px;
+
+  /* Old token aliases → new tokens, so the existing layout.css follows the new
+     orange palette without rewriting every rule (later tasks will migrate the markup gradually). */
+  --sidebar: var(--surf);
+  --sidebar-glass: var(--surf);
+  --toolbar: var(--surf);
+  --label: var(--ink);
+  --label-2: var(--ink2);
+  --label-3: var(--ink3);
+  --separator: var(--line);
+  --fill: var(--sunk);
+  --fill-2: var(--sunk);
+  --accent: var(--acc);
+  --accent-tint: var(--tint);
+  --selection: var(--acc);
+  --on-selection: #ffffff;
+  --green: var(--grn);
+  --orange: var(--acc2);
+  --purple: #a94fd6;
+  --grey: var(--ink3);
+  --callout-bg: var(--tint);
+  --callout-border: var(--acc);
+  --button-bg: var(--surf);
+  --button-border: var(--line);
+  --radius-s: var(--r-ctl);
+  --radius-m: var(--r-box);
+  --radius-l: var(--r-panel);
+  --hair: 0.5px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15120f;
+    --surf: #1f1a16;
+    --sunk: #29231e;
+    --line: #312a24;
+    --ink: #f5efe9;
+    --ink2: #b9ada4;
+    --ink3: #857a72;
+    --acc: #ff8a33;
+    --acc2: #ff9d52;
+    --tint: #3a2515;
+    --red: #ff5a3a;
+    --grn: #3dcc7e;
+
+    /* Dark: Bum's face takes the panel background color (#1f1a16) so it looks "carved" out of the body. */
+    --bum-body: #ff7a1a;
+    --bum-face: var(--surf);
+    --bum-cheek: #ffb27a;
+    --bum-blaze: #ff4b2b;
+    --bum-sweat: #5ab4ff;
+
+    --sidebar: var(--surf);
+    --sidebar-glass: var(--surf);
+    --toolbar: var(--surf);
+    --label: var(--ink);
+    --label-2: var(--ink2);
+    --label-3: var(--ink3);
+    --separator: var(--line);
+    --fill: var(--sunk);
+    --fill-2: var(--sunk);
+    --accent: var(--acc);
+    --accent-tint: var(--tint);
+    --selection: var(--acc);
+    --green: var(--grn);
+    --orange: var(--acc2);
+    --purple: #bf5af2;
+    --grey: var(--ink3);
+    --callout-bg: var(--tint);
+    --callout-border: var(--acc);
+    --button-bg: var(--surf);
+    --button-border: var(--line);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #15120f;
+  --surf: #1f1a16;
+  --sunk: #29231e;
+  --line: #312a24;
+  --ink: #f5efe9;
+  --ink2: #b9ada4;
+  --ink3: #857a72;
+  --acc: #ff8a33;
+  --acc2: #ff9d52;
+  --tint: #3a2515;
+  --red: #ff5a3a;
+  --grn: #3dcc7e;
+
+  --bum-body: #ff7a1a;
+  --bum-face: var(--surf);
+  --bum-cheek: #ffb27a;
+  --bum-blaze: #ff4b2b;
+  --bum-sweat: #5ab4ff;
+
+  --sidebar: var(--surf);
+  --sidebar-glass: var(--surf);
+  --toolbar: var(--surf);
+  --label: var(--ink);
+  --label-2: var(--ink2);
+  --label-3: var(--ink3);
+  --separator: var(--line);
+  --fill: var(--sunk);
+  --fill-2: var(--sunk);
+  --accent: var(--acc);
+  --accent-tint: var(--tint);
+  --selection: var(--acc);
+  --green: var(--grn);
+  --orange: var(--acc2);
+  --purple: #bf5af2;
+  --grey: var(--ink3);
+  --callout-bg: var(--tint);
+  --callout-border: var(--acc);
+  --button-bg: var(--surf);
+  --button-border: var(--line);
+}
+
+:root[data-theme="light"] {
+  --bg: #faf7f4;
+  --surf: #ffffff;
+  --sunk: #f4efea;
+  --line: #efe8e1;
+  --ink: #221a15;
+  --ink2: #6b5f57;
+  --ink3: #9a8d84;
+  --acc: #ff7a1a;
+  --acc2: #e8640a;
+  --tint: #fff0e3;
+  --red: #ff4b2b;
+  --grn: #22a05a;
+
+  --bum-body: #ff7a1a;
+  --bum-face: #3a1c0c;
+  --bum-cheek: #ffb27a;
+  --bum-blaze: #ff4b2b;
+  --bum-sweat: #5ab4ff;
+}
