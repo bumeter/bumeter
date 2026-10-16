@@ -51,6 +51,8 @@ fn menu_has_two_window_lines_for_limits_tool_and_credit_bar_for_kiro() {
     assert!(m.tools[0].starts_with(&format!("{}▰▰▰▰▰▱▱▱▱▱  47% · 5 giờ · reset ", col("Claude Code"))), "{}", m.tools[0]);
     assert!(!m.tools[0].contains("cập nhật"), "dữ liệu mới thì không ghi chú: {}", m.tools[0]);
     assert!(m.tools[1].starts_with(&format!("{}▰▰▰▰▰▰▰▰▱▱  79% · 7 ngày · reset ", NAME_PAD.to_string().repeat(11) + "  ")), "{}", m.tools[1]);
+    let tail: Vec<char> = m.tools[1].chars().rev().take(5).collect();
+    assert_eq!(tail[2], '/', "7 ngày hiện ngày reset dd/mm: {}", m.tools[1]);
     assert_eq!(m.tools[2], format!("{}▰▰▱▱▱▱▱▱▱▱  21% · 212/1000 credit · reset 01/11", col("Kiro")));
     assert_eq!(m.today, "Hôm nay: Claude Code 114.0M token · Kiro 12.3 credit");
     for line in m.tools.iter().chain([&m.today]) {

@@ -150,10 +150,12 @@ fn token_unit(lang: Lang) -> &'static str {
     lang.pick("token", "tokens")
 }
 
-fn window(name: &str, w: Option<Window>, limits: &LimitState, now: i64, lang: Lang) -> String {
+/// `by_date`: cửa sổ dài (7 ngày) hiện ngày reset thay vì giờ.
+fn window(name: &str, w: Option<Window>, by_date: bool, limits: &LimitState, now: i64, lang: Lang) -> String {
     match w {
         Some(w) => {
-            let when = DateTime::from_timestamp(w.resets_at, 0).map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string()).unwrap_or_default();
+            let local = DateTime::from_timestamp(w.resets_at, 0).map(|t| t.with_timezone(&chrono::Local));
+            let when = local.map(|t| if by_date { reset_date(t.date_naive(), lang) } else { t.format("%H:%M").to_string() }).unwrap_or_default();
             let fresh = match (limits.stale, limits.updated_at) {
                 (true, Some(t)) => updated(now - t, lang),
                 _ => String::new(),
@@ -202,8 +204,8 @@ pub fn render(sources: &[SourceInfo], limits: &LimitState, snap: &Snapshot, now:
     for s in sources {
         let name = col(&s.label);
         if s.limits {
-            tools.push(name + &window(lang.pick("5 giờ", "5 hours"), limits.five_hour, limits, now, lang));
-            tools.push(blank.clone() + &window(lang.pick("7 ngày", "7 days"), limits.seven_day, limits, now, lang));
+            tools.push(name + &window(lang.pick("5 giờ", "5 hours"), limits.five_hour, false, limits, now, lang));
+            tools.push(blank.clone() + &window(lang.pick("7 ngày", "7 days"), limits.seven_day, true, limits, now, lang));
         } else if let Some(c) = snap.credits.get(&s.id) {
             tools.push(name + &credit_line(c, now, lang));
         } else {
