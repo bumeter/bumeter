@@ -1,5 +1,5 @@
 //! Minimal JSON-RPC: each line is one request or response.
-use interprocess::local_socket::{prelude::*, GenericFilePath, Name};
+use interprocess::local_socket::{prelude::*, Name};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use bum_core::paths::Paths;
@@ -34,6 +34,7 @@ impl Response {
 /// Unix: socket file in the data dir (permissions 0600). Windows: named pipe based on the user name.
 #[cfg(unix)]
 pub fn socket_name(paths: &Paths) -> std::io::Result<Name<'static>> {
+    use interprocess::local_socket::GenericFilePath;
     paths.socket().to_fs_name::<GenericFilePath>()
 }
 
