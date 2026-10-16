@@ -28,6 +28,22 @@ pub enum Theme {
     Dark,
 }
 
+/// Hạn mức do người dùng tự nhập cho một công cụ (vd Kiro không lưu hạn mức credit trên máy).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ToolLimit {
+    /// Credit mỗi kỳ (tháng); `None` = không theo dõi.
+    pub monthly_credits: Option<f64>,
+    /// Ngày reset trong tháng, 1–28.
+    pub reset_day: u32,
+}
+
+impl Default for ToolLimit {
+    fn default() -> Self {
+        Self { monthly_credits: None, reset_day: 1 }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -45,11 +61,13 @@ pub struct Config {
     pub language: crate::i18n::Lang,
     /// Giao diện sáng/tối (mặc định theo hệ thống).
     pub theme: Theme,
+    /// Hạn mức theo công cụ (id nguồn → hạn mức), vd `[tool_limits.kiro]`.
+    pub tool_limits: std::collections::BTreeMap<String, ToolLimit>,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { anomaly_multiplier: 3.0, context_threshold: 300_000, quota_thresholds: vec![70, 90], notify: Notify::default(), claude_projects_dir: None, kiro_sessions_dir: None, language: crate::i18n::Lang::Vi, theme: Theme::System }
+        Self { anomaly_multiplier: 3.0, context_threshold: 300_000, quota_thresholds: vec![70, 90], notify: Notify::default(), claude_projects_dir: None, kiro_sessions_dir: None, language: crate::i18n::Lang::Vi, theme: Theme::System, tool_limits: Default::default() }
     }
 }
 

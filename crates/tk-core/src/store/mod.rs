@@ -10,7 +10,7 @@ use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use crate::model::RawEvent;
 
-pub use queries::PromptStats;
+pub use queries::{PromptStats, ToolActivity};
 
 pub struct Store {
     conn: Connection,

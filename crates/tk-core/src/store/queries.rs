@@ -389,3 +389,48 @@ impl Store {
         rows.collect()
     }
 }
+
+/// Hoạt động của một công cụ trong một khoảng thời gian.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct ToolActivity {
+    pub tool: String,
+    pub tokens: u64,
+    pub credits: f64,
+    pub prompts: u64,
+}
+
+impl Store {
+    /// Tổng credit của công cụ `tool` trong [from, to).
+    pub fn tool_credits_between(&self, tool: &str, from: &str, to: &str) -> rusqlite::Result<f64> {
+        self.conn().query_row(
+            "SELECT COALESCE(SUM(a.credits), 0) FROM api_calls a JOIN sessions s ON s.id = a.session_id
+             WHERE s.tool = ?1 AND a.ts >= ?2 AND a.ts < ?3",
+            params![tool, from, to],
+            |r| r.get(0),
+        )
+    }
+
+    /// Token, credit, số lượt hỏi theo công cụ trong [from, to); công cụ không có hoạt động thì không có dòng.
+    pub fn tool_activity_between(&self, from: &str, to: &str) -> rusqlite::Result<Vec<ToolActivity>> {
+        let mut out: Vec<ToolActivity> = Vec::new();
+        let mut st = self.conn().prepare(&format!(
+            "SELECT s.tool, {USAGE_SUMS}, COALESCE(SUM(a.credits), 0) FROM api_calls a JOIN sessions s ON s.id = a.session_id
+             WHERE a.ts >= ?1 AND a.ts < ?2 GROUP BY s.tool"
+        ))?;
+        for row in st.query_map(params![from, to], |r| Ok((r.get::<_, String>(0)?, usage_at(r, 1)?, r.get::<_, f64>(6)?)))? {
+            let (tool, usage, credits) = row?;
+            out.push(ToolActivity { tool, tokens: usage.total(), credits, prompts: 0 });
+        }
+        let mut st = self.conn().prepare(
+            "SELECT s.tool, COUNT(*) FROM prompts p JOIN sessions s ON s.id = p.session_id WHERE p.ts >= ?1 AND p.ts < ?2 GROUP BY s.tool",
+        )?;
+        for row in st.query_map(params![from, to], |r| Ok((r.get::<_, String>(0)?, u64_at(r, 1)?)))? {
+            let (tool, n) = row?;
+            match out.iter_mut().find(|a| a.tool == tool) {
+                Some(a) => a.prompts = n,
+                None => out.push(ToolActivity { tool, prompts: n, ..Default::default() }),
+            }
+        }
+        Ok(out)
+    }
+}

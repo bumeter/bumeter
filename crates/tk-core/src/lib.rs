@@ -9,6 +9,7 @@ pub mod host;
 pub mod i18n;
 pub mod insight;
 pub mod limits;
+pub mod meter;
 pub mod model;
 pub mod paths;
 pub mod pricing;
