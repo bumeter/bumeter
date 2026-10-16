@@ -6,6 +6,11 @@ pub fn registry(claude_root: &std::path::Path, kiro_root: &std::path::Path) -> V
     vec![(claude_code::info(), claude_root.to_path_buf()), (kiro::info(), kiro_root.to_path_buf())]
 }
 
+/// Công cụ có thư mục log trên máy (để tray không hiện công cụ chưa cài).
+pub fn installed(claude_root: &std::path::Path, kiro_root: &std::path::Path) -> Vec<bum_core::source::SourceInfo> {
+    registry(claude_root, kiro_root).into_iter().filter(|(_, root)| root.exists()).map(|(i, _)| i).collect()
+}
+
 /// Hạn mức các công cụ tự báo được (chạy lệnh của công cụ, có thể mất vài giây — gọi ở luồng nền).
 /// Thêm công cụ có lệnh tương tự: thêm vào đây.
 pub fn fetch_quotas(now: i64) -> Vec<(String, bum_core::meter::ToolQuota)> {

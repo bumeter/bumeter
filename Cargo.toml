@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/bum-core", "crates/bum-adapters", "crates/bum-service", "crates/bum-cli", "crates/bum-skills", "app/src-tauri"]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.0.1"
 edition = "2021"
 
 [workspace.dependencies]

@@ -113,7 +113,7 @@ fn status(paths: &Paths) -> anyhow::Result<bool> {
 fn tool_lines(paths: &Paths, limits: &bum_core::limits::LimitState, now: chrono::DateTime<chrono::Utc>) -> Vec<String> {
     let Ok(store) = Store::open_readonly(&paths.db()) else { return vec![] };
     let cfg = config(paths);
-    let sources: Vec<_> = bum_adapters::registry(&claude_root(&cfg), &bum_service::host::kiro_root(&cfg)).into_iter().map(|(i, _)| i).collect();
+    let sources = bum_adapters::installed(&claude_root(&cfg), &bum_service::host::kiro_root(&cfg));
     let quotas = bum_core::meter::read_quotas(&paths.tool_quotas());
     let snap = bum_core::meter::snapshot(&store, &cfg, &quotas, &sources, now).unwrap_or_default();
     bum_core::meter::render(&sources, limits, &snap, now.timestamp(), cfg.language).tools

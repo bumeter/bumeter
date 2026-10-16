@@ -374,7 +374,7 @@ dependencies = [
 
 [[package]]
 name = "bum-adapters"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "bum-core",
@@ -388,7 +388,7 @@ dependencies = [
 
 [[package]]
 name = "bum-cli"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "bum-adapters",
@@ -404,7 +404,7 @@ dependencies = [
 
 [[package]]
 name = "bum-core"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -420,7 +420,7 @@ dependencies = [
 
 [[package]]
 name = "bum-service"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "bum-adapters",
@@ -436,7 +436,7 @@ dependencies = [
 
 [[package]]
 name = "bum-skills"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -448,7 +448,7 @@ dependencies = [
 
 [[package]]
 name = "bumeter"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "bum-adapters",
