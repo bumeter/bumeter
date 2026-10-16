@@ -13,6 +13,7 @@ pub mod meter;
 pub mod model;
 pub mod paths;
 pub mod pricing;
+pub mod ring;
 pub mod source;
 pub mod transcript;
 pub mod store;

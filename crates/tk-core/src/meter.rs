@@ -12,6 +12,8 @@ use crate::limits::{LimitState, Window};
 use crate::source::SourceInfo;
 use crate::store::{Store, ToolActivity};
 
+pub use crate::ring::{ring_key, ring_png, ring_rgba, RingTone, RING_SIZE};
+
 /// Kỳ credit chứa `today`: (ngày reset gần nhất ≤ hôm nay, ngày reset kế tiếp). `reset_day` kẹp 1–28.
 pub fn credit_period(today: NaiveDate, reset_day: u32) -> (NaiveDate, NaiveDate) {
     let day = reset_day.clamp(1, 28);
@@ -150,19 +152,28 @@ fn token_unit(lang: Lang) -> &'static str {
     lang.pick("token", "tokens")
 }
 
-/// `by_date`: cửa sổ dài (7 ngày) hiện ngày reset thay vì giờ.
+/// Số liệu một cửa sổ quota: %, giờ/ngày reset, ghi chú dữ liệu cũ. `by_date`: cửa sổ dài (7 ngày) hiện ngày reset thay vì giờ.
+fn window_parts(w: Window, by_date: bool, limits: &LimitState, now: i64, lang: Lang) -> (f64, String, String) {
+    let local = DateTime::from_timestamp(w.resets_at, 0).map(|t| t.with_timezone(&chrono::Local));
+    let when = local.map(|t| if by_date { reset_date(t.date_naive(), lang) } else { t.format("%H:%M").to_string() }).unwrap_or_default();
+    let fresh = match (limits.stale, limits.updated_at) {
+        (true, Some(t)) => updated(now - t, lang),
+        _ => String::new(),
+    };
+    (w.used_percentage, when, fresh)
+}
+
+fn no_data(name: &str, lang: Lang) -> String {
+    format!("{name} · {}", lang.pick("chưa có dữ liệu", "no data yet"))
+}
+
 fn window(name: &str, w: Option<Window>, by_date: bool, limits: &LimitState, now: i64, lang: Lang) -> String {
     match w {
         Some(w) => {
-            let local = DateTime::from_timestamp(w.resets_at, 0).map(|t| t.with_timezone(&chrono::Local));
-            let when = local.map(|t| if by_date { reset_date(t.date_naive(), lang) } else { t.format("%H:%M").to_string() }).unwrap_or_default();
-            let fresh = match (limits.stale, limits.updated_at) {
-                (true, Some(t)) => updated(now - t, lang),
-                _ => String::new(),
-            };
-            format!("{}  {} · {name} · reset {when}{fresh}", bar(w.used_percentage), pct_str(w.used_percentage))
+            let (pct, when, fresh) = window_parts(w, by_date, limits, now, lang);
+            format!("{}  {} · {name} · reset {when}{fresh}", bar(pct), pct_str(pct))
         }
-        None => format!("{name} · {}", lang.pick("chưa có dữ liệu", "no data yet")),
+        None => no_data(name, lang),
     }
 }
 
@@ -173,10 +184,22 @@ fn reset_date(d: NaiveDate, lang: Lang) -> String {
     }
 }
 
-fn credit_line(c: &CreditMeter, now: i64, lang: Lang) -> String {
+/// %, phần "used/limit credit · reset …", ghi chú cũ (số /usage quá 20 phút).
+fn credit_parts(c: &CreditMeter, now: i64, lang: Lang) -> (f64, String, String) {
     let pct = c.used / c.limit * 100.0;
     let note = c.fetched_at.filter(|t| now - t > QUOTA_NOTE_AFTER_SECS).map(|t| updated(now - t, lang)).unwrap_or_default();
-    format!("{}  {} · {}/{} {} · reset {}{note}", bar(pct), pct_str(pct), fmt_credit(c.used), fmt_credit(c.limit), credit_unit(lang), reset_date(c.next_reset, lang))
+    (pct, format!("{}/{} {} · reset {}", fmt_credit(c.used), fmt_credit(c.limit), credit_unit(lang), reset_date(c.next_reset, lang)), note)
+}
+
+fn credit_line(c: &CreditMeter, now: i64, lang: Lang) -> String {
+    let (pct, body, note) = credit_parts(c, now, lang);
+    format!("{}  {} · {body}{note}", bar(pct), pct_str(pct))
+}
+
+fn today_usage(s: &SourceInfo, snap: &Snapshot, lang: Lang) -> String {
+    let idle = ToolActivity::default();
+    let a = snap.today.iter().find(|a| a.tool == s.id).unwrap_or(&idle);
+    format!("{} {} · {} {}", lang.pick("hôm nay", "today"), amount(s, a, lang), a.prompts, lang.pick("lượt", "turns"))
 }
 
 /// Lượng dùng hôm nay của một công cụ: credit nếu tính bằng credit, còn lại token.
@@ -199,7 +222,6 @@ pub fn render(sources: &[SourceInfo], limits: &LimitState, snap: &Snapshot, now:
     let width = sources.iter().map(|s| s.label.chars().count()).max().unwrap_or(0);
     let col = |label: &str| format!("{label}{}  ", NAME_PAD.to_string().repeat(width - label.chars().count()));
     let blank = col("");
-    let idle = ToolActivity::default();
     let mut tools = Vec::new();
     for s in sources {
         let name = col(&s.label);
@@ -209,14 +231,84 @@ pub fn render(sources: &[SourceInfo], limits: &LimitState, snap: &Snapshot, now:
         } else if let Some(c) = snap.credits.get(&s.id) {
             tools.push(name + &credit_line(c, now, lang));
         } else {
-            let a = snap.today.iter().find(|a| a.tool == s.id).unwrap_or(&idle);
-            tools.push(format!("{name}{} {} · {} {}", lang.pick("hôm nay", "today"), amount(s, a, lang), a.prompts, lang.pick("lượt", "turns")));
+            tools.push(name + &today_usage(s, snap, lang));
         }
     }
+    MenuText { tools, today: today_line(sources, snap, lang) }
+}
+
+fn today_line(sources: &[SourceInfo], snap: &Snapshot, lang: Lang) -> String {
     let active: Vec<String> = sources
         .iter()
         .filter_map(|s| snap.today.iter().find(|a| a.tool == s.id && (a.prompts > 0 || a.tokens > 0 || a.credits > 0.0)).map(|a| format!("{} {}", s.label, amount(s, a, lang))))
         .collect();
     let body = if active.is_empty() { lang.pick("chưa có hoạt động", "no activity yet").to_string() } else { active.join(" · ") };
-    MenuText { tools, today: format!("{}: {body}", lang.pick("Hôm nay", "Today")) }
+    format!("{}: {body}", lang.pick("Hôm nay", "Today"))
+}
+
+/// Icon của một dòng menu tray.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TrayIcon {
+    /// Không icon (dòng không có %).
+    None,
+    /// Logo công cụ (dòng tiêu đề).
+    Logo,
+    /// Vòng %: `pct` None = chưa có dữ liệu; `stale` = số cũ.
+    Ring { pct: Option<f64>, stale: bool },
+}
+
+/// Một dòng menu tray thuộc công cụ `tool`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrayRow {
+    pub tool: String,
+    pub text: String,
+    pub icon: TrayIcon,
+}
+
+/// Menu tray: dòng theo công cụ (đúng thứ tự `sources`, `tray_row_count` dòng mỗi công cụ), dòng "Hôm nay",
+/// và chữ cạnh icon trên thanh trên cùng (% cao nhất, None nếu không có %).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrayText {
+    pub rows: Vec<TrayRow>,
+    pub today: String,
+    pub title: Option<String>,
+}
+
+/// Số dòng menu tray của một công cụ: 1 tiêu đề + `line_count`.
+pub fn tray_row_count(info: &SourceInfo) -> usize {
+    1 + line_count(info)
+}
+
+pub fn render_tray(sources: &[SourceInfo], limits: &LimitState, snap: &Snapshot, now: i64, lang: Lang) -> TrayText {
+    let mut rows = Vec::new();
+    for s in sources {
+        let row = |text: String, icon| TrayRow { tool: s.id.clone(), text, icon };
+        rows.push(row(s.label.clone(), TrayIcon::Logo));
+        if s.limits {
+            for (name, w, by_date) in [(lang.pick("5 giờ", "5 hours"), limits.five_hour, false), (lang.pick("7 ngày", "7 days"), limits.seven_day, true)] {
+                rows.push(match w {
+                    Some(w) => {
+                        let (pct, when, fresh) = window_parts(w, by_date, limits, now, lang);
+                        row(format!("{name} · {} · reset {when}{fresh}", pct_str(pct)), TrayIcon::Ring { pct: Some(pct), stale: limits.stale })
+                    }
+                    None => row(no_data(name, lang), TrayIcon::Ring { pct: None, stale: false }),
+                });
+            }
+        } else if let Some(c) = snap.credits.get(&s.id) {
+            let (pct, body, note) = credit_parts(c, now, lang);
+            let stale = !note.is_empty();
+            rows.push(row(format!("{} · {} · {body}{note}", lang.pick("Tháng", "Month"), pct_str(pct)), TrayIcon::Ring { pct: Some(pct), stale }));
+        } else {
+            rows.push(row(format!("{} · {}", s.label, today_usage(s, snap, lang)), TrayIcon::None));
+        }
+    }
+    let title = rows
+        .iter()
+        .filter_map(|r| match r.icon {
+            TrayIcon::Ring { pct: Some(p), .. } if !p.is_nan() => Some(p),
+            _ => None,
+        })
+        .reduce(f64::max)
+        .map(pct_str);
+    TrayText { rows, today: today_line(sources, snap, lang), title }
 }
