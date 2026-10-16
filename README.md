@@ -106,6 +106,14 @@ More detail in [docs/build-ubuntu.md](docs/build-ubuntu.md).
 
 Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --noEmit`.
 
+### CI and releases
+
+- `.github/workflows/ci.yml` runs the Rust tests on Linux, macOS and Windows, plus the UI tests, on every push and pull request.
+- `.github/workflows/release.yml` builds the installers: `.deb` + `.AppImage` (Ubuntu 22.04+), `.dmg` (Apple Silicon and Intel),
+  `.exe` (NSIS) + `.msi` (Windows). Run it from the Actions tab to get the files as artifacts, or push a tag
+  (`git tag v1.0.2 && git push origin v1.0.2`) to get a draft GitHub Release with the files attached.
+  The macOS and Windows builds are not code-signed yet, so Gatekeeper and SmartScreen will warn on first launch.
+
 ### Project layout
 
 ```

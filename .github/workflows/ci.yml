@@ -1,0 +1,64 @@
+# Kiểm thử mỗi lần push/PR trên cả 3 hệ điều hành: bắt sớm lỗi riêng của Windows/macOS.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Fixture JSONL phải giữ LF trên Windows.
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+
+      - name: Thư viện hệ thống (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # tauri-build cần frontendDist và sidecar externalBin tồn tại lúc biên dịch app/src-tauri.
+      - name: UI và sidecar giả cho tauri-build
+        shell: bash
+        run: |
+          mkdir -p app/ui/dist app/src-tauri/binaries
+          echo '<!doctype html>' > app/ui/dist/index.html
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          ext=""; [ "$RUNNER_OS" = "Windows" ] && ext=".exe"
+          touch "app/src-tauri/binaries/bum-$triple$ext"
+
+      - name: cargo test
+        run: cargo test --workspace --locked
+
+  ui:
+    name: UI
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: app/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/ui/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run
