@@ -96,6 +96,13 @@ switches to the WiX package instead. The MSI ProductCode can be read with
 The installer is not code-signed, so SmartScreen shows "Windows protected your PC" on the first run:
 More info → Run anyway. `winget install` itself does not show that dialog.
 
+`AppsAndFeaturesEntries` in the installer manifest repeats the name and publisher the installer
+writes into "Apps & features". Tauri takes the publisher from `bundle.publisher`, and with that unset
+falls back to the second element of the identifier (`dev.bumeter.app` → `bumeter`) — the released
+`.msi` does have `Manufacturer: bumeter`. WinGet matches an already-installed app on those two
+values, so `scripts/packaging.py` reads them out of `tauri.conf.json`; setting `bundle.publisher`
+before the next release keeps the manifest and the installer in step.
+
 ## Release checklist
 
 1. Bump `version` in `Cargo.toml` and `app/src-tauri/tauri.conf.json`, commit, tag `v1.0.6`, push the tag.

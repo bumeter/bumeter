@@ -47,6 +47,20 @@ def schema_header(kind: str) -> str:
     return f"# yaml-language-server: $schema=https://aka.ms/winget-manifest.{kind}.{MANIFEST_VERSION}.schema.json"
 
 
+def bundle_identity() -> tuple[str, str]:
+    """What the Windows installers write into "Apps & features" (name, publisher).
+
+    WinGet matches an already-installed app on these two, so the manifest has to say what the
+    installer really writes. Tauri takes the publisher from `bundle.publisher`, and when that is
+    unset it falls back to the second element of the identifier (`dev.bumeter.app` → `bumeter`) —
+    which is the `Manufacturer` of the released .msi, so this follows Tauri instead of guessing.
+    """
+    with open(os.path.join(ROOT, "app/src-tauri/tauri.conf.json"), encoding="utf-8") as f:
+        conf = json.load(f)
+    publisher = conf.get("bundle", {}).get("publisher") or conf["identifier"].split(".")[1]
+    return conf["productName"], publisher
+
+
 
 def log(msg: str) -> None:
     print(msg, file=sys.stderr)
@@ -156,6 +170,7 @@ ManifestVersion: {MANIFEST_VERSION}
 
 
 def winget_installer(version: str, url: str, digest: str, installer: str, product_code: str | None) -> str:
+    name, publisher = bundle_identity()
     if installer == "msi":
         # A WiX package knows its own identity, and WinGet uses it to detect the install.
         head = f"InstallerType: wix\nInstallers:\n  - Architecture: x64\n    ProductCode: '{product_code}'"
@@ -174,6 +189,11 @@ InstallModes:
   - interactive
   - silent
 UpgradeBehavior: install
+# What the installer writes into "Apps & features": without this, WinGet cannot tell the package
+# from an app it did not install, so `winget list`/`upgrade` miss it.
+AppsAndFeaturesEntries:
+  - DisplayName: {name}
+    Publisher: {publisher}
 ManifestType: installer
 ManifestVersion: {MANIFEST_VERSION}
 """

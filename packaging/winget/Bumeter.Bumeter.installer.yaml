@@ -13,5 +13,10 @@ InstallModes:
   - interactive
   - silent
 UpgradeBehavior: install
+# What the installer writes into "Apps & features": without this, WinGet cannot tell the package
+# from an app it did not install, so `winget list`/`upgrade` miss it.
+AppsAndFeaturesEntries:
+  - DisplayName: Bumeter
+    Publisher: bumeter
 ManifestType: installer
 ManifestVersion: 1.12.0
