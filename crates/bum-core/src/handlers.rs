@@ -97,7 +97,9 @@ pub fn local_day_bounds(now: chrono::DateTime<chrono::Utc>) -> (String, String) 
 
 pub fn limit_state(ctx: &HandlerCtx, now: chrono::DateTime<chrono::Utc>) -> rusqlite::Result<crate::limits::LimitState> {
     let file = crate::limits::read(&ctx.paths.limits());
-    Ok(crate::limits::state(file, ctx.store.latest_rate_limit()?, now.timestamp()))
+    let now = now.timestamp();
+    let samples = ctx.store.limit_samples_since("five_hour", now - crate::forecast::FIVE_HOUR_LOOKBACK)?;
+    Ok(crate::limits::state(file, ctx.store.latest_rate_limit()?, now).with_forecast(&samples, now))
 }
 
 pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now: chrono::DateTime<chrono::Utc>) -> Result<serde_json::Value, String> {

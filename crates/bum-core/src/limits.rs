@@ -1,6 +1,8 @@
 //! 5h/7d limits: data from the statusline (`limits.json`) and 429 events (spec section 7.1).
 use serde::{Deserialize, Serialize};
 
+use crate::forecast::{self, Forecast, Sample};
+
 /// Data older than this threshold does not raise an alert.
 pub const STALE_SECS: i64 = 600;
 
@@ -40,6 +42,9 @@ pub struct LimitState {
     pub updated_at: Option<i64>,
     pub stale: bool,
     pub blocked: Option<Blocked>,
+    /// Set by `with_forecast`; None when there is not enough evidence, the data is stale or the window is blocked.
+    pub forecast_five_hour: Option<Forecast>,
+    pub forecast_seven_day: Option<Forecast>,
 }
 
 /// A window past its reset time is treated as 0%.
@@ -52,10 +57,26 @@ pub fn state(file: Option<LimitsFile>, last_block: Option<(String, i64)>, now: i
     let stale = updated_at.is_none_or(|t| now - t > STALE_SECS);
     let (five_hour, seven_day) = file.map(|f| (live(f.five_hour, now), live(f.seven_day, now))).unwrap_or_default();
     let blocked = last_block.filter(|(_, r)| *r > now).map(|(limit_type, resets_at)| Blocked { limit_type, resets_at });
-    LimitState { five_hour, seven_day, updated_at, stale, blocked }
+    LimitState { five_hour, seven_day, updated_at, stale, blocked, forecast_five_hour: None, forecast_seven_day: None }
 }
 
 impl LimitState {
+    /// Attach forecasts (spec §3.3): none when stale, blocked, already at 100% or past the reset;
+    /// 5-hour samples must belong to the current window.
+    pub fn with_forecast(mut self, five_hour_samples: &[Sample], now: i64) -> Self {
+        if self.stale || self.blocked.is_some() {
+            return self;
+        }
+        let open = |w: Option<Window>| w.filter(|w| w.used_percentage < 100.0 && w.resets_at > now);
+        self.forecast_five_hour = open(self.five_hour).and_then(|w| forecast::five_hour(five_hour_samples, now).filter(|f| f.resets_at == w.resets_at));
+        self.forecast_seven_day = open(self.seven_day).and_then(|w| forecast::seven_day(w.used_percentage, w.resets_at, now));
+        self
+    }
+
+    pub fn at_risk(&self) -> bool {
+        [self.forecast_five_hour, self.forecast_seven_day].iter().flatten().any(|f| f.at_risk)
+    }
+
     pub fn max_percentage(&self) -> f64 {
         [self.five_hour, self.seven_day].iter().flatten().map(|w| w.used_percentage).fold(0.0, f64::max)
     }
@@ -70,7 +91,7 @@ impl LimitState {
         }
         if pct >= 90.0 {
             Level::Red
-        } else if pct >= 70.0 {
+        } else if pct >= 70.0 || self.at_risk() {
             Level::Yellow
         } else {
             Level::Green
@@ -119,6 +140,9 @@ pub fn render_line(st: &LimitState, today_total: Option<u64>, lang: crate::i18n:
         None => "5h —".to_string(),
     };
     let mut parts = vec![format!("{dot}{five}")];
+    if let Some(h) = st.forecast_five_hour.filter(|f| f.at_risk).and_then(|f| f.hits_at) {
+        parts.push(format!("{} ~{}", lang.pick("hết", "out"), hhmm(h)));
+    }
     if let Some(w) = st.seven_day {
         parts.push(format!("7d {:.0}%", w.used_percentage));
     }
