@@ -70,6 +70,15 @@ pub fn claude_root(cfg: &Config) -> std::path::PathBuf {
     cfg.claude_projects_dir.clone().unwrap_or_else(ClaudeCode::default_root)
 }
 
+pub fn opencode_db(cfg: &Config) -> std::path::PathBuf {
+    cfg.opencode_db.clone().unwrap_or_else(bum_adapters::opencode::OpenCode::default_path)
+}
+
+/// Every tool's data location, from the config (or defaults).
+pub fn roots(cfg: &Config) -> bum_adapters::Roots {
+    bum_adapters::Roots { claude: claude_root(cfg), kiro: kiro_root(cfg), opencode_db: opencode_db(cfg) }
+}
+
 pub fn start_host(paths: Paths, cfg: Config, mut handler: Box<dyn HostHandler + Send>) -> Result<HostHandle, StartError> {
     paths.ensure().map_err(anyhow::Error::from)?;
     let lock = HostLock::try_acquire(&paths.lock()).map_err(anyhow::Error::from)?.ok_or(StartError::AlreadyRunning)?;
@@ -78,7 +87,8 @@ pub fn start_host(paths: Paths, cfg: Config, mut handler: Box<dyn HostHandler + 
     let mut store = Store::open(&paths.db()).map_err(anyhow::Error::from)?;
     // Newly recreated DB: restore ⭐/📝 from the backup.
     let _ = bum_core::store::notes::import_notes(&mut store, &paths.notes());
-    let mut engine = Engine::new(store, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro_root(&cfg)))]);
+    let mut engine = Engine::new(store, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro_root(&cfg)))])
+        .with_db_sources(vec![Box::new(bum_adapters::opencode::OpenCode::new(opencode_db(&cfg)))]);
     let started = Instant::now();
     let report = engine.full_scan()?;
     eprintln!("bumeter: initial scan of {} lines in {:?}", report.lines, started.elapsed());

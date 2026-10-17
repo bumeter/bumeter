@@ -86,7 +86,9 @@ fn scan(paths: &Paths) -> anyhow::Result<bool> {
     };
     let root = claude_root(&config(paths));
     let kiro = bum_service::host::kiro_root(&config(paths));
-    let mut engine = Engine::new(Store::open(&paths.db())?, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro))]);
+    let opencode = bum_service::host::opencode_db(&config(paths));
+    let mut engine = Engine::new(Store::open(&paths.db())?, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro))])
+        .with_db_sources(vec![Box::new(bum_adapters::opencode::OpenCode::new(opencode))]);
     let started = std::time::Instant::now();
     let r = engine.full_scan()?;
     eprintln!("scanned in {:?}", started.elapsed());
@@ -116,7 +118,7 @@ fn status(paths: &Paths) -> anyhow::Result<bool> {
 fn tool_lines(paths: &Paths, limits: &bum_core::limits::LimitState, now: chrono::DateTime<chrono::Utc>) -> Vec<String> {
     let Ok(store) = Store::open_readonly(&paths.db()) else { return vec![] };
     let cfg = config(paths);
-    let sources = bum_adapters::installed(&claude_root(&cfg), &bum_service::host::kiro_root(&cfg));
+    let sources = bum_adapters::installed(&bum_service::host::roots(&cfg));
     let quotas = bum_core::meter::read_quotas(&paths.tool_quotas());
     let snap = bum_core::meter::snapshot(&store, &cfg, &quotas, &sources, now).unwrap_or_default();
     bum_core::meter::render(&sources, limits, &snap, now.timestamp(), cfg.language).tools
@@ -182,14 +184,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
         drop(Store::open(&paths.db()).unwrap());
-        // Point both tools at existing empty dirs so the test does not depend on real logs in $HOME.
+        // Point every tool at temp paths so the test does not depend on real data in $HOME (OpenCode: no database).
         let claude = dir.path().join("claude");
         let kiro = dir.path().join("kiro");
         std::fs::create_dir_all(&claude).unwrap();
         std::fs::create_dir_all(&kiro).unwrap();
         let mut tool_limits = std::collections::BTreeMap::new();
         tool_limits.insert("kiro".into(), bum_core::config::ToolLimit { monthly_credits: Some(1000.0), reset_day: 1 });
-        let cfg = Config { claude_projects_dir: Some(claude), kiro_sessions_dir: Some(kiro), tool_limits, ..Default::default() };
+        let cfg = Config { claude_projects_dir: Some(claude), kiro_sessions_dir: Some(kiro), opencode_db: Some(dir.path().join("opencode.db")), tool_limits, ..Default::default() };
         cfg.save(&paths.config()).unwrap();
         let st = bum_core::limits::state(None, None, 0);
         let lines = tool_lines(&paths, &st, chrono::Utc::now());

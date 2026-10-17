@@ -11,6 +11,7 @@ fn bum(args: &[&str], data: &Path) -> (String, bool) {
         .env("BUM_DATA_DIR", data)
         .env("BUM_CLAUDE_DIR", fixture())
         .env("BUM_KIRO_DIR", "/nonexistent-kiro")
+        .env("BUM_OPENCODE_DB", "/nonexistent-opencode/opencode.db")
         .output()
         .unwrap();
     (format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)), out.status.success())

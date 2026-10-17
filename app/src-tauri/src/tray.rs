@@ -167,7 +167,7 @@ pub fn action_labels(lang: Lang) -> [&'static str; 3] {
 
 /// Tools shown on the tray: in registry order, only tools that have a log directory on the machine.
 pub fn sources(cfg: &Config) -> Vec<SourceInfo> {
-    bum_adapters::installed(&bum_service::host::claude_root(cfg), &bum_service::host::kiro_root(cfg))
+    bum_adapters::installed(&bum_service::host::roots(cfg))
 }
 
 /// Linux (AppIndicator/dbusmenu): menu item icons are not exported to the GNOME bar and `IconMenuItem::set_text`
@@ -413,7 +413,7 @@ mod tests {
         std::fs::create_dir_all(&kiro).unwrap();
         let mut tool_limits = std::collections::BTreeMap::new();
         tool_limits.insert("kiro".into(), bum_core::config::ToolLimit { monthly_credits: Some(1000.0), reset_day: 1 });
-        let cfg = Config { claude_projects_dir: Some(claude), kiro_sessions_dir: Some(kiro), tool_limits, ..Default::default() };
+        let cfg = Config { claude_projects_dir: Some(claude), opencode_db: Some(std::path::PathBuf::from("/nonexistent-opencode/opencode.db")), kiro_sessions_dir: Some(kiro), tool_limits, ..Default::default() };
         let srcs = sources(&cfg);
         assert_eq!(srcs.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), vec!["claude_code", "kiro"]);
         let store = Store::open_in_memory().unwrap();

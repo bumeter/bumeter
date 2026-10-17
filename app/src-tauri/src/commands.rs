@@ -40,7 +40,7 @@ pub fn call(state: State<'_, AppState>, method: String, params: Option<Value>) -
         return Ok(serde_json::to_value(turns).unwrap_or_default());
     }
     if method == "sources" {
-        let roots = bum_adapters::registry(&bum_service::host::claude_root(&state.cfg), &bum_service::host::kiro_root(&state.cfg));
+        let roots = bum_adapters::registry(&bum_service::host::roots(&state.cfg));
         let stats = bum_core::handlers::tool_stats(&store).map_err(|e| e.to_string())?;
         return Ok(sources_json(roots, &stats));
     }
@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn sources_merge_registry_with_stats() {
-        let reg = bum_adapters::registry(std::path::Path::new("/nonexistent-c"), std::path::Path::new("/nonexistent-k"));
+        let reg = bum_adapters::registry(&bum_adapters::Roots { claude: "/nonexistent-c".into(), kiro: "/nonexistent-k".into(), opencode_db: "/nonexistent-o".into() });
         let stats = vec![bum_core::handlers::ToolStat { tool: "kiro".into(), sessions: 2, prompts: 5, last_ts: Some("t".into()) }];
         let v = sources_json(reg, &stats);
         assert_eq!(v[0]["info"]["id"], "claude_code");

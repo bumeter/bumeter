@@ -67,9 +67,10 @@ fn kiro_title_is_emitted() {
 
 #[test]
 fn registry_describes_each_tool_and_its_capabilities() {
-    let r = bum_adapters::registry(Path::new("/c"), Path::new("/k"));
+    let r = bum_adapters::registry(&bum_adapters::Roots { claude: "/c".into(), kiro: "/k".into(), opencode_db: "/o/opencode.db".into() });
     let ids: Vec<_> = r.iter().map(|(i, _)| i.id.as_str()).collect();
-    assert_eq!(ids, vec!["claude_code", "kiro"]);
+    assert_eq!(ids, vec!["claude_code", "kiro", "opencode"]);
+    assert_eq!(r[2].1, Path::new("/o/opencode.db"), "OpenCode's root is its database file");
     let (claude, root) = &r[0];
     assert_eq!((claude.letter.as_str(), claude.real_tokens, claude.composition, claude.limits, claude.credits), ("C", true, true, true, false));
     assert_eq!(root, &PathBuf::from("/c"));

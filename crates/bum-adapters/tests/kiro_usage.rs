@@ -112,8 +112,13 @@ fn installed_keeps_only_tools_whose_log_dir_exists() {
     let claude = dir.path().join("claude/projects");
     std::fs::create_dir_all(&claude).unwrap();
     let kiro = dir.path().join("kiro/sessions/cli");
+    let opencode_db = dir.path().join("opencode/opencode.db");
+    let roots = bum_adapters::Roots { claude: claude.clone(), kiro: kiro.clone(), opencode_db: opencode_db.clone() };
     let ids = |v: Vec<bum_core::source::SourceInfo>| v.into_iter().map(|i| i.id).collect::<Vec<_>>();
-    assert_eq!(ids(bum_adapters::installed(&claude, &kiro)), ["claude_code"]);
+    assert_eq!(ids(bum_adapters::installed(&roots)), ["claude_code"]);
     std::fs::create_dir_all(&kiro).unwrap();
-    assert_eq!(ids(bum_adapters::installed(&claude, &kiro)), ["claude_code", "kiro"]);
+    assert_eq!(ids(bum_adapters::installed(&roots)), ["claude_code", "kiro"]);
+    std::fs::create_dir_all(opencode_db.parent().unwrap()).unwrap();
+    std::fs::write(&opencode_db, b"").unwrap();
+    assert_eq!(ids(bum_adapters::installed(&roots)), ["claude_code", "kiro", "opencode"], "OpenCode appears once its database exists");
 }

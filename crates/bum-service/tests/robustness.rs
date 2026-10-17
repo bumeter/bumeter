@@ -34,7 +34,7 @@ fn takeover_times_out_cleanly_when_lock_holder_has_no_socket() {
     let paths = Paths::new(dir.path().join("d"));
     paths.ensure().unwrap();
     let _held = HostLock::try_acquire(&paths.lock()).unwrap().unwrap(); // like `bum scan` currently running
-    let cfg = Config { claude_projects_dir: Some(fixture()), kiro_sessions_dir: Some(std::path::PathBuf::from("/nonexistent-kiro")), ..Config::default() };
+    let cfg = Config { claude_projects_dir: Some(fixture()), opencode_db: Some(std::path::PathBuf::from("/nonexistent-opencode/opencode.db")), kiro_sessions_dir: Some(std::path::PathBuf::from("/nonexistent-kiro")), ..Config::default() };
     let r = start_host_taking_over(&paths, &cfg, || Box::new(Quiet), Duration::from_millis(600));
     assert!(matches!(r, Err(StartError::AlreadyRunning)));
 }
@@ -43,7 +43,7 @@ fn takeover_times_out_cleanly_when_lock_holder_has_no_socket() {
 fn takeover_replaces_a_running_host() {
     let dir = tempfile::tempdir().unwrap();
     let paths = Paths::new(dir.path().join("d"));
-    let cfg = Config { claude_projects_dir: Some(fixture()), kiro_sessions_dir: Some(std::path::PathBuf::from("/nonexistent-kiro")), ..Config::default() };
+    let cfg = Config { claude_projects_dir: Some(fixture()), opencode_db: Some(std::path::PathBuf::from("/nonexistent-opencode/opencode.db")), kiro_sessions_dir: Some(std::path::PathBuf::from("/nonexistent-kiro")), ..Config::default() };
     let first = start_host_taking_over(&paths, &cfg, || Box::new(Quiet), Duration::from_secs(1)).unwrap();
     let second = start_host_taking_over(&paths, &cfg, || Box::new(Quiet), Duration::from_secs(5)).unwrap();
     assert!(first.wait_timeout(Duration::from_secs(3)), "old host must shut down");

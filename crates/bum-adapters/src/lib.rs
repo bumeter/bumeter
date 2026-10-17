@@ -4,13 +4,21 @@ pub mod opencode;
 pub mod process;
 
 /// All supported tools, in display order, with their log directory. Add a new tool here.
-pub fn registry(claude_root: &std::path::Path, kiro_root: &std::path::Path) -> Vec<(bum_core::source::SourceInfo, std::path::PathBuf)> {
-    vec![(claude_code::info(), claude_root.to_path_buf()), (kiro::info(), kiro_root.to_path_buf())]
+pub fn registry(roots: &Roots) -> Vec<(bum_core::source::SourceInfo, std::path::PathBuf)> {
+    vec![(claude_code::info(), roots.claude.clone()), (kiro::info(), roots.kiro.clone()), (opencode::info(), roots.opencode_db.clone())]
 }
 
-/// Tools whose log directory exists on this machine (so the tray hides tools that are not installed).
-pub fn installed(claude_root: &std::path::Path, kiro_root: &std::path::Path) -> Vec<bum_core::source::SourceInfo> {
-    registry(claude_root, kiro_root).into_iter().filter(|(_, root)| root.exists()).map(|(i, _)| i).collect()
+/// Where each tool keeps its data on this machine: a log directory, or a database file (OpenCode).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Roots {
+    pub claude: std::path::PathBuf,
+    pub kiro: std::path::PathBuf,
+    pub opencode_db: std::path::PathBuf,
+}
+
+/// Tools whose data exists on this machine (so the tray hides tools that are not installed).
+pub fn installed(roots: &Roots) -> Vec<bum_core::source::SourceInfo> {
+    registry(roots).into_iter().filter(|(_, root)| root.exists()).map(|(i, _)| i).collect()
 }
 
 /// Limits that tools self-report (runs the tool's command; may take a few seconds — call it on a background thread).

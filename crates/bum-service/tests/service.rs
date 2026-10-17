@@ -31,7 +31,7 @@ fn second_lock_is_refused_until_first_is_dropped() {
 fn host_serves_queries_and_shuts_down_on_request() {
     let dir = tempfile::tempdir().unwrap();
     let paths = Paths::new(dir.path().join("data"));
-    let cfg = Config { claude_projects_dir: Some(fixture()), kiro_sessions_dir: Some(std::path::PathBuf::from("/nonexistent-kiro")), ..Config::default() };
+    let cfg = Config { claude_projects_dir: Some(fixture()), opencode_db: Some(std::path::PathBuf::from("/nonexistent-opencode/opencode.db")), kiro_sessions_dir: Some(std::path::PathBuf::from("/nonexistent-kiro")), ..Config::default() };
     let handle = start_host(paths.clone(), cfg.clone(), Box::new(Quiet)).unwrap();
 
     assert!(matches!(start_host(paths.clone(), cfg, Box::new(Quiet)), Err(StartError::AlreadyRunning)));

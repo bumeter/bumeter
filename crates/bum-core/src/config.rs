@@ -61,6 +61,8 @@ pub struct Config {
     pub claude_projects_dir: Option<PathBuf>,
     /// Kiro CLI sessions directory (default `~/.kiro/sessions/cli`).
     pub kiro_sessions_dir: Option<PathBuf>,
+    /// OpenCode database (default `~/.local/share/opencode/opencode.db`).
+    pub opencode_db: Option<PathBuf>,
     /// UI and notification language.
     pub language: crate::i18n::Lang,
     /// Light/dark theme (default follows the system).
@@ -71,7 +73,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { anomaly_multiplier: 3.0, context_threshold: 300_000, quota_thresholds: vec![70, 90], notify: Notify::default(), claude_projects_dir: None, kiro_sessions_dir: None, language: crate::i18n::Lang::Vi, theme: Theme::System, tool_limits: Default::default() }
+        Self { anomaly_multiplier: 3.0, context_threshold: 300_000, quota_thresholds: vec![70, 90], notify: Notify::default(), claude_projects_dir: None, kiro_sessions_dir: None, opencode_db: None, language: crate::i18n::Lang::Vi, theme: Theme::System, tool_limits: Default::default() }
     }
 }
 
