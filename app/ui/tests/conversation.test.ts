@@ -59,6 +59,27 @@ describe('conversation detail', () => {
     expect(el.querySelector('[data-key="p2"] .exp .cells')?.textContent).not.toContain('Suy luận');
   });
 
+  it('a tool without a transcript neither calls the transcript API nor shows an error', async () => {
+    const base = row('p1', '2026-09-25T02:52:00Z', 'run e2e test', 1000);
+    const openTurn = { ...base, stats: { ...base.stats, tool: 'opencode' } };
+    const opencode = {
+      info: { id: 'opencode', label: 'OpenCode', letter: 'O', color: '#4b8bbe', icon: null, real_tokens: true, composition: false, limits: false, credits: false, transcript: false },
+      root: '~/.local/share/opencode/opencode.db', found: true, sessions: 1, prompts: 1, last_ts: null,
+    };
+    const f = fake(handlers({
+      sources: () => [...SOURCES, opencode],
+      conversation_turns: () => ({ title: 't', turns: [openTurn] }),
+    }));
+    await loadSources();
+    await mountConversation(el);
+    await flush(); await flush();
+    (el.querySelector('[data-key="p1"] .turn-head') as HTMLButtonElement).click();
+    await flush(); await flush();
+    expect(f.calls.some((c) => c.method === 'conversation_transcript')).toBe(false);
+    expect(el.textContent).not.toContain('Không đọc được nội dung từ log');
+    expect(el.textContent).not.toContain('Đang đọc nội dung từ log');
+  });
+
   it('title, turn list with a preview of the last answer, cost-level colors', async () => {
     fake(handlers());
     await mountConversation(el);

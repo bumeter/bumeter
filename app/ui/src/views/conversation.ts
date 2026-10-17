@@ -81,7 +81,7 @@ export async function mountConversation(el: HTMLElement) {
     return h('div', { class: 'exp' }, ...compact([
       h('div', { class: 'bubble user' }, h('b', {}, t('turn.you')), h('div', { class: 'text' }, tt?.question ?? r.stats.text)),
       ...(tt ? tt.items.map((i) => itemEl(i, who)) : []),
-      !tt ? h('div', { class: 'sub' }, transcriptError ? t('turn.transcriptError', { e: transcriptError }) : t('turn.loading')) : null,
+      !tt && d.transcript ? h('div', { class: 'sub' }, transcriptError ? t('turn.transcriptError', { e: transcriptError }) : t('turn.loading')) : null,
       dd ? h('div', { class: 'cells' },
         cell(t('turn.calls'), String(dd.calls.length)),
         cell(d.realTokens ? t('turn.ctxStart') : t('turn.ctxStartEst'), fmtTokens(r.stats.context_at_start), r.stats.context_at_start > CONTEXT_THRESHOLD ? 'red' : undefined),
@@ -183,14 +183,20 @@ export async function mountConversation(el: HTMLElement) {
     title = res.title || res.turns[0]?.stats.text || '';
     render();
     // Q/A content is read straight from the log and can be slow for large sessions: load it afterwards.
-    try {
-      const tx = await api.transcript(id);
-      if (my !== seq) return;
-      transcript = new Map(tx.map((x) => [x.key, x]));
+    // Tools without a transcript (OpenCode for now) skip the call instead of showing an error in every turn.
+    if (tool().transcript) {
+      try {
+        const tx = await api.transcript(id);
+        if (my !== seq) return;
+        transcript = new Map(tx.map((x) => [x.key, x]));
+        transcriptError = null;
+      } catch (e) {
+        if (my !== seq) return;
+        transcriptError = String(e);
+      }
+    } else {
+      transcript = new Map();
       transcriptError = null;
-    } catch (e) {
-      if (my !== seq) return;
-      transcriptError = String(e);
     }
     render();
   };
