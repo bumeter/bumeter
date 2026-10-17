@@ -269,7 +269,8 @@ export async function mountSettings(el: HTMLElement) {
   const syncLead = () => {
     lead.disabled = !notify.notify_forecast.checked;
     if (lead.disabled && !parseField('forecast_lead_minutes', lead.value).ok) {
-      lead.value = String(info.config.notify.forecast_lead_minutes ?? 30);
+      const saved = String(info.config.notify.forecast_lead_minutes ?? 30);
+      lead.value = parseField('forecast_lead_minutes', saved).ok ? saved : '30'; // config.toml may hold a hand-edited bad value
       validate('forecast_lead_minutes');
     }
   };

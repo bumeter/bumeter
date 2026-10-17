@@ -90,6 +90,16 @@ describe('settings', () => {
     expect(input('forecast_lead_minutes').getAttribute('aria-invalid')).not.toBe('true');
   });
 
+  it('a hand-edited invalid saved lead time falls back to 30 once the switch is off', async () => {
+    const config = { ...cfg, notify: { ...cfg.notify, forecast: true, forecast_lead_minutes: 0 } };
+    const f = fake({ settings_get: () => hookedInfo(config), save_config: () => true });
+    await mountSettings(el);
+    const sw = input('notify_forecast');
+    sw.checked = false; sw.dispatchEvent(new Event('change', { bubbles: true }));
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f).at(-1)!.params.config.notify).toMatchObject({ forecast: false, forecast_lead_minutes: 30 });
+  });
+
   it('lead minutes "0" is not saved and is flagged when leaving the field', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);
