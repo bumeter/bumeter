@@ -7,7 +7,7 @@
 <p align="center">See where your AI coding tokens go — per conversation, per turn, per skill — and how close you are to your limits.</p>
 
 Bumeter is a desktop app for Linux that reads the local logs of AI coding assistants
-(**Claude Code** and **Kiro** today) and turns them into something you can act on:
+(**Claude Code**, **Kiro** and **OpenCode** (beta) today) and turns them into something you can act on:
 which conversations and turns were expensive, which skills cost tokens in every session,
 and how much of your 5-hour, 7-day and monthly quota is left.
 
@@ -75,6 +75,8 @@ Once it is published: `sudo snap install bumeter --classic`.
 | Claude Code | Session logs in `~/.claude/projects/**` (tokens, turns, tools, skills). The 5-hour and 7-day quota comes from Claude Code's status line: Bumeter adds `bum statusline --tee` in front of your existing status line command in `~/.claude/settings.json` (with a backup and an undo button in Settings). |
 | Kiro | Session files in `~/.kiro/sessions/cli/**`. Kiro does not log tokens, so context is estimated from each turn's context percentage, and cost is in credits. The monthly credit limit comes from `kiro-cli chat --no-interactive /usage`, run only when `kiro-cli` is installed and `kiro-cli whoami` says you are logged in. You can also type the limit in Settings. |
 
+| OpenCode (beta) | Its SQLite database `~/.local/share/opencode/opencode.db` (OpenCode 2.x), opened **read-only** and read incrementally. Real token counts per model call, including reasoning tokens. OpenCode also reports a USD cost per call; Bumeter stores it but shows tokens only for now. No quota and no conversation transcript yet. |
+
 Tools that are not installed are simply not shown.
 
 Data lives in `~/.local/share/bumeter/` (a SQLite database, `config.toml`, backups).
@@ -120,7 +122,7 @@ Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --no
 
 ```
 crates/bum-core       database, ingestion engine, quotas, tray text, insights
-crates/bum-adapters   log readers for Claude Code and Kiro, Kiro /usage
+crates/bum-adapters   readers for Claude Code and Kiro logs and the OpenCode database, Kiro /usage
 crates/bum-service    background host and IPC
 crates/bum-skills     skill catalog, install/disable/remove with undo, skills.sh
 crates/bum-cli        the `bum` command
