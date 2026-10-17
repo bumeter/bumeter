@@ -558,7 +558,7 @@ pub fn day_stats_for(store: &Store, pricing: &Pricing, offset_secs: i32, tool: O
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ModelStat {
     pub model: String,
-    /// `claude_code` or `kiro` (Kiro models are prefixed with `kiro:`).
+    /// Source id of the sessions that used the model (`claude_code`, `kiro`, `opencode`…), from `sessions.tool`.
     pub tool: String,
     pub calls: u64,
     pub prompts: u64,
@@ -575,7 +575,7 @@ pub fn model_stats(store: &Store, pricing: &Pricing) -> rusqlite::Result<Vec<Mod
         .model_rows()?
         .into_iter()
         .map(|r| ModelStat {
-            tool: if r.model.starts_with("kiro:") { "kiro".into() } else { "claude_code".into() },
+            tool: r.tool.clone(),
             cost_usd: pricing.cost(&r.model, &r.usage),
             tokens: r.usage.total(),
             output: r.usage.output,

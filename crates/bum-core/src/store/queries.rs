@@ -338,6 +338,8 @@ impl Store {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelRow {
     pub model: String,
+    /// Tool of the sessions that used the model (`claude_code` when the session row is missing).
+    pub tool: String,
     pub calls: u64,
     pub prompts: u64,
     pub usage: Usage,
@@ -348,9 +350,10 @@ pub struct ModelRow {
 impl Store {
     pub fn model_rows(&self) -> rusqlite::Result<Vec<ModelRow>> {
         let mut st = self.conn().prepare(&format!(
-            "SELECT model, COUNT(*), COUNT(DISTINCT prompt_key), {USAGE_SUMS}, COALESCE(SUM(credits), 0), MAX(ts) FROM api_calls GROUP BY model"
+            "SELECT a.model, COALESCE(s.tool, 'claude_code'), COUNT(*), COUNT(DISTINCT a.prompt_key), {USAGE_SUMS}, COALESCE(SUM(a.credits), 0), MAX(a.ts)
+             FROM api_calls a LEFT JOIN sessions s ON s.id = a.session_id GROUP BY a.model, s.tool"
         ))?;
-        let rows = st.query_map([], |r| Ok(ModelRow { model: r.get(0)?, calls: u64_at(r, 1)?, prompts: u64_at(r, 2)?, usage: usage_at(r, 3)?, credits: r.get(9)?, last_used: r.get(10)? }))?;
+        let rows = st.query_map([], |r| Ok(ModelRow { model: r.get(0)?, tool: r.get(1)?, calls: u64_at(r, 2)?, prompts: u64_at(r, 3)?, usage: usage_at(r, 4)?, credits: r.get(10)?, last_used: r.get(11)? }))?;
         rows.collect()
     }
 }

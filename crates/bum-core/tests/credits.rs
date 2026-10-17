@@ -106,3 +106,24 @@ fn credits_already_over_the_limit_get_no_forecast() {
     let c = pick_credit(Some(&q), None, now, |_, _| Ok(0.0)).unwrap().expect("meter");
     assert_eq!(c.forecast, None, "the limit is already reached: show the limited state, not 'out ~today'");
 }
+
+#[test]
+fn model_stats_take_the_tool_from_the_session_not_the_model_prefix() {
+    use bum_core::handlers::model_stats;
+    use bum_core::model::{RawEvent, Usage};
+    let mut s = loaded();
+    let ev = vec![
+        RawEvent::Session { session_id: "ses_1".into(), tool: "opencode".into(), project: "bumeter".into(), cwd: None, version: None, ts: "2026-09-12T02:00:00.000Z".into() },
+        RawEvent::ApiCall {
+            request_id: "opencode:msg_1".into(), session_id: "ses_1".into(), prompt_key: None, ts: "2026-09-12T02:00:05.000Z".into(),
+            model: "opencode:deepseek/deepseek-v4.1-flash".into(), usage: Usage { input: 100, output: 10, reasoning: 5, ..Default::default() },
+            tool_uses: vec![], sidechain: false, cost_usd: Some(0.01),
+        },
+    ];
+    s.ingest_batch(&offset("db:opencode"), &ev, 0).unwrap();
+    let m = model_stats(&s, &Pricing::default_table()).unwrap();
+    let oc = m.iter().find(|x| x.model == "opencode:deepseek/deepseek-v4.1-flash").unwrap();
+    assert_eq!((oc.tool.as_str(), oc.tokens), ("opencode", 115));
+    assert_eq!(m.iter().find(|x| x.model == "kiro:claude-opus-4.6").unwrap().tool, "kiro");
+    assert_eq!(m.iter().find(|x| x.model == "claude-opus-5").unwrap().tool, "claude_code");
+}
