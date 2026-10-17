@@ -6,3 +6,7 @@
 /parts/
 /stage/
 /prime/
+
+# Python bytecode from scripts/packaging.py --check in CI
+__pycache__/
+*.pyc
