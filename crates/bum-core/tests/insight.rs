@@ -15,7 +15,7 @@ fn anomaly_by_ratio_or_by_big_context() {
 
 #[test]
 fn explain_blames_context_reread_when_cache_read_dominates() {
-    let u = Usage { input: 10, cache_write_5m: 0, cache_write_1h: 1_000, cache_read: 9_400_000, output: 17_000 };
+    let u = Usage { input: 10, cache_write_5m: 0, cache_write_1h: 1_000, cache_read: 9_400_000, output: 17_000, reasoning: 0 };
     let e = explain(&u, 841_000);
     assert!(matches!(e, bum_core::insight::Explain::Reread { context: 841_000, .. }), "{e:?}");
     assert!(explain(&u, 841_000).text(bum_core::i18n::Lang::En).contains("re-read"));

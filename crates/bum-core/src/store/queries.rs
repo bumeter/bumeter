@@ -34,15 +34,16 @@ fn split_models(s: &str) -> Vec<String> {
     s.split(',').filter(|m| !m.is_empty()).map(str::to_string).collect()
 }
 
-const USAGE_SUMS: &str = "COALESCE(SUM(input),0), COALESCE(SUM(cw5),0), COALESCE(SUM(cw1h),0), COALESCE(SUM(cache_read),0), COALESCE(SUM(output),0)";
+const USAGE_SUMS: &str = "COALESCE(SUM(input),0), COALESCE(SUM(cw5),0), COALESCE(SUM(cw1h),0), COALESCE(SUM(cache_read),0), COALESCE(SUM(output),0), COALESCE(SUM(reasoning),0)";
 
 /// SQLite only has signed integers; tokens are always non-negative.
 pub(crate) fn u64_at(r: &Row, i: usize) -> rusqlite::Result<u64> {
     Ok(r.get::<_, i64>(i)?.max(0) as u64)
 }
 
+/// Reads 6 consecutive columns: input, cw5, cw1h, cache_read, output, reasoning.
 fn usage_at(r: &Row, i: usize) -> rusqlite::Result<Usage> {
-    Ok(Usage { input: u64_at(r, i)?, cache_write_5m: u64_at(r, i + 1)?, cache_write_1h: u64_at(r, i + 2)?, cache_read: u64_at(r, i + 3)?, output: u64_at(r, i + 4)? })
+    Ok(Usage { input: u64_at(r, i)?, cache_write_5m: u64_at(r, i + 1)?, cache_write_1h: u64_at(r, i + 2)?, cache_read: u64_at(r, i + 3)?, output: u64_at(r, i + 4)?, reasoning: u64_at(r, i + 5)? })
 }
 
 impl Store {
@@ -69,7 +70,7 @@ impl Store {
         let (usage, api_calls, last_call_ts, credits, models) = self.conn().query_row(
             &format!("SELECT {USAGE_SUMS}, COUNT(*), MAX(ts), COALESCE(SUM(credits), 0), COALESCE(GROUP_CONCAT(DISTINCT model), '') FROM api_calls WHERE prompt_key = ?1"),
             [&key],
-            |r| Ok((usage_at(r, 0)?, r.get::<_, u32>(5)?, r.get::<_, Option<String>>(6)?, r.get::<_, f64>(7)?, split_models(&r.get::<_, String>(8)?))),
+            |r| Ok((usage_at(r, 0)?, r.get::<_, u32>(6)?, r.get::<_, Option<String>>(7)?, r.get::<_, f64>(8)?, split_models(&r.get::<_, String>(9)?))),
         )?;
         let context_at_start = self.conn().query_row(
             "SELECT input + cw5 + cw1h + cache_read FROM api_calls WHERE prompt_key = ?1 AND sidechain = 0 ORDER BY ts LIMIT 1",
@@ -140,7 +141,7 @@ impl Store {
     /// Total tokens per turn since `since` (to compute the median).
     pub fn prompt_totals_since(&self, since: &str) -> rusqlite::Result<Vec<u64>> {
         let mut st = self.conn().prepare(
-            "SELECT COALESCE(SUM(a.input + a.cw5 + a.cw1h + a.cache_read + a.output), 0)
+            "SELECT COALESCE(SUM(a.input + a.cw5 + a.cw1h + a.cache_read + a.output + a.reasoning), 0)
              FROM prompts p LEFT JOIN api_calls a ON a.prompt_key = p.key WHERE p.ts >= ?1 GROUP BY p.key",
         )?;
         let rows = st.query_map([since], |r| u64_at(r, 0))?;
@@ -210,7 +211,7 @@ impl Store {
         let pattern = q.filter(|s| !s.is_empty()).map(like_pattern);
         let mut st = self.conn().prepare(
             "SELECT p.key, p.session_id, COALESCE(s.project, ''), p.ts, p.text, p.interrupted,
-                    COALESCE(SUM(a.input),0), COALESCE(SUM(a.cw5),0), COALESCE(SUM(a.cw1h),0), COALESCE(SUM(a.cache_read),0), COALESCE(SUM(a.output),0),
+                    COALESCE(SUM(a.input),0), COALESCE(SUM(a.cw5),0), COALESCE(SUM(a.cw1h),0), COALESCE(SUM(a.cache_read),0), COALESCE(SUM(a.output),0), COALESCE(SUM(a.reasoning),0),
                     COUNT(a.request_id), MAX(a.ts),
                     COALESCE((SELECT c.input + c.cw5 + c.cw1h + c.cache_read FROM api_calls c
                               WHERE c.prompt_key = p.key AND c.sidechain = 0 ORDER BY c.ts LIMIT 1), 0),
@@ -230,20 +231,20 @@ impl Store {
             Ok(PromptListItem {
                 stats: PromptStats {
                     key: r.get(0)?,
-                    tool: r.get(15)?,
-                    credits: r.get(16)?,
-                    models: split_models(&r.get::<_, String>(17)?),
+                    tool: r.get(16)?,
+                    credits: r.get(17)?,
+                    models: split_models(&r.get::<_, String>(18)?),
                     session_id: r.get(1)?,
                     project: r.get(2)?,
                     ts: r.get(3)?,
                     text: r.get(4)?,
                     interrupted: r.get(5)?,
                     usage: usage_at(r, 6)?,
-                    api_calls: r.get(11)?,
-                    last_call_ts: r.get(12)?,
-                    context_at_start: u64_at(r, 13)?,
+                    api_calls: r.get(12)?,
+                    last_call_ts: r.get(13)?,
+                    context_at_start: u64_at(r, 14)?,
                 },
-                starred: r.get(14)?,
+                starred: r.get(15)?,
             })
         })?;
         rows.collect()
@@ -278,13 +279,13 @@ impl Store {
     /// A turn's API calls in chronological order, with tool names.
     pub fn prompt_calls(&self, key: &str) -> rusqlite::Result<Vec<CallRow>> {
         let mut st = self.conn().prepare(
-            "SELECT a.request_id, a.ts, a.model, a.input, a.cw5, a.cw1h, a.cache_read, a.output, a.sidechain,
+            "SELECT a.request_id, a.ts, a.model, a.input, a.cw5, a.cw1h, a.cache_read, a.output, a.reasoning, a.sidechain,
                     COALESCE((SELECT GROUP_CONCAT(t.name, char(31)) FROM api_call_tools t WHERE t.request_id = a.request_id), '')
              FROM api_calls a WHERE a.prompt_key = ?1 ORDER BY a.ts",
         )?;
         let rows = st.query_map([key], |r| {
             let usage = usage_at(r, 3)?;
-            let tools: String = r.get(9)?;
+            let tools: String = r.get(10)?;
             Ok(CallRow {
                 request_id: r.get(0)?,
                 ts: r.get(1)?,
@@ -292,7 +293,7 @@ impl Store {
                 context: usage.context(),
                 output: usage.output,
                 usage,
-                sidechain: r.get(8)?,
+                sidechain: r.get(9)?,
                 tools: tools.split('\u{1f}').filter(|s| !s.is_empty()).map(str::to_string).collect(),
             })
         })?;
@@ -321,8 +322,8 @@ impl Store {
 impl Store {
     /// Every call: (ts, model, usage, session_id).
     pub fn calls_brief(&self) -> rusqlite::Result<Vec<(String, String, Usage, String)>> {
-        let mut st = self.conn().prepare("SELECT ts, model, input, cw5, cw1h, cache_read, output, session_id FROM api_calls")?;
-        let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, usage_at(r, 2)?, r.get(7)?)))?;
+        let mut st = self.conn().prepare("SELECT ts, model, input, cw5, cw1h, cache_read, output, reasoning, session_id FROM api_calls")?;
+        let rows = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, usage_at(r, 2)?, r.get(8)?)))?;
         rows.collect()
     }
 
@@ -349,7 +350,7 @@ impl Store {
         let mut st = self.conn().prepare(&format!(
             "SELECT model, COUNT(*), COUNT(DISTINCT prompt_key), {USAGE_SUMS}, COALESCE(SUM(credits), 0), MAX(ts) FROM api_calls GROUP BY model"
         ))?;
-        let rows = st.query_map([], |r| Ok(ModelRow { model: r.get(0)?, calls: u64_at(r, 1)?, prompts: u64_at(r, 2)?, usage: usage_at(r, 3)?, credits: r.get(8)?, last_used: r.get(9)? }))?;
+        let rows = st.query_map([], |r| Ok(ModelRow { model: r.get(0)?, calls: u64_at(r, 1)?, prompts: u64_at(r, 2)?, usage: usage_at(r, 3)?, credits: r.get(9)?, last_used: r.get(10)? }))?;
         rows.collect()
     }
 }
@@ -422,7 +423,7 @@ impl Store {
             "SELECT s.tool, {USAGE_SUMS}, COALESCE(SUM(a.credits), 0) FROM api_calls a JOIN sessions s ON s.id = a.session_id
              WHERE a.ts >= ?1 AND a.ts < ?2 GROUP BY s.tool"
         ))?;
-        for row in st.query_map(params![from, to], |r| Ok((r.get::<_, String>(0)?, usage_at(r, 1)?, r.get::<_, f64>(6)?)))? {
+        for row in st.query_map(params![from, to], |r| Ok((r.get::<_, String>(0)?, usage_at(r, 1)?, r.get::<_, f64>(7)?)))? {
             let (tool, usage, credits) = row?;
             out.push(ToolActivity { tool, tokens: usage.total(), credits, prompts: 0 });
         }

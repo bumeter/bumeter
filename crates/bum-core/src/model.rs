@@ -9,6 +9,9 @@ pub struct Usage {
     pub cache_write_1h: u64,
     pub cache_read: u64,
     pub output: u64,
+    /// Reasoning tokens reported separately (OpenCode); billed like output. 0 for tools that don't report it.
+    #[serde(default)]
+    pub reasoning: u64,
 }
 
 impl Usage {
@@ -16,13 +19,13 @@ impl Usage {
         self.cache_write_5m + self.cache_write_1h
     }
 
-    /// Number of tokens that had to be "read" in this call (everything except output).
+    /// Number of tokens that had to be "read" in this call (everything except output and reasoning).
     pub fn context(&self) -> u64 {
         self.input + self.cache_write() + self.cache_read
     }
 
     pub fn total(&self) -> u64 {
-        self.context() + self.output
+        self.context() + self.output + self.reasoning
     }
 
     pub fn add(&mut self, other: &Usage) {
@@ -31,6 +34,7 @@ impl Usage {
         self.cache_write_1h += other.cache_write_1h;
         self.cache_read += other.cache_read;
         self.output += other.output;
+        self.reasoning += other.reasoning;
     }
 }
 
@@ -92,6 +96,9 @@ pub enum RawEvent {
         usage: Usage,
         tool_uses: Vec<ToolUse>,
         sidechain: bool,
+        /// Cost in USD as reported by the tool (OpenCode); None when the tool doesn't report it.
+        #[serde(default)]
+        cost_usd: Option<f64>,
     },
     Skill {
         prompt_key: Option<String>,

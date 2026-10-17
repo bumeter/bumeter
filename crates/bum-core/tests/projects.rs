@@ -12,7 +12,7 @@ fn loaded() -> Store {
     let late = vec![
         RawEvent::Session { session_id: "s2".into(), tool: "claude_code".into(), project: "<b>PROJECT-X</b>".into(), cwd: None, version: None, ts: "2026-09-11T20:00:00.000Z".into() },
         RawEvent::Prompt { key: "q1".into(), session_id: "s2".into(), ts: "2026-09-11T20:00:00.000Z".into(), text: "late in the evening".into() },
-        RawEvent::ApiCall { request_id: "req_Q".into(), session_id: "s2".into(), prompt_key: Some("q1".into()), ts: "2026-09-11T20:00:05.000Z".into(), model: "claude-opus-5".into(), usage: u(1, 0, 99, 0), tool_uses: vec![], sidechain: false },
+        RawEvent::ApiCall { request_id: "req_Q".into(), session_id: "s2".into(), prompt_key: Some("q1".into()), ts: "2026-09-11T20:00:05.000Z".into(), model: "claude-opus-5".into(), usage: u(1, 0, 99, 0), tool_uses: vec![], sidechain: false, cost_usd: None },
     ];
     s.ingest_batch(&offset("/root/-o/s2.jsonl"), &late, 0).unwrap();
     s

@@ -32,7 +32,7 @@ CREATE TABLE notes(prompt_key TEXT PRIMARY KEY, starred INTEGER NOT NULL DEFAULT
   updated_at TEXT NOT NULL);
 "#;
 
-pub const CURRENT_VERSION: i64 = 6;
+pub const CURRENT_VERSION: i64 = 7;
 
 pub fn version(conn: &Connection) -> rusqlite::Result<i64> {
     conn.query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -76,6 +76,16 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                resets_at INTEGER NOT NULL, PRIMARY KEY(win, ts));",
         )?;
         conn.pragma_update(None, "user_version", 6)?;
+    }
+    if version < 7 {
+        // Reasoning tokens (billed like output) and the USD cost a tool reports itself (OpenCode); NULL = not reported.
+        for (col, ddl) in [("reasoning", "INTEGER NOT NULL DEFAULT 0"), ("cost_usd", "REAL")] {
+            let has: bool = conn.prepare("SELECT 1 FROM pragma_table_info('api_calls') WHERE name = ?1")?.exists([col])?;
+            if !has {
+                conn.execute_batch(&format!("ALTER TABLE api_calls ADD COLUMN {col} {ddl};"))?;
+            }
+        }
+        conn.pragma_update(None, "user_version", 7)?;
     }
     Ok(())
 }

@@ -137,6 +137,7 @@ impl LogSource for Kiro {
                 usage: Usage { input: context, ..Default::default() },
                 tool_uses: tools,
                 sidechain: subagent,
+                cost_usd: None,
             });
             let credits: f64 = t["metering_usage"].as_array().into_iter().flatten().filter_map(|m| m["value"].as_f64()).sum();
             if credits > 0.0 {

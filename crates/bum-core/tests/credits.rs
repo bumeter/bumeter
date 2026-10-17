@@ -12,7 +12,7 @@ fn loaded() -> Store {
     let kiro = vec![
         RawEvent::Session { session_id: "k1".into(), tool: "kiro".into(), project: "TICKET-203".into(), cwd: None, version: None, ts: "2026-09-12T01:00:00.000Z".into() },
         RawEvent::Prompt { key: "kp1".into(), session_id: "k1".into(), ts: "2026-09-12T01:00:00.000Z".into(), text: "read the project".into() },
-        RawEvent::ApiCall { request_id: "kiro:k1:0".into(), session_id: "k1".into(), prompt_key: Some("kp1".into()), ts: "2026-09-12T01:00:07.000Z".into(), model: "kiro:claude-opus-4.6".into(), usage: u(125_000, 0, 0, 0), tool_uses: vec![], sidechain: false },
+        RawEvent::ApiCall { request_id: "kiro:k1:0".into(), session_id: "k1".into(), prompt_key: Some("kp1".into()), ts: "2026-09-12T01:00:07.000Z".into(), model: "kiro:claude-opus-4.6".into(), usage: u(125_000, 0, 0, 0), tool_uses: vec![], sidechain: false, cost_usd: None },
         RawEvent::Metered { request_id: "kiro:k1:0".into(), credits: 0.13 },
     ];
     s.ingest_batch(&offset("/kiro/k1.json"), &kiro, 0).unwrap();

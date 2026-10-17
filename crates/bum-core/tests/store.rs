@@ -130,3 +130,53 @@ fn latest_anomaly_ts_filters_by_tool() {
     assert_eq!(s.latest_anomaly_ts(Some("claude_code")).unwrap().as_deref(), Some("2026-09-11T05:00:00.000Z"));
     assert_eq!(s.latest_anomaly_ts(Some("kiro")).unwrap(), None);
 }
+
+fn priced_call(rid: &str, reasoning: u64, cost_usd: Option<f64>) -> bum_core::model::RawEvent {
+    bum_core::model::RawEvent::ApiCall {
+        request_id: rid.into(),
+        session_id: "s1".into(),
+        prompt_key: Some("p1".into()),
+        ts: "2026-09-11T03:00:00.000Z".into(),
+        model: "opencode:deepseek/x".into(),
+        usage: bum_core::model::Usage { input: 10, output: 5, reasoning, ..Default::default() },
+        tool_uses: vec![],
+        sidechain: false,
+        cost_usd,
+    }
+}
+
+fn reasoning_and_cost(db: &std::path::Path, rid: &str) -> (i64, Option<f64>) {
+    rusqlite::Connection::open(db).unwrap().query_row("SELECT reasoning, cost_usd FROM api_calls WHERE request_id = ?1", [rid], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+}
+
+#[test]
+fn reasoning_and_cost_usd_keep_the_largest_value_and_cost_stays_when_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("b.db");
+    let mut s = Store::open(&db).unwrap();
+    s.ingest_batch(&offset("db:opencode"), &[priced_call("oc:1", 5, Some(0.1))], 0).unwrap();
+    s.ingest_batch(&offset("db:opencode"), &[priced_call("oc:1", 7, Some(0.2))], 0).unwrap();
+    assert_eq!(reasoning_and_cost(&db, "oc:1"), (7, Some(0.2)));
+    s.ingest_batch(&offset("db:opencode"), &[priced_call("oc:1", 3, None)], 0).unwrap();
+    assert_eq!(reasoning_and_cost(&db, "oc:1"), (7, Some(0.2)), "a later read without cost keeps it");
+    s.ingest_batch(&offset(MAIN), &main_events(), 0).unwrap();
+    let rid = match &main_events().into_iter().find(|e| matches!(e, bum_core::model::RawEvent::ApiCall { .. })).unwrap() {
+        bum_core::model::RawEvent::ApiCall { request_id, .. } => request_id.clone(),
+        _ => unreachable!(),
+    };
+    assert_eq!(reasoning_and_cost(&db, &rid), (0, None), "Claude calls: no reasoning, no cost");
+    let u = s.model_usage_for_prompt("p1").unwrap();
+    let oc = u.iter().find(|(m, _)| m == "opencode:deepseek/x").unwrap();
+    assert_eq!((oc.1.reasoning, oc.1.total()), (7, 22));
+}
+
+#[test]
+fn readonly_open_upgrades_a_v6_db_with_the_new_columns() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("b.db");
+    drop(Store::open(&db).unwrap());
+    rusqlite::Connection::open(&db).unwrap().execute_batch("ALTER TABLE api_calls DROP COLUMN reasoning; ALTER TABLE api_calls DROP COLUMN cost_usd; PRAGMA user_version = 6;").unwrap();
+    drop(Store::open_readonly(&db).unwrap());
+    let cols: Vec<String> = rusqlite::Connection::open(&db).unwrap().prepare("SELECT name FROM pragma_table_info('api_calls')").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert!(cols.contains(&"reasoning".to_string()) && cols.contains(&"cost_usd".to_string()), "{cols:?}");
+}

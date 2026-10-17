@@ -14,7 +14,7 @@ fn loaded() -> Store {
     let other = vec![
         RawEvent::Session { session_id: "s2".into(), tool: "claude_code".into(), project: "TICKET-201".into(), cwd: None, version: None, ts: "2026-09-12T01:00:00.000Z".into() },
         RawEvent::Prompt { key: "q1".into(), session_id: "s2".into(), ts: "2026-09-12T01:00:00.000Z".into(), text: "review 100% of the docs".into() },
-        bum_core::model::RawEvent::ApiCall { request_id: "req_Q".into(), session_id: "s2".into(), prompt_key: Some("q1".into()), ts: "2026-09-12T01:00:05.000Z".into(), model: "claude-opus-5".into(), usage: u(1, 0, 500, 9), tool_uses: vec![], sidechain: false },
+        bum_core::model::RawEvent::ApiCall { request_id: "req_Q".into(), session_id: "s2".into(), prompt_key: Some("q1".into()), ts: "2026-09-12T01:00:05.000Z".into(), model: "claude-opus-5".into(), usage: u(1, 0, 500, 9), tool_uses: vec![], sidechain: false, cost_usd: None },
     ];
     s.ingest_batch(&offset("/root/-other/s2.jsonl"), &other, 0).unwrap();
     s

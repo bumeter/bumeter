@@ -130,17 +130,21 @@ impl Store {
                     )?;
                     push_unique(&mut sum.touched_prompts, key);
                 }
-                RawEvent::ApiCall { request_id, session_id, prompt_key, ts, model, usage, tool_uses, sidechain } => {
-                    // Same requestId appears on multiple lines: keep the largest value (spec section 2).
+                RawEvent::ApiCall { request_id, session_id, prompt_key, ts, model, usage, tool_uses, sidechain, cost_usd } => {
+                    // Same requestId appears on multiple lines (or rows re-read while streaming): keep the largest value (spec section 2).
                     tx.execute(
-                        "INSERT INTO api_calls(request_id, session_id, prompt_key, ts, model, input, cw5, cw1h, cache_read, output, sidechain, source_file)
-                         VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+                        "INSERT INTO api_calls(request_id, session_id, prompt_key, ts, model, input, cw5, cw1h, cache_read, output, sidechain, source_file, reasoning, cost_usd)
+                         VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
                          ON CONFLICT(request_id) DO UPDATE SET
                            input = max(input, excluded.input), cw5 = max(cw5, excluded.cw5), cw1h = max(cw1h, excluded.cw1h),
                            cache_read = max(cache_read, excluded.cache_read), output = max(output, excluded.output),
+                           reasoning = max(reasoning, excluded.reasoning),
+                           cost_usd = CASE WHEN excluded.cost_usd IS NULL THEN api_calls.cost_usd
+                                           ELSE max(coalesce(api_calls.cost_usd, 0), excluded.cost_usd) END,
                            prompt_key = coalesce(api_calls.prompt_key, excluded.prompt_key)",
                         params![request_id, session_id, prompt_key, ts, model, usage.input as i64, usage.cache_write_5m as i64,
-                                usage.cache_write_1h as i64, usage.cache_read as i64, usage.output as i64, sidechain, src],
+                                usage.cache_write_1h as i64, usage.cache_read as i64, usage.output as i64, sidechain, src,
+                                usage.reasoning as i64, cost_usd],
                     )?;
                     for t in tool_uses {
                         tx.execute(

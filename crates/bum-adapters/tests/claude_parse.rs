@@ -66,7 +66,7 @@ fn cache_creation_is_split_by_ttl() {
         RawEvent::ApiCall { request_id, usage, tool_uses, .. } if request_id == "req_A" && tool_uses.is_empty() => Some(usage.clone()),
         _ => None,
     }).unwrap();
-    assert_eq!(usage_a, Usage { input: 2, cache_write_5m: 0, cache_write_1h: 100, cache_read: 1000, output: 50 });
+    assert_eq!(usage_a, Usage { input: 2, cache_write_5m: 0, cache_write_1h: 100, cache_read: 1000, output: 50, reasoning: 0 });
 }
 
 #[test]

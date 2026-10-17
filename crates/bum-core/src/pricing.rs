@@ -45,7 +45,7 @@ impl Pricing {
         let p = self.price(model)?;
         let m = |n: u64, price: f64| n as f64 / 1_000_000.0 * price;
         Some(m(u.input, p.input) + m(u.cache_write_5m, p.cache_write_5m) + m(u.cache_write_1h, p.cache_write_1h)
-            + m(u.cache_read, p.cache_read) + m(u.output, p.output))
+            + m(u.cache_read, p.cache_read) + m(u.output + u.reasoning, p.output))
     }
 
     /// Total cost and the list of models without a price.

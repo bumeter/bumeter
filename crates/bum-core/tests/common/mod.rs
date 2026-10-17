@@ -6,7 +6,7 @@ pub const MAIN: &str = "/root/-home-u-proj/s1.jsonl";
 pub const SUB: &str = "/root/-home-u-proj/s1/subagents/agent-x.jsonl";
 
 pub fn u(input: u64, cw1h: u64, read: u64, output: u64) -> Usage {
-    Usage { input, cache_write_5m: 0, cache_write_1h: cw1h, cache_read: read, output }
+    Usage { input, cache_write_5m: 0, cache_write_1h: cw1h, cache_read: read, output, reasoning: 0 }
 }
 
 pub fn call(rid: &str, pk: &str, ts: &str, model: &str, usage: Usage, tools: &[(&str, &str)], sidechain: bool) -> RawEvent {
@@ -19,6 +19,7 @@ pub fn call(rid: &str, pk: &str, ts: &str, model: &str, usage: Usage, tools: &[(
         usage,
         tool_uses: tools.iter().map(|(id, n)| ToolUse { id: (*id).into(), name: (*n).into() }).collect(),
         sidechain,
+        cost_usd: None,
     }
 }
 

@@ -141,6 +141,7 @@ fn parse_assistant(v: &Value, session_id: &str, ts: &str, sidechain: bool, ctx: 
         usage: parse_usage(&msg["usage"]),
         tool_uses,
         sidechain,
+        cost_usd: None,
     });
 }
 
@@ -164,6 +165,7 @@ fn parse_usage(u: &Value) -> Usage {
         cache_write_1h: cw1h,
         cache_read: n("cache_read_input_tokens"),
         output: n("output_tokens"),
+        reasoning: 0,
     }
 }
 

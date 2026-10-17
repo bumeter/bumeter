@@ -24,3 +24,9 @@ fn parses_user_file() {
     let p = Pricing::from_toml("[models.\"x\"]\ninput = 1.0\ncache_write_5m = 0.0\ncache_write_1h = 0.0\ncache_read = 0.0\noutput = 2.0\n").unwrap();
     assert_eq!(p.cost("x", &Usage { input: M, output: M, ..Default::default() }), Some(3.0));
 }
+
+#[test]
+fn reasoning_is_priced_like_output() {
+    let p = Pricing::default_table();
+    assert_eq!(p.cost("claude-sonnet-5", &Usage { reasoning: M, ..Default::default() }), p.cost("claude-sonnet-5", &Usage { output: M, ..Default::default() }));
+}

@@ -59,7 +59,7 @@ fn kiro_call(sid: &str, key: &str, n: u32, ts: &str, credits: f64) -> Vec<RawEve
     let rid = format!("kiro:{sid}:{n}");
     vec![
         RawEvent::Prompt { key: key.into(), session_id: sid.into(), ts: ts.into(), text: "x".into() },
-        RawEvent::ApiCall { request_id: rid.clone(), session_id: sid.into(), prompt_key: Some(key.into()), ts: ts.into(), model: "kiro:auto".into(), usage: u(1000, 0, 0, 0), tool_uses: vec![], sidechain: false },
+        RawEvent::ApiCall { request_id: rid.clone(), session_id: sid.into(), prompt_key: Some(key.into()), ts: ts.into(), model: "kiro:auto".into(), usage: u(1000, 0, 0, 0), tool_uses: vec![], sidechain: false, cost_usd: None },
         RawEvent::Metered { request_id: rid, credits },
     ]
 }
