@@ -25,7 +25,7 @@ pub fn setup(state: &AppState) -> StatuslineSetup {
 }
 
 #[tauri::command(async)]
-pub fn settings(state: State<'_, AppState>, action: String, params: Option<Value>) -> Result<Value, String> {
+pub fn settings(app: tauri::AppHandle, state: State<'_, AppState>, action: String, params: Option<Value>) -> Result<Value, String> {
     let err = |e: anyhow::Error| e.to_string();
     let s = setup(&state);
     match action.as_str() {
@@ -37,6 +37,7 @@ pub fn settings(state: State<'_, AppState>, action: String, params: Option<Value
                 "data_dir": state.paths.data_dir,
                 "parse_errors": parse_errors,
                 "tool_quotas": bum_core::meter::read_quotas(&state.paths.tool_quotas()),
+                "version": app.package_info().version.to_string(),
             }))
         }
         "statusline_plan" => {

@@ -7,6 +7,7 @@ mod settings;
 mod skills;
 mod state;
 mod tray;
+mod update;
 mod window;
 
 use tauri::{Manager, RunEvent};
@@ -15,14 +16,16 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| window::open(app)))
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state::AppState::load())
         .manage(skills::PendingPlans::default())
         .setup(|app| {
             tray::create(app.handle())?;
             runtime::start(app.handle());
+            update::check_on_startup(app.handle());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::call, settings::settings, skills::skills])
+        .invoke_handler(tauri::generate_handler![commands::call, settings::settings, skills::skills, update::check_update, update::install_update])
         .build(tauri::generate_context!())
         .expect("failed to initialize app")
         .run(|app, event| {

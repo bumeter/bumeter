@@ -260,6 +260,49 @@ describe('settings', () => {
     expect(el.textContent).toContain('Tự lưu khi bạn thay đổi');
   });
 
+  describe('updates', () => {
+    const info = (version = '1.0.5') => ({ ...hookedInfo(), version });
+
+    it('shows the running version, then the new one with an install button', async () => {
+      const f = fake({
+        settings_get: () => info(),
+        check_update: () => ({ available: true, version: '1.0.6', current: '1.0.5', notes: 'notes' }),
+        install_update: () => null,
+      });
+      await mountSettings(el);
+      expect(el.textContent).toContain('Phiên bản hiện tại: 1.0.5');
+      const install = el.querySelector('[data-action="update-install"]') as HTMLButtonElement;
+      expect(install.hidden).toBe(true);
+      (el.querySelector('[data-action="update-check"]') as HTMLButtonElement).click();
+      await flush(); await flush();
+      expect(el.textContent).toContain('Có bản mới 1.0.6');
+      expect(install.hidden).toBe(false);
+      install.click();
+      await flush(); await flush();
+      expect(f.calls.map((c) => c.method)).toContain('install_update');
+    });
+
+    it('on the latest version: says so and keeps the install button hidden', async () => {
+      fake({ settings_get: () => info(), check_update: () => ({ available: false, version: null, current: '1.0.5', notes: null }) });
+      await mountSettings(el);
+      (el.querySelector('[data-action="update-check"]') as HTMLButtonElement).click();
+      await flush(); await flush();
+      expect(el.textContent).toContain('bản mới nhất');
+      expect((el.querySelector('[data-action="update-install"]') as HTMLButtonElement).hidden).toBe(true);
+    });
+
+    it('a failed check reports the error and re-enables the button', async () => {
+      fake({ settings_get: () => info(), check_update: () => { throw new Error('offline'); } });
+      await mountSettings(el);
+      const check = el.querySelector('[data-action="update-check"]') as HTMLButtonElement;
+      check.click();
+      await flush(); await flush();
+      expect(el.querySelector('.panel .message')!.textContent).toContain('offline');
+      expect(check.disabled).toBe(false);
+      expect((el.querySelector('[data-action="update-install"]') as HTMLButtonElement).hidden).toBe(true);
+    });
+  });
+
   describe('per-tool credit limits', () => {
     const mountWithSources = async (info: any) => {
       const f = fake({ settings_get: () => info, save_config: () => true, sources: () => SOURCES });
