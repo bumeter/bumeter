@@ -11,6 +11,14 @@ pub struct Paths {
     pub data_dir: PathBuf,
 }
 
+/// The user's home directory: `BUM_HOME` when set, otherwise the platform home.
+///
+/// `BUM_HOME` exists because the platform home cannot be redirected on Windows — the known-folder
+/// API ignores `HOME`/`USERPROFILE` — so tests and unusual layouts need an override.
+pub fn home() -> PathBuf {
+    std::env::var_os("BUM_HOME").filter(|v| !v.is_empty()).map(PathBuf::from).or_else(dirs::home_dir).unwrap_or_default()
+}
+
 impl Paths {
     pub fn new(data_dir: impl Into<PathBuf>) -> Self {
         Self { data_dir: data_dir.into() }

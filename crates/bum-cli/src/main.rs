@@ -159,12 +159,14 @@ fn tool_lines(paths: &Paths, limits: &bum_core::limits::LimitState, now: chrono:
     bum_core::meter::render(&sources, limits, &snap, now.timestamp(), cfg.language).tools
 }
 
-/// `~/.claude` (default) or `~/.kiro`: both use `skills/` + `skills-disabled/`.
+/// `BUM_HOME` (or the platform home) + `.claude` by default, `.kiro` for Kiro: both use
+/// `skills/` + `skills-disabled/`.
 fn tool_dir(tool: &str) -> PathBuf {
+    let home = bum_core::paths::home();
     if tool == "kiro" {
-        dirs::home_dir().unwrap_or_default().join(".kiro")
+        home.join(".kiro")
     } else {
-        bum_adapters::claude_code::statusline::StatuslineSetup::default_claude_dir()
+        home.join(".claude")
     }
 }
 

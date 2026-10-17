@@ -1,5 +1,5 @@
-//! `bum skills`: what an agent sees. Every test runs the real binary against a temporary HOME, so
-//! nothing here touches the user's own `~/.claude`.
+//! `bum skills`: what an agent sees. Every test runs the real binary against a temporary `BUM_HOME`,
+//! so nothing here touches the user's own `~/.claude`.
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -24,6 +24,9 @@ fn run(home: &Path, args: &[&str]) -> Out {
     let out = Command::new(env!("CARGO_BIN_EXE_bum"))
         .args(args)
         .env("HOME", home)
+        // The platform home cannot be redirected on Windows (known-folder API), so the binary
+        // takes `BUM_HOME` first: without it these tests would read the developer's real ~/.claude.
+        .env("BUM_HOME", home)
         .env("BUM_DATA_DIR", home.join("data"))
         .env("PATH", &empty)
         .env_remove("XDG_DATA_HOME")
