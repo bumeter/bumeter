@@ -40,6 +40,20 @@ impl TauriHandler {
         }
     }
 
+    /// Credit-tool forecasts (Kiro): checked with the periodic tray refresh, not on every tick.
+    fn check_credits(&mut self, e: &mut Engine) {
+        let app = self.app.clone();
+        let st = app.state::<AppState>();
+        let sources = crate::tray::sources(&st.cfg);
+        let quotas = bum_core::meter::read_quotas(&st.paths.tool_quotas());
+        let now = chrono::Utc::now();
+        let Ok(snap) = bum_core::meter::snapshot(e.store(), &st.cfg, &quotas, &sources, now) else { return };
+        let items: Vec<_> = sources.iter().filter_map(|s| Some((s.id.clone(), s.label.clone(), snap.credits.get(&s.id)?.forecast?))).collect();
+        if let Ok(list) = self.alerts.on_credits(e.store_mut(), &items, now) {
+            self.notify(list);
+        }
+    }
+
     fn refresh(&self, e: &Engine) {
         let st = self.app.state::<AppState>();
         let ctx = HandlerCtx { store: e.store(), pricing: &st.pricing, cfg: &st.cfg, paths: &st.paths };
@@ -80,6 +94,7 @@ impl HostHandler for TauriHandler {
         self.emit_changes(); // the rest of a burst
         self.ticks += 1;
         if self.ticks.is_multiple_of(30) {
+            self.check_credits(e);
             self.refresh(e); // update "stale" / reset time
         }
     }

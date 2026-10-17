@@ -7,6 +7,7 @@ use chrono::{DateTime, Local, SecondsFormat, TimeZone, Utc};
 use crate::config::Config;
 use crate::i18n::Lang;
 use crate::engine::IngestReport;
+use crate::forecast::Forecast;
 use crate::insight::{anomaly, explain, fmt_tokens, median};
 use crate::limits::LimitState;
 use crate::store::Store;
@@ -16,6 +17,10 @@ use crate::store::Store;
 const IDLE: Duration = Duration::from_secs(45);
 /// Only send the "reset" notification when the reset time is still fresh.
 const RESET_FRESH_SECS: i64 = 600;
+/// 7-day window: notify when the forecast limit is at most a day away.
+const SEVEN_DAY_LEAD: i64 = 86_400;
+/// Monthly credits: notify when they likely run out within 3 days.
+const CREDIT_LEAD: i64 = 3 * 86_400;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Alert {
@@ -24,10 +29,18 @@ pub enum Alert {
     Reset { limit_type: String, resets_at: i64 },
     Anomaly { prompt_key: String, text: String, total: u64, ratio: Option<f64>, explanation: crate::insight::Explain },
     Context { session_id: String, project: String, context: u64, threshold: u64 },
+    /// Claude 5h/7d window: the limit is forecast before the reset.
+    Forecast { window: &'static str, hits_at: i64, resets_at: i64 },
+    /// Credit tool (e.g. Kiro): the period's credits likely run out before the reset.
+    CreditForecast { tool: String, label: String, hits_at: i64, resets_at: i64 },
 }
 
 fn hhmm(epoch: i64) -> String {
     Local.timestamp_opt(epoch, 0).single().map(|t| t.format("%H:%M").to_string()).unwrap_or_default()
+}
+
+fn day(epoch: i64, lang: Lang) -> String {
+    Local.timestamp_opt(epoch, 0).single().map(|t| t.format(lang.pick("%d/%m", "%b %-d")).to_string()).unwrap_or_default()
 }
 
 fn window_label(w: &str, lang: Lang) -> &'static str {
@@ -42,6 +55,8 @@ impl Alert {
             Alert::Reset { limit_type, resets_at } => format!("reset:{limit_type}:{resets_at}"),
             Alert::Anomaly { prompt_key, .. } => format!("anomaly:{prompt_key}"),
             Alert::Context { session_id, threshold, .. } => format!("ctx:{session_id}:{threshold}"),
+            Alert::Forecast { window, resets_at, .. } => format!("forecast:{window}:{resets_at}"),
+            Alert::CreditForecast { tool, resets_at, .. } => format!("forecast:{tool}:{resets_at}"),
         }
     }
 
@@ -52,6 +67,7 @@ impl Alert {
             Alert::Reset { .. } => lang.pick("Đã reset", "Limit reset"),
             Alert::Anomaly { .. } => lang.pick("Lượt tốn bất thường", "Unusually costly turn"),
             Alert::Context { .. } => lang.pick("Context lớn", "Large context"),
+            Alert::Forecast { .. } | Alert::CreditForecast { .. } => lang.pick("Sắp chạm trần", "Limit ahead"),
         }
         .into()
     }
@@ -82,6 +98,24 @@ impl Alert {
             }
             (Alert::Context { project, context, .. }, Lang::En) => {
                 format!("Conversation {project} is at {}. Consider /compact or a new session.", fmt_tokens(*context))
+            }
+            (Alert::Forecast { window: "seven_day", hits_at, resets_at }, Lang::Vi) => {
+                format!("Với tốc độ này, quota 7 ngày hết khoảng {}, reset {}.", day(*hits_at, lang), day(*resets_at, lang))
+            }
+            (Alert::Forecast { window: "seven_day", hits_at, resets_at }, Lang::En) => {
+                format!("At this pace the 7-day quota runs out around {} (reset {}).", day(*hits_at, lang), day(*resets_at, lang))
+            }
+            (Alert::Forecast { hits_at, resets_at, .. }, Lang::Vi) => {
+                format!("Có thể chạm trần 5 giờ lúc ~{}, trước giờ reset {}.", hhmm(*hits_at), hhmm(*resets_at))
+            }
+            (Alert::Forecast { hits_at, resets_at, .. }, Lang::En) => {
+                format!("5-hour limit likely at ~{}, before the {} reset.", hhmm(*hits_at), hhmm(*resets_at))
+            }
+            (Alert::CreditForecast { label, hits_at, resets_at, .. }, Lang::Vi) => {
+                format!("Credit {label} dự kiến hết khoảng {}, reset {}.", day(*hits_at, lang), day(*resets_at, lang))
+            }
+            (Alert::CreditForecast { label, hits_at, resets_at, .. }, Lang::En) => {
+                format!("{label} credits likely run out around {} (reset {}).", day(*hits_at, lang), day(*resets_at, lang))
             }
         }
     }
@@ -172,19 +206,48 @@ impl AlertEngine {
         Ok(out)
     }
 
-    /// Only alert for the highest threshold just crossed, once per threshold per reset cycle.
+    /// Quota thresholds (only the highest just crossed, once per threshold per reset cycle) and forecast alerts (once per cycle).
     pub fn on_limits(&mut self, store: &mut Store, st: &LimitState) -> rusqlite::Result<Vec<Alert>> {
         let mut out = Vec::new();
-        if st.stale || !self.cfg.notify.quota {
+        if st.stale {
             return Ok(out);
         }
-        let mut thresholds = self.cfg.quota_thresholds.clone();
-        thresholds.sort_unstable_by(|a, b| b.cmp(a));
         let now_utc = Utc::now();
-        for (window, w) in [("five_hour", st.five_hour), ("seven_day", st.seven_day)] {
-            let Some(w) = w else { continue };
-            if let Some(&threshold) = thresholds.iter().find(|t| w.used_percentage >= f64::from(**t)) {
-                Self::keep(store, &mut out, Alert::Quota { window, pct: w.used_percentage, threshold, resets_at: w.resets_at }, now_utc)?;
+        if self.cfg.notify.quota {
+            let mut thresholds = self.cfg.quota_thresholds.clone();
+            thresholds.sort_unstable_by(|a, b| b.cmp(a));
+            for (window, w) in [("five_hour", st.five_hour), ("seven_day", st.seven_day)] {
+                let Some(w) = w else { continue };
+                if let Some(&threshold) = thresholds.iter().find(|t| w.used_percentage >= f64::from(**t)) {
+                    Self::keep(store, &mut out, Alert::Quota { window, pct: w.used_percentage, threshold, resets_at: w.resets_at }, now_utc)?;
+                }
+            }
+        }
+        if self.cfg.notify.forecast {
+            // Fresh data (not stale), so the reading time stands in for "now" and keeps this deterministic.
+            let now = st.updated_at.unwrap_or_else(|| now_utc.timestamp());
+            let lead5 = i64::from(self.cfg.notify.forecast_lead_minutes) * 60;
+            for (window, f, lead) in [("five_hour", st.forecast_five_hour, lead5), ("seven_day", st.forecast_seven_day, SEVEN_DAY_LEAD)] {
+                let Some(f) = f.filter(|f| f.at_risk) else { continue };
+                let Some(hits_at) = f.hits_at else { continue };
+                if hits_at - now <= lead {
+                    Self::keep(store, &mut out, Alert::Forecast { window, hits_at, resets_at: f.resets_at }, now_utc)?;
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// Credit tools (`(id, label, forecast)`): notify once per period when the credits likely run out within `CREDIT_LEAD`.
+    pub fn on_credits(&mut self, store: &mut Store, items: &[(String, String, Forecast)], now_utc: DateTime<Utc>) -> rusqlite::Result<Vec<Alert>> {
+        let mut out = Vec::new();
+        if !self.cfg.notify.forecast {
+            return Ok(out);
+        }
+        for (tool, label, f) in items {
+            let Some(hits_at) = f.hits_at.filter(|_| f.at_risk) else { continue };
+            if hits_at - now_utc.timestamp() <= CREDIT_LEAD {
+                Self::keep(store, &mut out, Alert::CreditForecast { tool: tool.clone(), label: label.clone(), hits_at, resets_at: f.resets_at }, now_utc)?;
             }
         }
         Ok(out)
