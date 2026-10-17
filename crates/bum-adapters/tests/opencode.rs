@@ -135,6 +135,16 @@ fn an_old_schema_is_an_error_not_a_crash() {
 }
 
 #[test]
+fn accepts_a_sessions_table_named_session() {
+    // OpenCode builds differ: some call the table `session_v2`, others (after migration) `session`.
+    let (_d, db) = fixture();
+    Connection::open(&db).unwrap().execute_batch("ALTER TABLE session_v2 RENAME TO session;").unwrap();
+    let (ev, _) = OpenCode::new(&db).scan(None).unwrap();
+    assert!(ev.iter().any(|e| matches!(e, RawEvent::Session { session_id, .. } if session_id == "ses_a")));
+    assert!(ev.iter().any(|e| matches!(e, RawEvent::ApiCall { request_id, .. } if request_id == "opencode:msg_a1")));
+}
+
+#[test]
 fn scanning_never_writes_to_the_opencode_database() {
     let (_d, db) = fixture();
     let before = std::fs::read(&db).unwrap();

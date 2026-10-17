@@ -147,19 +147,27 @@ impl DbSource for OpenCode {
         let conn = open_readonly(&self.db)?;
         // One read transaction: both queries see the same snapshot.
         let tx = conn.unchecked_transaction()?;
-        if !has_table(&tx, "session_v2")? || !has_table(&tx, "session_message")? {
-            bail!("unsupported OpenCode schema (needs session_v2 and session_message, OpenCode 2.x)");
+        // OpenCode 2.x calls it `session_v2`, but some builds (and the migrated SQLite schema) call it `session`.
+        let sessions_table = if has_table(&tx, "session_v2")? {
+            "session_v2"
+        } else if has_table(&tx, "session")? {
+            "session"
+        } else {
+            bail!("unsupported OpenCode schema (no sessions table)");
+        };
+        if !has_table(&tx, "session_message")? {
+            bail!("unsupported OpenCode schema (needs session_message)");
         }
         // Re-read a few seconds before the watermark: rows stamped in the same millisecond, or committed late by another
         // OpenCode process, would otherwise be skipped for good. Re-reading is harmless (every write is an upsert).
         let since = watermark.map_or(i64::MIN, |w| w - LOOKBACK_MS);
         let mut next = watermark.unwrap_or(0);
         let mut out = Vec::new();
-        let mut meta = Sessions::new(&tx)?;
+        let mut meta = Sessions::new(&tx, sessions_table)?;
 
         // Changed conversations first (subagent sessions are folded into their parent, not shown on their own).
         let mut emitted: HashSet<String> = HashSet::new();
-        let mut st = tx.prepare(&format!("SELECT {SESSION_COLS} FROM session_v2 WHERE time_updated > ?1 ORDER BY time_created"))?;
+        let mut st = tx.prepare(&format!("SELECT {SESSION_COLS} FROM {sessions_table} WHERE time_updated > ?1 ORDER BY time_created"))?;
         for s in st.query_map([since], session_row)? {
             let s = s?;
             next = next.max(s.updated);
@@ -253,8 +261,8 @@ struct Sessions<'c> {
 }
 
 impl<'c> Sessions<'c> {
-    fn new(conn: &'c Connection) -> rusqlite::Result<Self> {
-        Ok(Self { by_id: conn.prepare(&format!("SELECT {SESSION_COLS} FROM session_v2 WHERE id = ?1"))?, cache: HashMap::new() })
+    fn new(conn: &'c Connection, table: &str) -> rusqlite::Result<Self> {
+        Ok(Self { by_id: conn.prepare(&format!("SELECT {SESSION_COLS} FROM {table} WHERE id = ?1"))?, cache: HashMap::new() })
     }
 
     fn row(&mut self, id: &str) -> rusqlite::Result<Option<SessionRow>> {
