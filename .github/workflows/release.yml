@@ -1,6 +1,6 @@
 # Build installers for Linux, macOS, Windows.
 # - Run manually (workflow_dispatch) or push to main: the installers appear under the run's Artifacts.
-# - Push a v* tag (e.g. v1.0.2): creates a published GitHub Release with the installers attached.
+# - Push a v* tag (e.g. v1.0.3): creates a published GitHub Release with the installers attached.
 name: Release
 
 on:
