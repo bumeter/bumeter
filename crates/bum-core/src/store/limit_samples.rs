@@ -33,8 +33,9 @@ impl Store {
         rows.collect()
     }
 
-    pub fn prune_limit_samples(&mut self, before: i64) -> rusqlite::Result<usize> {
-        self.conn().execute("DELETE FROM limit_samples WHERE ts < ?1", params![before])
+    /// Delete readings of `win` older than `before` (per window, so the `(win, ts)` primary key is used).
+    pub fn prune_limit_samples(&mut self, win: &str, before: i64) -> rusqlite::Result<usize> {
+        self.conn().execute("DELETE FROM limit_samples WHERE win = ?1 AND ts < ?2", params![win, before])
     }
 }
 
@@ -47,7 +48,7 @@ pub fn record_file(store: &mut Store, file: &LimitsFile, now: i64) -> rusqlite::
         if let Some(w) = w {
             store.record_limit_sample(win, Sample { ts: file.updated_at, pct: w.used_percentage, resets_at: w.resets_at })?;
         }
+        store.prune_limit_samples(win, now - KEEP_SECS)?;
     }
-    store.prune_limit_samples(now - KEEP_SECS)?;
     Ok(())
 }

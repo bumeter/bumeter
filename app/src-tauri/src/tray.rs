@@ -270,6 +270,11 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Some fresh % row (any tool) is forecast to hit its limit before the reset.
+fn any_row_at_risk(rows: &[meter::TrayRow]) -> bool {
+    rows.iter().any(|r| matches!(r.icon, TrayIcon::Ring { at_risk: true, stale: false, .. }))
+}
+
 pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &TodaySummary) {
     let items = app.state::<TrayItems>();
     let st = app.state::<crate::state::AppState>();
@@ -300,7 +305,9 @@ pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &Toda
     let _ = items.pause.set_text(pause_l);
     let _ = items.quit.set_text(quit_l);
     if let Some(tray) = app.tray_by_id("main") {
-        let face = face_for(&face_input(store, &st.cfg, limits, today.total, now));
+        let mut input = face_input(store, &st.cfg, limits, today.total, now);
+        input.quota_at_risk |= any_row_at_risk(&text.rows); // credit tools too (Kiro), not only the Claude windows
+        let face = face_for(&input);
         let _ = tray.set_icon(Some(face_image(face)));
         let _ = tray.set_tooltip(Some(bum_core::limits::render_line(limits, Some(today.total), lang)));
         let _ = tray.set_title(text.title.as_deref());
@@ -336,6 +343,14 @@ mod tests {
         // Rows without a % and tool titles: kept as-is.
         assert_eq!(row_label("Kiro · today", &TrayIcon::None, t), "Kiro · today");
         assert_eq!(row_label("Kiro", &TrayIcon::Logo, t), "Kiro");
+    }
+
+    #[test]
+    fn any_tool_at_risk_counts_for_the_face_unless_stale() {
+        let row = |tool: &str, stale, at_risk| meter::TrayRow { tool: tool.into(), text: String::new(), icon: TrayIcon::Ring { pct: Some(40.0), stale, at_risk } };
+        assert!(!any_row_at_risk(&[row("claude_code", false, false), row("kiro", false, false)]));
+        assert!(any_row_at_risk(&[row("claude_code", false, false), row("kiro", false, true)]), "Kiro credits at risk");
+        assert!(!any_row_at_risk(&[row("kiro", true, true)]), "stale data does not worry Bum");
     }
 
     #[test]

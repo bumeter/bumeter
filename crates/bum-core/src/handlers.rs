@@ -98,7 +98,8 @@ pub fn local_day_bounds(now: chrono::DateTime<chrono::Utc>) -> (String, String) 
 pub fn limit_state(ctx: &HandlerCtx, now: chrono::DateTime<chrono::Utc>) -> rusqlite::Result<crate::limits::LimitState> {
     let file = crate::limits::read(&ctx.paths.limits());
     let now = now.timestamp();
-    let samples = ctx.store.limit_samples_since("five_hour", now - crate::forecast::FIVE_HOUR_LOOKBACK)?;
+    // Forecast-only input: a samples error must not take the whole limit state (sidebar, statusline) down with it.
+    let samples = ctx.store.limit_samples_since("five_hour", now - crate::forecast::FIVE_HOUR_LOOKBACK).unwrap_or_default();
     Ok(crate::limits::state(file, ctx.store.latest_rate_limit()?, now).with_forecast(&samples, now))
 }
 

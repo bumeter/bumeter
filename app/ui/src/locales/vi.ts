@@ -29,6 +29,7 @@ export const vi = {
   'bum.quota': 'Quota 5 giờ {pct}%',
   'bum.resets': 'reset lúc {time}',
   'bum.out': 'có thể hết lúc ~{time}',
+  'bum.out7': '7 ngày có thể hết ~{date}',
   'bum.status.happy': 'Hôm nay dùng ít hơn thường lệ',
   'bum.status.calm': 'Mọi thứ ổn',
   'bum.status.worry': 'Quota đang cao',

@@ -265,6 +265,7 @@ export async function mountSettings(el: HTMLElement) {
   // The lead time only matters while forecast notifications are on. A disabled field can't be fixed by the user,
   // so an invalid value there falls back to the last saved one instead of blocking every save.
   const lead = inputs.get('forecast_lead_minutes')!;
+  lead.inputMode = 'numeric'; // whole minutes
   const syncLead = () => {
     lead.disabled = !notify.notify_forecast.checked;
     if (lead.disabled && !parseField('forecast_lead_minutes', lead.value).ok) {

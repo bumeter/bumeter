@@ -131,4 +131,14 @@ describe('sidebar', () => {
     await mountSidebar(el);
     expect(el.querySelector('.bum-out')).toBeNull();
   });
+
+  it('a 7-day risk alone explains why Bum is worried', async () => {
+    fake({ ...handlers, latest_anomaly_ts: () => null, limit_state: () => ({
+      five_hour: { used_percentage: 20, resets_at: 2_000_000_000 }, seven_day: { used_percentage: 80, resets_at: 2_000_200_000 }, updated_at: 1, stale: false, blocked: null,
+      forecast_five_hour: null, forecast_seven_day: { rate_per_hour: 1, hits_at: 2_000_100_000, resets_at: 2_000_200_000, at_risk: true },
+    }) });
+    await mountSidebar(el);
+    expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).toBe('worry');
+    expect(el.querySelector('.bum-out')?.textContent).toMatch(/^7 ngày .*~/);
+  });
 });
