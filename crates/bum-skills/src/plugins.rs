@@ -12,6 +12,19 @@ use crate::frontmatter;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Retry budget for a `spawn` refused with ETXTBSY. Short on purpose: the condition clears in milliseconds.
+const SPAWN_ATTEMPTS: u32 = 10;
+const SPAWN_RETRY_DELAY: Duration = Duration::from_millis(20);
+
+/// ETXTBSY — "Text file busy" (errno 26 on Linux and macOS) — means the executable is open for
+/// writing somewhere, so the kernel refuses to run it: a package manager replacing `claude`, a
+/// virus scanner or indexer touching it, or (in tests) a stub script written a moment ago. It
+/// clears on its own, so `spawn` retries instead of failing the whole operation. Windows has no
+/// equivalent error.
+fn is_text_file_busy(e: &std::io::Error) -> bool {
+    cfg!(unix) && (e.raw_os_error() == Some(26) || e.to_string().contains("Text file busy"))
+}
+
 pub struct ClaudeCli {
     bin: PathBuf,
     timeout: Duration,
@@ -34,13 +47,7 @@ impl ClaudeCli {
 
     /// Run `claude <args>` with a time limit; return stdout.
     pub fn run(&self, args: &[&str]) -> anyhow::Result<String> {
-        let mut child = crate::process::command(&self.bin)
-            .args(args)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .with_context(|| format!("could not run {}", self.bin.display()))?;
+        let mut child = self.spawn(args).with_context(|| format!("could not run {}", self.bin.display()))?;
         // Read stdout/stderr on separate threads: large output will not fill the pipe and hang.
         let drain = |pipe: Option<Box<dyn Read + Send>>| std::thread::spawn(move || {
             let mut s = String::new();
@@ -65,6 +72,25 @@ impl ClaudeCli {
                 bail!("claude {} timed out after {:?}", args.join(" "), self.timeout);
             }
             std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    /// `claude` with the same stdio as `run`, retrying briefly while the binary is ETXTBSY.
+    fn spawn(&self, args: &[&str]) -> std::io::Result<std::process::Child> {
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            match crate::process::command(&self.bin)
+                .args(args)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+            {
+                Ok(child) => return Ok(child),
+                Err(e) if attempt < SPAWN_ATTEMPTS && is_text_file_busy(&e) => std::thread::sleep(SPAWN_RETRY_DELAY),
+                Err(e) => return Err(e),
+            }
         }
     }
 }
@@ -176,4 +202,17 @@ pub fn scan_plugins(cli: &ClaudeCli) -> (Vec<SkillEntry>, Vec<String>) {
         }
     }
     (out, warnings)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_text_file_busy;
+
+    #[test]
+    fn text_file_busy_is_recognised_and_other_errors_are_not() {
+        let busy = std::io::Error::from_raw_os_error(26); // ETXTBSY
+        assert_eq!(is_text_file_busy(&busy), cfg!(unix), "ETXTBSY is errno 26 on Linux and macOS");
+        assert!(!is_text_file_busy(&std::io::Error::from_raw_os_error(2)), "ENOENT is not transient");
+        assert!(!is_text_file_busy(&std::io::Error::from_raw_os_error(13)), "EACCES is not transient");
+    }
 }
