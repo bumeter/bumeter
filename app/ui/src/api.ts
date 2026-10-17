@@ -54,6 +54,11 @@ export interface SkillHit { id: string; source: string; skill_id: string; name: 
 export interface SkillPage { hits: SkillHit[]; has_more: boolean; total: number }
 export interface SkillPlan { id: string; description: string }
 export interface SkillJournalEntry { id: string; ts: string; op: string; description: string; undone: boolean }
+export type SkillSeverity = 'high' | 'warn' | 'info';
+/** One line of a SKILL.md the safety scan did not like. `path` is the file itself. */
+export interface SkillFinding { severity: SkillSeverity; kind: string; skill: string; tool: string; path: string; line: number; text: string; why: string }
+export interface SkillDuplicate { kind: string; severity: SkillSeverity; skills: string[]; why: string }
+export interface SkillAudit { skills: number; scanned: number; ok: boolean; findings: SkillFinding[]; duplicates: SkillDuplicate[] }
 
 export type Suggestion = { code: 'repeated_read'; file: string; times: number; tokens: number } | { code: 'long_output'; label: string; tokens: number } | { code: 'heavy_skill'; skill: string; tokens: number };
 export interface SessionAnalysis {
@@ -149,6 +154,8 @@ export const api = {
   sessionAnalysis: (session_id: string) => call<SessionAnalysis>('session_analysis', { session_id }),
   callDetail: (session_id: string, request_id: string) => call<CallDetail>('call_detail', { session_id, request_id }),
   skills: (plugins = true) => call<SkillReport>('skills:list', { plugins }),
+  /** Read-only scan of every installed SKILL.md: hijacked instructions, credentials, duplicates. */
+  skillAudit: () => call<SkillAudit>('skills:audit'),
   /** Installed personal skills per tool (plugins excluded), for the sidebar badge. */
   skillCount: () => call<Record<string, number>>('skills:count'),
   skillPlan: (req: SkillOpRequest) => call<SkillPlan>('skills:plan', req),

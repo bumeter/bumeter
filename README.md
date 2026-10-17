@@ -38,8 +38,8 @@ Everything is read from your own machine. Nothing is uploaded.
 - **Context analysis** for a session: what fills the context window, when it was compacted, which tool calls were large.
 - **Skills**: always-on token cost and real usage of every skill; install (also from
   [skills.sh](https://skills.sh)), disable, change size or remove, all with undo — and a read-only scan
-  that flags a `SKILL.md` whose instructions try to hijack the model, reach your credentials, or hide
-  what it does.
+  (“Check safety” on the Skills screen, or `bum skills audit`) that flags a `SKILL.md` whose
+  instructions try to hijack the model, reach your credentials, or hide what it does.
 - **Per-tool tabs** on every screen, so adding Codex, Cursor or OpenCode later is one more tab, not a redesign.
 - **Notifications** when a quota passes your thresholds (70% / 90% by default) or a turn costs far more than usual.
 - **Light and dark themes**, Vietnamese and English.

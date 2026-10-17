@@ -1,16 +1,27 @@
 import { api } from '../api';
-import type { PromptRow, SkillHit, SkillJournalEntry, SkillOpRequest, SkillReport, SkillRow } from '../api';
+import type { PromptRow, SkillAudit, SkillDuplicate, SkillFinding, SkillHit, SkillJournalEntry, SkillOpRequest, SkillReport, SkillRow, SkillSeverity } from '../api';
 import { closeDialogs, confirmPlan, openDialog } from '../components/dialog';
 import { openDrawer } from '../components/drawer';
 import { countPill, emptyState } from '../components/ui';
 import { compact, h } from '../dom';
 import { fmtShortDate, fmtTime, fmtTokens, totalOf } from '../fmt';
 import { t } from '../i18n';
+import type { Key } from '../i18n';
 import { state, subscribe, update } from '../state';
 import { glyph, toolDef, toolTag } from '../tools';
 import { toolTabs } from '../components/toolTabs';
 
 const SEARCH_DEBOUNCE_MS = 300;
+
+/** The safety scan's vocabulary, mapped to dictionary keys (the backend sends the ids, the UI names them). */
+const KIND_KEY: Record<string, Key> = {
+  injection: 'sk.kind.injection', concealment: 'sk.kind.concealment', exfiltration: 'sk.kind.exfiltration',
+  remote_exec: 'sk.kind.remote_exec', destructive: 'sk.kind.destructive', self_modify: 'sk.kind.self_modify',
+  secret: 'sk.kind.secret', hidden_text: 'sk.kind.hidden_text', obfuscation: 'sk.kind.obfuscation',
+};
+const DUP_KEY: Record<string, Key> = { content: 'sk.dup.content', description: 'sk.dup.description', name: 'sk.dup.name' };
+const SEV_KEY: Record<SkillSeverity, Key> = { high: 'sk.sevHigh', warn: 'sk.sevWarn', info: 'sk.sevInfo' };
+const SEV_RANK: Record<SkillSeverity, number> = { high: 0, warn: 1, info: 2 };
 
 /** `625917` → `626K`, `1234567` → `1.2M`. */
 export function compactNum(n: number): string {
@@ -109,6 +120,11 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
   let disposed = false;
   let drawer: { close(): void; el: HTMLElement } | null = null;
   let narrowOpen = false;
+  // The SKILL.md scan: run on demand, then kept until it is closed or acted on. Nothing runs it by itself.
+  let audit: SkillAudit | null = null;
+  let auditOpen = false;
+  let auditBusy = false;
+  let auditError: string | null = null;
   let host: HTMLElement = detail; // where the detail is being built: right column (wide), drawer (medium) or a screen replacing the list (narrow)
   const listWrap = h('div', { class: 'sk-list' });
   list.replaceChildren(listWrap);
@@ -171,6 +187,21 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
       }
       await reload();
     });
+  };
+
+  /** Read every installed SKILL.md and show what came back. Read-only, and only when asked for. */
+  const runAudit = async () => {
+    auditBusy = true;
+    auditError = null;
+    renderList();
+    try {
+      audit = await api.skillAudit();
+      auditOpen = audit.findings.length + audit.duplicates.length > 0;
+    } catch (e) {
+      auditError = String(e);
+    }
+    auditBusy = false;
+    renderList();
   };
 
   /** "Install skill" dialog: skills.sh leaderboard + search (default), a folder, or a git URL. */
@@ -305,7 +336,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
   const rowEl = (r: SkillRow) =>
     h('div', { class: 'skill-row', role: 'option', 'data-skill': r.entry.name, 'aria-selected': String(selected === r.entry.name),
       onclick: (() => { selected = r.entry.name; renderList(); showDetail(); }) as EventListener },
-      h('div', { class: 'name' }, h('span', { class: `state ${r.entry.state}` }, r.entry.state === 'enabled' ? '●' : '○'), r.entry.name, ...sourceTags(r)),
+      h('div', { class: 'name' }, h('span', { class: `state ${r.entry.state}` }, r.entry.state === 'enabled' ? '●' : '○'), r.entry.name, auditMark(r), ...sourceTags(r)),
       h('div', { class: 'num' }, approx(r.entry.always_on_tokens)),
       h('div', { class: 'num' }, approx(r.entry.on_invoke_tokens)),
       h('div', { class: 'num uses' }, r.usage_known === false ? '—' : String(r.uses)),
@@ -326,7 +357,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
     const e = r.entry;
     const pick = (() => { selected = e.name; renderList(); showDetail(); }) as EventListener;
     return h('div', { class: `skill-card${isCostly(r) ? ' costly' : ''}`, role: 'option', tabindex: 0, 'data-skill': e.name, 'aria-selected': String(selected === e.name), onclick: pick },
-      h('div', { class: 'card-head' }, h('b', { class: 'name' }, e.name), toggleEl(r) ?? (e.state === 'disabled' ? h('span', { class: 'dim off' }, t('sk.disabledText')) : null)),
+      h('div', { class: 'card-head' }, h('b', { class: 'name' }, e.name), auditMark(r), toggleEl(r) ?? (e.state === 'disabled' ? h('span', { class: 'dim off' }, t('sk.disabledText')) : null)),
       h('div', { class: 'desc' }, e.description || ' '),
       h('div', { class: 'card-stats num' },
         h('span', { class: isCostly(r) ? 'warn' : '' }, t('sk.cardBase', { n: approx(e.always_on_tokens) })),
@@ -334,6 +365,69 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
         r.avg_tokens != null ? h('span', {}, t('sk.cardAvg', { n: fmtTokens(r.avg_tokens) })) : null),
       h('div', { class: 'card-foot' }, glyph(e.tool ?? 'claude_code'), ...sourceTags(r).filter((x) => !x.classList.contains('ttag')),
         h('span', { class: 'spacer' }), h('span', { class: 'num dim' }, shortDate(r.last_used))));
+  };
+
+  /** The findings that belong to one row, so a skill with something in its SKILL.md is marked in the list. */
+  const findingsFor = (name: string, tool: string) => (audit?.findings ?? []).filter((f) => f.skill === name && f.tool === tool);
+
+  const auditMark = (r: SkillRow): HTMLElement | null => {
+    const found = findingsFor(r.entry.name, r.entry.tool ?? 'claude_code');
+    if (!found.length) return null;
+    const high = found.some((f) => f.severity === 'high');
+    return h('span', { class: `audit-mark${high ? ' high' : ''}`, 'data-audit': high ? 'high' : 'warn', 'aria-label': t('sk.auditMark', { n: found.length }),
+      title: t('sk.auditMark', { n: found.length }) }, '⚠');
+  };
+
+  /** One finding: what matched, why it matters, and the way to turn that skill off without leaving the screen. */
+  const findingEl = (f: SkillFinding) => {
+    const row = [...rep.rows, ...rep.commands].find((r) => r.entry.name === f.skill && (r.entry.tool ?? 'claude_code') === f.tool);
+    // Plugin skills are turned off through their plugin, which is a different (coarser) operation: leave them to the list.
+    const canDisable = row?.entry.managed && row.entry.state === 'enabled' && row.entry.source.kind !== 'plugin';
+    return h('div', { class: `audit-row ${f.severity}`, 'data-finding': `${f.skill}:${f.kind}:${f.line}` },
+      h('div', { class: 'head' },
+        h('span', { class: 'sev' }, t(SEV_KEY[f.severity])),
+        h('b', {}, f.skill),
+        glyph(f.tool),
+        h('span', { class: 'kind' }, t(KIND_KEY[f.kind] ?? 'sk.kind.other')),
+        h('span', { class: 'sub' }, t('sk.auditLine', { n: f.line }))),
+      h('div', { class: 'match' }, h('code', {}, f.text)),
+      h('div', { class: 'sub why' }, f.why),
+      h('div', { class: 'foot' }, h('span', { class: 'sub path' }, f.path), h('span', { class: 'spacer' }),
+        canDisable
+          ? h('button', { class: 'btn', 'data-action': 'audit-disable',
+              onclick: (() => void run({ op: 'disable', targets: [f.skill], tool: f.tool }, `${t('sk.disable')}: ${f.skill}`)) as EventListener }, t('sk.auditDisable'))
+          : row && row.entry.state === 'disabled' ? h('span', { class: 'sub dim' }, t('sk.disabledText')) : null));
+  };
+
+  const duplicateEl = (d: SkillDuplicate) =>
+    h('div', { class: `audit-row ${d.severity}`, 'data-dup': d.kind },
+      h('div', { class: 'head' }, h('span', { class: 'sev' }, t(SEV_KEY[d.severity])), h('b', {}, t(DUP_KEY[d.kind] ?? 'sk.kind.other')),
+        h('span', { class: 'kind' }, d.skills.join(' · '))),
+      h('div', { class: 'sub why' }, d.why));
+
+  /** The scan result: one line at the top, the details behind a button. */
+  const auditPanel = (): HTMLElement[] => {
+    if (auditError) return [h('div', { class: 'warning' }, `⚠ ${t('sk.auditError', { e: auditError })}`)];
+    if (!audit) return auditBusy ? [loadingRow(t('sk.auditRunning'))] : [];
+    const high = audit.findings.filter((f) => f.severity === 'high').length;
+    const total = audit.findings.length + audit.duplicates.length;
+    const banner = h('div', { class: `callout audit${high ? ' danger' : ''}` },
+      h('b', {}, high
+        ? t('sk.auditHigh', { n: high })
+        : total ? t('sk.auditFound', { n: audit.findings.length, d: audit.duplicates.length })
+        : t('sk.auditClean', { n: audit.scanned })),
+      h('span', { class: 'spacer' }),
+      total
+        ? h('button', { class: 'btn', 'data-action': 'audit-toggle', onclick: (() => { auditOpen = !auditOpen; renderList(); }) as EventListener },
+            t(auditOpen ? 'sk.auditHide' : 'sk.auditShow'))
+        : null,
+      h('button', { class: 'btn', 'data-action': 'audit-close', onclick: (() => { audit = null; auditOpen = false; renderList(); }) as EventListener }, t('sk.auditClose')));
+    if (!auditOpen || !total) return [banner];
+    return [banner, h('div', { class: 'audit-list' },
+      ...[...audit.findings].sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]).map(findingEl),
+      ...audit.duplicates.map(duplicateEl),
+      h('div', { class: 'sub hint' }, t('sk.auditNote')),
+      audit.skills > audit.scanned ? h('div', { class: 'sub hint' }, t('sk.auditSkipped', { n: audit.skills - audit.scanned })) : null)];
   };
 
   const renderList = () => {
@@ -357,6 +451,8 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
             })()
           : null,
         h('span', { class: 'spacer' }),
+        h('button', { class: 'btn', 'data-action': 'audit', disabled: auditBusy,
+          onclick: (() => void runAudit()) as EventListener }, auditBusy ? spinner() : null, t('sk.audit')),
         h('div', { class: 'segmented', role: 'group', 'aria-label': t('sk.viewMode') },
           ...(['table', 'cards'] as const).map((v) => h('button', { type: 'button', 'data-view-mode': v, 'aria-pressed': String(view === v),
             onclick: (() => { view = v; saveView(v); renderList(); }) as EventListener }, t(v === 'table' ? 'sk.viewTable' : 'sk.viewCards')))),
@@ -376,6 +472,7 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
           onclick: (() => { filters.costly = !filters.costly; renderList(); }) as EventListener }, t('sk.fCostly'))),
       h('div', { class: 'list-summary num' }, t('sk.summary', { base: approx(rep.total_always_on), enabled, unused: rep.unused.length })),
       ...rep.warnings.map((w) => h('div', { class: 'warning' }, `⚠ ${w}`)),
+      ...auditPanel(),
       message
         ? h('div', { class: 'op-message' }, message.text,
             message.undo ? h('button', { class: 'btn', 'data-action': 'undo', onclick: (async () => {
