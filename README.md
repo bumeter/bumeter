@@ -70,6 +70,22 @@ chmod +x Bumeter_1.0.5_amd64.AppImage
 **Snap** — the `bumeter` snap is waiting for the Snap Store's classic-confinement review.
 Once it is published: `sudo snap install bumeter --classic`.
 
+**macOS** (Homebrew)
+
+```bash
+brew install --cask chieund/tap/bumeter
+```
+
+The cask lives in [chieund/homebrew-tap](https://github.com/chieund/homebrew-tap). Bumeter is not
+signed with an Apple Developer ID, so macOS quarantines it: open it once with right-click → Open (the
+cask prints this when it installs). That is also why it is not in `homebrew/cask`, which requires
+notarized applications. The `.dmg` on [Releases](https://github.com/chieund/bumeter/releases) works
+the same way.
+
+**Windows** — the `.msi` and `.exe` are on Releases. The WinGet manifest is generated from those
+files (`scripts/packaging.py`) but the package is not in `winget-pkgs` yet; see
+[docs/packaging.md](docs/packaging.md) for what publishing it takes.
+
 ## How it gets the numbers
 
 | Source | What Bumeter reads |
