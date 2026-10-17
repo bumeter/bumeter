@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { fmtAgo, fmtCredits, fmtDay, fmtDayHeader, fmtTime, fmtTokens, heat } from '../src/fmt';
+import { fmtAgo, fmtCountdown, fmtCredits, fmtDay, fmtDayHeader, fmtDayMonth, fmtTime, fmtTokens, heat } from '../src/fmt';
 import { setLang } from '../src/i18n';
 
 afterEach(() => setLang('vi'));
@@ -50,6 +50,22 @@ describe('fmt', () => {
     expect(heat(6)).toBe('hot');
     expect(heat(3)).toBe('warm');
     expect(heat(null)).toBe('');
+  });
+
+  it('counts down to a reset: hours, minutes, seconds, and never goes negative', () => {
+    expect(fmtCountdown(5400)).toBe('còn 1h30');
+    expect(fmtCountdown(90)).toBe('còn 1 phút');
+    expect(fmtCountdown(42)).toBe('còn 42 giây');
+    expect(fmtCountdown(-10)).toBe('còn 0 giây');
+    setLang('en');
+    expect(fmtCountdown(5400)).toBe('in 1h30');
+    expect(fmtCountdown(42)).toBe('in 42s');
+  });
+
+  it('a reset date is never shifted by the timezone', () => {
+    expect(fmtDayMonth('2026-11-01')).toBe('01/11');
+    expect(fmtDayMonth('2026-11-01T00:00:00Z')).toBe('01/11');
+    expect(fmtDayMonth('')).toBe('');
   });
 });
 

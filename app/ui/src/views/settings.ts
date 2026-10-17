@@ -1,6 +1,7 @@
 import { api } from '../api';
 import type { Config, SettingsInfo } from '../api';
 import { h } from '../dom';
+import { fmtDayMonth } from '../fmt';
 import { setLang, t } from '../i18n';
 import type { Key, Lang } from '../i18n';
 import { state, update } from '../state';
@@ -42,12 +43,6 @@ function parseField(name: NumField, raw: string): Parsed {
   const n = v === '' ? NaN : Number(v);
   if (!Number.isFinite(n) || n <= 0) return { ok: false, error: 'set.errNumber' };
   return { ok: true, value: name === 'context_threshold' ? Math.round(n * 1000) : n };
-}
-
-/** "2026-11-01" → "01/11". */
-function ddmm(iso: string): string {
-  const [, m, d] = iso.split('-');
-  return d && m ? `${d}/${m}` : iso;
 }
 
 export async function mountSettings(el: HTMLElement) {
@@ -187,7 +182,7 @@ export async function mountSettings(el: HTMLElement) {
     const lim = info.config.tool_limits?.[id];
     const q = info.tool_quotas?.[id];
     return h('div', { class: 'tool-limits' },
-      q ? h('div', { class: 'sub tool-quota' }, t('set.toolQuota', { tool: label, used: String(q.used), limit: String(q.limit), plan: q.plan, date: ddmm(q.resets_on) })) : '',
+      q ? h('div', { class: 'sub tool-quota' }, t('set.toolQuota', { tool: label, used: String(q.used), limit: String(q.limit), plan: q.plan, date: fmtDayMonth(q.resets_on) })) : '',
       field(t('set.creditLimit'), `credits_limit_${id}`, lim?.monthly_credits ?? '', t(q ? 'set.creditLimitFallbackHint' : 'set.creditLimitHint')),
       field(t('set.resetDay'), `credits_reset_${id}`, lim?.reset_day ?? 1, t('set.resetDayHint')));
   };

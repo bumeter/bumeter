@@ -30,6 +30,12 @@ export function fmtShortDate(iso: string): string {
   return d.toLocaleDateString(locale(), { month: 'short', day: 'numeric' });
 }
 
+/** A calendar date, no instant: `2026-11-01` (or any ISO stamp) → `01/11`. Never shifted by timezone. */
+export function fmtDayMonth(iso: string): string {
+  const [, m, d] = iso.slice(0, 10).split('-');
+  return d && m ? `${d}/${m}` : iso;
+}
+
 /** Day group header: "today · weekday DD/MM" in the current language. `day` = `YYYY-MM-DD` local time. */
 export function fmtDayHeader(day: string, now = new Date()): string {
   const [y, m, d] = day.split('-').map(Number);
@@ -49,6 +55,14 @@ export function fmtAgo(then: number, now: number): string {
   if (s < 3600) return t('ago.m', { n: Math.floor(s / 60) });
   if (s < 86400) return t('ago.h', { n: Math.floor(s / 3600) });
   return t('ago.d', { n: Math.floor(s / 86400) });
+}
+
+/** Time left until something: "in 2h14" / "in 14m" / "in 45s". `secs` from now. */
+export function fmtCountdown(secs: number): string {
+  const s = Math.max(0, Math.round(secs));
+  if (s < 60) return t('ov.quotaInS', { s });
+  if (s < 3600) return t('ov.quotaInM', { m: Math.floor(s / 60) });
+  return t('ov.quotaInH', { h: Math.floor(s / 3600), m: pad(Math.floor((s % 3600) / 60)) });
 }
 
 export function fmtDuration(secs: number | null | undefined): string {
