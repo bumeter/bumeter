@@ -56,3 +56,22 @@ pub trait LogSource: Send {
         Err(LineError("this source is read line by line".into()))
     }
 }
+
+/// A tool that keeps its history in a database (e.g. OpenCode's SQLite) instead of append-only logs.
+/// The engine stores a watermark per source and asks only for rows changed after it.
+pub trait DbSource: Send {
+    fn id(&self) -> &'static str;
+    fn info(&self) -> SourceInfo;
+    /// The database file; a change to it or to `<file>-wal` triggers a scan.
+    fn db_path(&self) -> PathBuf;
+    /// Rows changed after `watermark` (ms) → events and the new watermark. Must never write to the database.
+    fn scan(&mut self, watermark: Option<i64>) -> anyhow::Result<(Vec<RawEvent>, i64)>;
+}
+
+/// A directory to watch. `files`: exact paths to forward besides `.jsonl`/`.json` files (e.g. a database and its WAL).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WatchTarget {
+    pub path: PathBuf,
+    pub recursive: bool,
+    pub files: Vec<PathBuf>,
+}

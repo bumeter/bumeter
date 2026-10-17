@@ -84,9 +84,9 @@ pub fn start_host(paths: Paths, cfg: Config, mut handler: Box<dyn HostHandler + 
     eprintln!("bumeter: initial scan of {} lines in {:?}", report.lines, started.elapsed());
 
     let (tx, rx) = mpsc::channel::<HostMsg>();
-    let mut dirs = engine.watch_roots();
-    dirs.push(paths.data_dir.clone());
-    let (watcher, unwatched) = spawn_watcher(&dirs, &paths.limits(), tx.clone()).map_err(anyhow::Error::from)?;
+    let mut targets = engine.watch_targets();
+    targets.push(bum_core::source::WatchTarget { path: paths.data_dir.clone(), recursive: true, files: Vec::new() });
+    let (watcher, unwatched) = spawn_watcher(&targets, &paths.limits(), tx.clone()).map_err(anyhow::Error::from)?;
     // If watching is impossible, rescan more often to stay close to real time.
     let rescan = if unwatched.is_empty() { RESCAN } else { DEGRADED_RESCAN };
 

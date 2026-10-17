@@ -68,7 +68,7 @@ fn appended_line_and_limits_change_reach_the_handler() {
     let limits = data.join("limits.json");
 
     let (tx, rx) = mpsc::channel::<HostMsg>();
-    let (_watcher, _) = spawn_watcher(&[root.clone(), data.clone()], &limits, tx.clone()).unwrap();
+    let (_watcher, _) = spawn_watcher(&targets(&[root.clone(), data.clone()]), &limits, tx.clone()).unwrap();
     let (seen_tx, seen_rx) = mpsc::channel();
     let root_for_thread: PathBuf = root.clone();
     let limits_for_thread = limits.clone();
@@ -107,7 +107,7 @@ fn a_directory_that_cannot_be_watched_does_not_stop_the_others() {
         return; // root
     }
     let (tx, rx) = mpsc::channel::<HostMsg>();
-    let (_w, failed) = spawn_watcher(&[bad.clone(), good.clone()], &dir.path().join("limits.json"), tx).unwrap();
+    let (_w, failed) = spawn_watcher(&targets(&[bad.clone(), good.clone()]), &dir.path().join("limits.json"), tx).unwrap();
     assert_eq!(failed, vec![bad.clone()]);
     std::fs::write(good.join("a.jsonl"), b"x\n").unwrap();
     assert!(matches!(rx.recv_timeout(Duration::from_secs(2)), Ok(HostMsg::FsChanged(_))));
@@ -134,7 +134,7 @@ fn limits_change_is_recorded_before_the_handler_runs() {
     let limits = data.join("limits.json");
 
     let (tx, rx) = mpsc::channel::<HostMsg>();
-    let (_watcher, _) = spawn_watcher(&[root.clone(), data.clone()], &limits, tx.clone()).unwrap();
+    let (_watcher, _) = spawn_watcher(&targets(&[root.clone(), data.clone()]), &limits, tx.clone()).unwrap();
     let (count_tx, count_rx) = mpsc::channel();
     let (root_t, limits_t) = (root.clone(), limits.clone());
     let host = std::thread::spawn(move || {
@@ -158,4 +158,34 @@ fn limits_change_is_recorded_before_the_handler_runs() {
 
     tx.send(HostMsg::Shutdown).unwrap();
     host.join().unwrap();
+}
+
+fn targets(dirs: &[PathBuf]) -> Vec<bum_core::source::WatchTarget> {
+    dirs.iter().map(|d| bum_core::source::WatchTarget { path: d.clone(), recursive: true, files: vec![] }).collect()
+}
+
+#[test]
+fn a_non_recursive_target_forwards_its_listed_files_and_ignores_subfolders() {
+    let dir = tempfile::tempdir().unwrap();
+    let base = dir.path().canonicalize().unwrap();
+    let snap = base.join("snapshot");
+    std::fs::create_dir_all(&snap).unwrap();
+    let db = base.join("tool.db");
+    let wal = base.join("tool.db-wal");
+    let t = vec![bum_core::source::WatchTarget { path: base.clone(), recursive: false, files: vec![db.clone(), wal.clone()] }];
+    let (tx, rx) = mpsc::channel::<HostMsg>();
+    let (_w, failed) = spawn_watcher(&t, &base.join("limits.json"), tx).unwrap();
+    assert!(failed.is_empty());
+    std::fs::write(snap.join("x.json"), b"{}").unwrap(); // subfolder: not watched
+    std::fs::write(base.join("other.bin"), b"x").unwrap(); // not listed
+    std::fs::write(&wal, b"x").unwrap();
+    let mut got = Vec::new();
+    let start = Instant::now();
+    while start.elapsed() < Duration::from_millis(800) {
+        if let Ok(HostMsg::FsChanged(p)) = rx.recv_timeout(Duration::from_millis(100)) {
+            got.extend(p);
+        }
+    }
+    assert!(got.contains(&wal), "{got:?}");
+    assert!(!got.iter().any(|p| p.starts_with(&snap) || p.ends_with("other.bin")), "{got:?}");
 }

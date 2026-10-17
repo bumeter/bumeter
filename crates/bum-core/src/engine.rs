@@ -2,7 +2,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::source::{LogSource, ParseCtx};
+use crate::source::{DbSource, LogSource, ParseCtx, WatchTarget};
 use crate::store::{ApplySummary, FileOffset, Store};
 use crate::tailer;
 
@@ -27,11 +27,18 @@ impl IngestReport {
 pub struct Engine {
     store: Store,
     sources: Vec<Box<dyn LogSource>>,
+    db_sources: Vec<Box<dyn DbSource>>,
 }
 
 impl Engine {
     pub fn new(store: Store, sources: Vec<Box<dyn LogSource>>) -> Self {
-        Self { store, sources }
+        Self { store, sources, db_sources: Vec::new() }
+    }
+
+    /// Add database sources (read by watermark, never purged).
+    pub fn with_db_sources(mut self, db_sources: Vec<Box<dyn DbSource>>) -> Self {
+        self.db_sources = db_sources;
+        self
     }
 
     pub fn store(&self) -> &Store {
@@ -50,7 +57,25 @@ impl Engine {
         self.sources.iter().any(|s| s.accepts(path))
     }
 
+    /// What the host should watch: log roots recursively; each database's directory non-recursively,
+    /// forwarding only the database and its WAL (the directory may hold busy folders such as snapshots).
+    pub fn watch_targets(&self) -> Vec<WatchTarget> {
+        let logs = self.watch_roots().into_iter().map(|path| WatchTarget { path, recursive: true, files: Vec::new() });
+        let dbs = self.db_sources.iter().filter_map(|d| {
+            let db = d.db_path();
+            let dir = db.parent()?.to_path_buf();
+            Some(WatchTarget { path: dir, recursive: false, files: vec![db.clone(), wal_path(&db)] })
+        });
+        logs.chain(dbs).collect()
+    }
+
     pub fn ingest_path(&mut self, path: &Path) -> anyhow::Result<IngestReport> {
+        if let Some(i) = self.db_sources.iter().position(|d| {
+            let db = d.db_path();
+            path == db || path == wal_path(&db)
+        }) {
+            return self.ingest_db(i);
+        }
         let Some(src) = self.sources.iter().position(|s| s.accepts(path)) else { return Ok(IngestReport::default()) };
         let meta = match std::fs::metadata(path) {
             Ok(m) => m,
@@ -117,7 +142,21 @@ impl Engine {
         Ok(IngestReport { summary, parse_errors, file_errors: 0, lines })
     }
 
-    /// Scan every file of every source; unchanged files are skipped thanks to the offset.
+    /// Database source: read rows changed since the saved watermark. The watermark is stored in `file_offsets`
+    /// (key `db:<id>`) in the same transaction as the rows; the file itself is never compared or purged.
+    fn ingest_db(&mut self, i: usize) -> anyhow::Result<IngestReport> {
+        if !self.db_sources[i].db_path().exists() {
+            return Ok(IngestReport::default());
+        }
+        let key = format!("db:{}", self.db_sources[i].id());
+        let watermark = self.store.get_offset(&key)?.and_then(|o| serde_json::from_str::<serde_json::Value>(&o.ctx_json).ok()).and_then(|v| v["watermark"].as_i64());
+        let (events, next) = self.db_sources[i].scan(watermark)?;
+        let off = FileOffset { path: key, file_id: "db".into(), size: 0, offset: 0, mtime: 0, ctx_json: serde_json::json!({ "watermark": next }).to_string() };
+        let summary = self.store.ingest_batch(&off, &events, 0)?;
+        Ok(IngestReport { summary, parse_errors: 0, file_errors: 0, lines: events.len() as u64 })
+    }
+
+    /// Scan every file of every source; unchanged files are skipped thanks to the offset. Database sources are read by watermark.
     pub fn full_scan(&mut self) -> anyhow::Result<IngestReport> {
         let mut files = Vec::new();
         for root in self.watch_roots() {
@@ -135,8 +174,24 @@ impl Engine {
                 }
             }
         }
+        for i in 0..self.db_sources.len() {
+            match self.ingest_db(i) {
+                Ok(r) => report.merge(r),
+                Err(e) => {
+                    eprintln!("bumeter: skipping {} database: {e}", self.db_sources[i].id());
+                    report.file_errors += 1;
+                }
+            }
+        }
         Ok(report)
     }
+}
+
+/// SQLite's write-ahead log next to `db`.
+fn wal_path(db: &Path) -> PathBuf {
+    let mut s = db.as_os_str().to_owned();
+    s.push("-wal");
+    PathBuf::from(s)
 }
 
 fn collect_files(dir: &Path, out: &mut Vec<PathBuf>) {
