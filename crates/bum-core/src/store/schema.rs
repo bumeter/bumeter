@@ -32,7 +32,7 @@ CREATE TABLE notes(prompt_key TEXT PRIMARY KEY, starred INTEGER NOT NULL DEFAULT
   updated_at TEXT NOT NULL);
 "#;
 
-pub const CURRENT_VERSION: i64 = 4;
+pub const CURRENT_VERSION: i64 = 6;
 
 pub fn version(conn: &Connection) -> rusqlite::Result<i64> {
     conn.query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -68,6 +68,14 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                SELECT a.source_file FROM api_calls a JOIN sessions s ON s.id = a.session_id WHERE s.tool = 'kiro');",
         )?;
         conn.pragma_update(None, "user_version", 5)?;
+    }
+    if version < 6 {
+        // 5h/7d percentage readings for the quota forecast (`win`, not `window`: WINDOW is an SQL keyword).
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS limit_samples(win TEXT NOT NULL, ts INTEGER NOT NULL, pct REAL NOT NULL,
+               resets_at INTEGER NOT NULL, PRIMARY KEY(win, ts));",
+        )?;
+        conn.pragma_update(None, "user_version", 6)?;
     }
     Ok(())
 }

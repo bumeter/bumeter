@@ -113,3 +113,49 @@ fn a_directory_that_cannot_be_watched_does_not_stop_the_others() {
     assert!(matches!(rx.recv_timeout(Duration::from_secs(2)), Ok(HostMsg::FsChanged(_))));
     std::fs::set_permissions(&bad, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
+
+/// Reports how many 5-hour readings the store holds when `on_limits` runs.
+struct CountSamples(mpsc::Sender<usize>);
+
+impl HostHandler for CountSamples {
+    fn on_limits(&mut self, e: &mut Engine) {
+        let _ = self.0.send(e.store().limit_samples_since("five_hour", 0).map(|v| v.len()).unwrap_or(0));
+    }
+}
+
+#[test]
+fn limits_change_is_recorded_before_the_handler_runs() {
+    let dir = tempfile::tempdir().unwrap();
+    let base = dir.path().canonicalize().unwrap();
+    let root = base.join("projects");
+    let data = base.join("data");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::create_dir_all(&data).unwrap();
+    let limits = data.join("limits.json");
+
+    let (tx, rx) = mpsc::channel::<HostMsg>();
+    let (_watcher, _) = spawn_watcher(&[root.clone(), data.clone()], &limits, tx.clone()).unwrap();
+    let (count_tx, count_rx) = mpsc::channel();
+    let (root_t, limits_t) = (root.clone(), limits.clone());
+    let host = std::thread::spawn(move || {
+        let mut engine = Engine::new(Store::open_in_memory().unwrap(), vec![Box::new(ClaudeCode::new(&root_t))]);
+        run_host(&mut engine, &rx, &limits_t, &mut CountSamples(count_tx), Duration::from_secs(60));
+    });
+    std::thread::sleep(Duration::from_millis(200));
+
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+    let w = bum_core::limits::Window { used_percentage: 42.0, resets_at: now + 3600 };
+    bum_core::limits::write_atomic(&limits, &bum_core::limits::LimitsFile { updated_at: now, five_hour: Some(w), seven_day: None }).unwrap();
+    // The watcher may report the file more than once; wait until a call sees the reading.
+    let start = Instant::now();
+    let mut n = 0;
+    while n == 0 && start.elapsed() < Duration::from_secs(3) {
+        if let Ok(c) = count_rx.recv_timeout(Duration::from_millis(100)) {
+            n = c;
+        }
+    }
+    assert_eq!(n, 1, "the reading was not stored before on_limits");
+
+    tx.send(HostMsg::Shutdown).unwrap();
+    host.join().unwrap();
+}

@@ -1,5 +1,6 @@
 //! SQLite: the single place where parsed data is stored (spec sections 4.6, 5).
 mod schema;
+pub mod limit_samples;
 pub mod notes;
 pub mod queries;
 
