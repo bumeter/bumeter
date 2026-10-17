@@ -37,7 +37,9 @@ export interface Config {
 /** Limits the tool reports itself (e.g. Kiro `/usage`), from the most recent fetch. */
 export interface ToolQuota { used: number; limit: number; resets_on: string; plan: string; fetched_at: number }
 export type StatuslineStatus = { kind: 'not_configured' } | { kind: 'custom'; command: string } | { kind: 'hooked'; command: string };
-export interface SettingsInfo { config: Config; statusline: StatuslineStatus; data_dir: string; parse_errors: number; tool_quotas?: Record<string, ToolQuota> }
+export interface SettingsInfo { config: Config; statusline: StatuslineStatus; data_dir: string; parse_errors: number; tool_quotas?: Record<string, ToolQuota>; version?: string }
+/** Result of a "Check for updates": the Rust side reads the `latest.json` on GitHub Releases. */
+export interface UpdateStatus { available: boolean; version: string | null; current: string; notes: string | null }
 
 export type SkillSource = { kind: 'personal' } | { kind: 'plugin'; plugin: string } | { kind: 'synced' } | { kind: 'command' };
 export interface SkillEntry {
@@ -101,6 +103,8 @@ async function getTransport(): Promise<Transport> {
         ? core.invoke('skills', { action: method.slice('skills:'.length), params: params ?? null })
         : method.startsWith('settings:')
         ? core.invoke('settings', { action: method.slice('settings:'.length), params: params ?? null })
+        : method === 'check_update' || method === 'install_update'
+        ? core.invoke(method)
         : core.invoke('call', { method, params: params ?? null }),
       listen: (event, cb) => ev.listen(event, (e) => cb(e.payload)),
     };
@@ -133,6 +137,10 @@ export const api = {
   statuslineApply: () => call<boolean>('settings:statusline_apply'),
   statuslineUndo: () => call<boolean>('settings:statusline_undo'),
   saveConfig: (config: Config) => call<boolean>('settings:save_config', { config }),
+  /** Ask GitHub Releases whether a newer build is published. */
+  checkUpdate: () => call<UpdateStatus>('check_update'),
+  /** Download + install the available update; the app relaunches (Windows: the installer does). */
+  installUpdate: () => call<null>('install_update'),
   modelStats: () => call<ModelStat[]>('model_stats'),
   projectStats: (tool?: string) => call<ProjectStat[]>('project_stats', { tool }),
   /** Latest anomaly mark (same source as the Bum face in the tray), null if none yet. */

@@ -29,6 +29,7 @@ pub struct TrayItems {
     today: MenuItem<Wry>,
     open: MenuItem<Wry>,
     pause: MenuItem<Wry>,
+    update: MenuItem<Wry>,
     quit: MenuItem<Wry>,
 }
 
@@ -161,9 +162,9 @@ pub fn menu_text(store: &Store, cfg: &Config, quotas: &std::collections::BTreeMa
     meter::render_tray(sources, limits, &snap, now.timestamp(), lang)
 }
 
-/// Labels of the fixed items: open Bumeter, pause, quit.
-pub fn action_labels(lang: Lang) -> [&'static str; 3] {
-    [lang.pick("Mở Bumeter", "Open Bumeter"), lang.pick("Tạm dừng thông báo 1 giờ", "Pause notifications for 1 hour"), lang.pick("Thoát", "Quit")]
+/// Labels of the fixed items: open Bumeter, pause, check for updates, quit.
+pub fn action_labels(lang: Lang) -> [&'static str; 4] {
+    [lang.pick("Mở Bumeter", "Open Bumeter"), lang.pick("Tạm dừng thông báo 1 giờ", "Pause notifications for 1 hour"), lang.pick("Kiểm tra cập nhật", "Check for updates"), lang.pick("Thoát", "Quit")]
 }
 
 /// Tools shown on the tray: in registry order, only tools that have a log directory on the machine.
@@ -236,9 +237,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         seps.push(rows.len());
     }
     let today = MenuItem::with_id(app, "today", "…", false, None::<&str>)?;
-    let [open_l, pause_l, quit_l] = action_labels(st.lang());
+    let [open_l, pause_l, update_l, quit_l] = action_labels(st.lang());
     let open = MenuItem::with_id(app, "open", open_l, true, None::<&str>)?;
     let pause = MenuItem::with_id(app, "pause", pause_l, true, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", update_l, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", quit_l, true, None::<&str>)?;
     let menu = Menu::new(app)?;
     for (i, r) in rows.iter().enumerate() {
@@ -250,7 +252,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     menu.append(&PredefinedMenuItem::separator(app)?)?;
     menu.append(&today)?;
     menu.append(&PredefinedMenuItem::separator(app)?)?;
-    menu.append_items(&[&open, &pause, &quit])?;
+    menu.append_items(&[&open, &pause, &update, &quit])?;
     TrayIconBuilder::with_id("main")
         .icon(face_image(Face::Calm))
         .tooltip("Bumeter")
@@ -259,6 +261,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, ev| match ev.id.as_ref() {
             "open" => crate::window::open(app),
             "pause" => crate::state::pause_for(app, 3600),
+            "update" => crate::update::check_now(app),
             "quit" => app.exit(0),
             id => {
                 if let Some(tool) = tool_of_menu_id(id) {
@@ -267,7 +270,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             }
         })
         .build(app)?;
-    app.manage(TrayItems { sources, rows, row_icons: Mutex::new(row_icons), today, open, pause, quit });
+    app.manage(TrayItems { sources, rows, row_icons: Mutex::new(row_icons), today, open, pause, update, quit });
     Ok(())
 }
 
@@ -301,9 +304,10 @@ pub fn refresh(app: &AppHandle, store: &Store, limits: &LimitState, today: &Toda
     }
     drop(shown);
     let _ = items.today.set_text(&text.today);
-    let [open_l, pause_l, quit_l] = action_labels(lang);
+    let [open_l, pause_l, update_l, quit_l] = action_labels(lang);
     let _ = items.open.set_text(open_l);
     let _ = items.pause.set_text(pause_l);
+    let _ = items.update.set_text(update_l);
     let _ = items.quit.set_text(quit_l);
     if let Some(tray) = app.tray_by_id("main") {
         let mut input = face_input(store, &st.cfg, limits, today.total, now);

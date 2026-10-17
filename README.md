@@ -53,7 +53,7 @@ Bumeter needs a desktop with WebKitGTK 4.1, i.e. **Ubuntu 24.04 or newer** (or a
 **Debian/Ubuntu package**
 
 ```bash
-sudo apt install ./Bumeter_1.0.4_amd64.deb
+sudo apt install ./Bumeter_1.0.5_amd64.deb
 ```
 
 This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin`.
@@ -61,8 +61,8 @@ This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin
 **AppImage** (no install, libraries included)
 
 ```bash
-chmod +x Bumeter_1.0.4_amd64.AppImage
-./Bumeter_1.0.4_amd64.AppImage
+chmod +x Bumeter_1.0.5_amd64.AppImage
+./Bumeter_1.0.5_amd64.AppImage
 ```
 
 **Snap** — the `bumeter` snap is waiting for the Snap Store's classic-confinement review.
@@ -112,10 +112,25 @@ Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --no
 ### CI and releases
 
 - `.github/workflows/ci.yml` runs the Rust tests on Linux, macOS and Windows, plus the UI tests, on every push and pull request.
-- `.github/workflows/release.yml` builds the installers: `.deb` + `.AppImage` (Ubuntu 22.04+), `.dmg` (Apple Silicon and Intel),
-  `.exe` (NSIS) + `.msi` (Windows). Run it from the Actions tab to get the files as artifacts, or push a tag
-  (`git tag v1.0.4 && git push origin v1.0.4`) to get a published GitHub Release with the files attached.
-  The macOS and Windows builds are not code-signed yet, so Gatekeeper and SmartScreen will warn on first launch.
+- `.github/workflows/release.yml` builds the installers with `tauri-action`: `.deb` + `.AppImage` (Ubuntu 22.04+),
+  `.dmg` (Apple Silicon and Intel), `.exe` (NSIS) + `.msi` (Windows). Run it from the Actions tab to get the files as
+  artifacts, or push a tag (`git tag v1.0.5 && git push origin v1.0.5`) to get a published GitHub Release with the
+  files attached. The macOS and Windows builds are not code-signed yet, so Gatekeeper and SmartScreen will warn on
+  first launch.
+- Auto-update goes through the same GitHub Release (Settings → Updates, plus a "Check for updates" tray item).
+  Signing the updater bundles needs two repository secrets:
+  `TAURI_SIGNING_PRIVATE_KEY` (contents of the private key) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty if the
+  key has no password). Generate the pair once and keep the private key safe forever — losing it means no further
+  updates for existing installs:
+
+  ```bash
+  cd app && ./ui/node_modules/.bin/tauri signer generate -w ~/.tauri/bumeter.key
+  ```
+
+  Put the public key (`~/.tauri/bumeter.key.pub`) into `plugins.updater.pubkey` in
+  `app/src-tauri/tauri.conf.json`. `createUpdaterArtifacts` lives in `app/src-tauri/tauri.ci.conf.json` and is only
+  passed to CI (`--config`), so a local `tauri build` still works without the private key.
+  Linux auto-update only works for the `.AppImage` (a `.deb` install updates through the package manager).
 
 ### Project layout
 

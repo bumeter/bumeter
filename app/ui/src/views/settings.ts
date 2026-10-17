@@ -232,6 +232,44 @@ export async function mountSettings(el: HTMLElement) {
     );
   };
 
+  // Self-update: the Rust side reads the `latest.json` published on GitHub Releases.
+  const updateMsg = h('p', { class: 'message', role: 'status' });
+  const installBtn = h('button', {
+    class: 'btn primary', type: 'button', hidden: true, 'data-action': 'update-install',
+    onclick: (async () => {
+      installBtn.disabled = true;
+      updateCheck.disabled = true;
+      updateMsg.classList.remove('error');
+      updateMsg.textContent = t('set.updateInstalling');
+      try {
+        await api.installUpdate(); // on success the app relaunches, so this rarely returns
+      } catch (e) {
+        installBtn.disabled = false;
+        updateCheck.disabled = false;
+        updateMsg.classList.add('error');
+        updateMsg.textContent = t('set.updateError', { e: String(e) });
+      }
+    }) as EventListener,
+  }, t('set.updateInstall')) as HTMLButtonElement;
+  const updateCheck = h('button', {
+    class: 'btn', type: 'button', 'data-action': 'update-check',
+    onclick: (async () => {
+      updateCheck.disabled = true;
+      updateMsg.classList.remove('error');
+      updateMsg.textContent = t('set.updateChecking');
+      try {
+        const u = await api.checkUpdate();
+        installBtn.hidden = !u.available;
+        updateMsg.textContent = u.available ? t('set.updateAvailable', { v: u.version ?? '' }) : t('set.updateLatest');
+      } catch (e) {
+        updateMsg.classList.add('error');
+        updateMsg.textContent = t('set.updateError', { e: String(e) });
+      } finally {
+        updateCheck.disabled = false;
+      }
+    }) as EventListener,
+  }, t('set.updateCheck')) as HTMLButtonElement;
+
   const c = info.config;
   el.replaceChildren(
     h('div', { class: 'toolbar' }, h('h1', {}, t('nav.settings'))),
@@ -256,6 +294,12 @@ export async function mountSettings(el: HTMLElement) {
         toggle(t('set.notifyContext'), 'notify_context', c.notify.context),
         h('small', {}, t('set.autoSave'))),
       msg,
+      h('section', { class: 'panel' },
+        h('h2', {}, t('set.updates')),
+        info.version ? h('div', { class: 'sub' }, t('set.updateCurrent', { v: info.version })) : '',
+        h('small', {}, t('set.updateHint')),
+        h('div', { class: 'actions' }, updateCheck, installBtn),
+        updateMsg),
       h('section', { class: 'panel' },
         h('h2', {}, t('set.diagnostics')),
         h('div', { class: 'sub' }, t('set.dataDir'), h('code', {}, info.data_dir)),

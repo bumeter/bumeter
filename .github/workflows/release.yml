@@ -1,6 +1,11 @@
 # Build installers for Linux, macOS, Windows.
 # - Run manually (workflow_dispatch) or push to main: the installers appear under the run's Artifacts.
-# - Push a v* tag (e.g. v1.0.4): creates a published GitHub Release with the installers attached.
+# - Push a v* tag (e.g. v1.0.5): creates a published GitHub Release with the installers attached,
+#   plus the `latest.json` + `.sig` files the in-app updater reads (Settings → Updates).
+#
+# The bundles are built by tauri-action so it can generate `latest.json` for us (updater on,
+# NSIS preferred on Windows). `tauri.ci.conf.json` turns on `createUpdaterArtifacts` for CI only:
+# local `tauri build` keeps working without the signing key.
 name: Release
 
 on:
@@ -74,9 +79,22 @@ jobs:
         working-directory: app/ui
         run: npm ci && npm run build
 
-      - name: Build installers
-        working-directory: app
-        run: ./ui/node_modules/.bin/tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      # Builds every bundle, and on a v* tag also creates the Release and uploads `latest.json`.
+      # `tagName`/`releaseName` are left empty on main so nothing is released from a branch push.
+      - name: Build & release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: app
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config src-tauri/tauri.ci.conf.json
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/v') && format('Bumeter {0}', github.ref_name) || '' }}
+          releaseDraft: false
+          prerelease: false
+          updaterJsonPreferNsis: true
 
       - name: Collect installers
         run: |
@@ -94,18 +112,3 @@ jobs:
           name: bumeter-${{ matrix.target }}
           path: dist/*
           if-no-files-found: error
-
-  release:
-    name: GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-      - uses: softprops/action-gh-release@v2
-        with:
-          draft: false
-          files: dist/*
