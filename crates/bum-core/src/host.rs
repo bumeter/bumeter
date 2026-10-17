@@ -52,6 +52,12 @@ pub fn run_host(engine: &mut Engine, rx: &Receiver<HostMsg>, limits_file: &Path,
                     handler.on_ingest(engine, &report);
                 }
                 if limits_changed {
+                    // Keep the reading history for the forecast before handlers compute the new state.
+                    if let Some(file) = crate::limits::read(limits_file) {
+                        if let Err(e) = crate::store::limit_samples::record_file(engine.store_mut(), &file, chrono::Utc::now().timestamp()) {
+                            eprintln!("bumeter: could not store quota reading: {e}");
+                        }
+                    }
                     handler.on_limits(engine);
                 }
             }

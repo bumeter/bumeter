@@ -1,5 +1,6 @@
 //! SQLite: the single place where parsed data is stored (spec sections 4.6, 5).
 mod schema;
+pub mod limit_samples;
 pub mod notes;
 pub mod queries;
 
@@ -64,7 +65,8 @@ impl Store {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
         conn.busy_timeout(Duration::from_secs(2))?;
         // DB created by the old version (old host still running): upgrade the schema once, then reopen read-only.
-        // Migrations only add tables, safe while another host is writing (SQLite locks by itself).
+        // Migrations add tables/columns, plus v5's one-off `file_offsets` reset (re-read of Kiro files);
+        // all safe while another host is writing (SQLite locks by itself).
         if schema::version(&conn)? < schema::CURRENT_VERSION {
             drop(conn);
             drop(Self::open(path)?);

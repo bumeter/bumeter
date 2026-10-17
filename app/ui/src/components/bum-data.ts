@@ -46,6 +46,7 @@ export function bumMood(info: BumInfo, o: { scope?: string; sources: Source[]; l
     minutesSinceAnomaly: Number.isNaN(anomalyMs) ? null : Math.max(0, (now - anomalyMs) / 60000),
     todayTokens: info.today,
     avgDailyTokens: info.avg,
+    quotaAtRisk: showQuota && !!(o.limits?.forecast_five_hour?.at_risk || o.limits?.forecast_seven_day?.at_risk),
   });
   return { mood, pct, showQuota };
 }

@@ -23,11 +23,25 @@ pub fn run(quiet: bool, tee: bool) {
     if quiet {
         return;
     }
-    let st = limits::state(limits::read(&paths.limits()), None, now);
-    // Today's token count is only available when the host is running; skip it otherwise.
-    let today = bum_service::client::call(&paths, "today_summary", serde_json::Value::Null)
-        .ok()
+    let mut st = limits::state(limits::read(&paths.limits()), None, now);
+    let host = host_forecasts(&paths);
+    if let Some(f) = host {
+        (st.forecast_five_hour, st.forecast_seven_day) = f;
+    }
+    // Today's token count is only available when the host is running; don't wait on a second timeout if it isn't.
+    let today = host
+        .and_then(|_| bum_service::client::call(&paths, "today_summary", serde_json::Value::Null).ok())
         .and_then(|v| v["total"].as_u64());
     let lang = bum_core::config::Config::load(&paths.config()).language;
     println!("{}", limits::render_line(&st, today, lang));
+}
+
+type Forecasts = (Option<bum_core::forecast::Forecast>, Option<bum_core::forecast::Forecast>);
+
+/// (5-hour, 7-day) forecasts from the running host (they need the reading history in the DB).
+/// None when the host can't be reached; never fails.
+pub fn host_forecasts(paths: &Paths) -> Option<Forecasts> {
+    let v = bum_service::client::call(paths, "limit_state", serde_json::Value::Null).ok()?;
+    let f = |k: &str| serde_json::from_value(v[k].clone()).ok();
+    Some((f("forecast_five_hour"), f("forecast_seven_day")))
 }

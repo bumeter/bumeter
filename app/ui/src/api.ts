@@ -17,7 +17,9 @@ export type Explain = { code: 'none' } | { code: 'reread'; pct: number; context:
 export interface PromptDetail { row: PromptRow; calls: CallRow[]; reread_share: number; explanation: Explain; duration_secs: number | null; note: Note | null }
 export interface SidebarCounts { prompts: number; skills: number; projects: number; anomalous: number; big_context: number; interrupted: number; starred: number; by_tool: Record<string, number> }
 export interface Window { used_percentage: number; resets_at: number }
-export interface LimitState { five_hour: Window | null; seven_day: Window | null; updated_at: number | null; stale: boolean; blocked: { limit_type: string; resets_at: number } | null }
+/** When a quota runs out at the current pace; `at_risk` = before the reset. */
+export interface Forecast { rate_per_hour: number; hits_at: number | null; resets_at: number; at_risk: boolean }
+export interface LimitState { five_hour: Window | null; seven_day: Window | null; updated_at: number | null; stale: boolean; blocked: { limit_type: string; resets_at: number } | null; forecast_five_hour?: Forecast | null; forecast_seven_day?: Forecast | null }
 export interface TodaySummary { prompts: number; usage: Usage; total: number; cost_usd: number; unpriced_models: string[] }
 export type Quick = 'anomalous' | 'big_context' | 'interrupted' | 'starred';
 export interface Filter { q?: string; project?: string; tool?: string; skill?: string; from?: string; to?: string; quick?: Quick; sort?: 'time' | 'tokens'; limit?: number; offset?: number }
@@ -27,7 +29,7 @@ export interface Config {
   language?: 'vi' | 'en';
   theme?: 'system' | 'light' | 'dark';
   anomaly_multiplier: number; context_threshold: number; quota_thresholds: number[];
-  notify: { quota: boolean; blocked: boolean; anomaly: boolean; context: boolean }; claude_projects_dir: string | null;
+  notify: { quota: boolean; blocked: boolean; anomaly: boolean; context: boolean; forecast?: boolean; forecast_lead_minutes?: number }; claude_projects_dir: string | null;
   /** Per-tool user-entered limits (id → limit); `monthly_credits` null = not tracked. */
   tool_limits?: Record<string, { monthly_credits: number | null; reset_day: number }>;
 }

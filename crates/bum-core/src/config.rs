@@ -10,11 +10,15 @@ pub struct Notify {
     pub blocked: bool,
     pub anomaly: bool,
     pub context: bool,
+    /// "Limit likely before reset" notifications.
+    pub forecast: bool,
+    /// 5-hour window: notify when the forecast limit is at most this many minutes away.
+    pub forecast_lead_minutes: u32,
 }
 
 impl Default for Notify {
     fn default() -> Self {
-        Self { quota: true, blocked: true, anomaly: true, context: true }
+        Self { quota: true, blocked: true, anomaly: true, context: true, forecast: true, forecast_lead_minutes: 30 }
     }
 }
 

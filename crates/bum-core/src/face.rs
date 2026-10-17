@@ -24,6 +24,8 @@ pub struct FaceInput {
     pub minutes_since_anomaly: Option<i64>,
     pub today_tokens: u64,
     pub avg_daily_tokens: Option<u64>,
+    /// A quota forecast says the limit comes before the reset.
+    pub quota_at_risk: bool,
 }
 
 const STALE_NO_TURN_MINUTES: i64 = 30;
@@ -41,7 +43,7 @@ pub fn face_for(i: &FaceInput) -> Face {
     if danger || anomaly {
         return Face::Blaze;
     }
-    if i.quota_pct.is_some_and(|q| q >= f64::from(i.thresholds.0)) {
+    if i.quota_at_risk || i.quota_pct.is_some_and(|q| q >= f64::from(i.thresholds.0)) {
         return Face::Worry;
     }
     if i.avg_daily_tokens.is_some_and(|a| i.today_tokens < a) {
@@ -55,7 +57,13 @@ mod tests {
     use super::*;
 
     fn base() -> FaceInput {
-        FaceInput { stale: false, minutes_since_last_turn: Some(5), quota_pct: Some(10.0), thresholds: (70, 90), minutes_since_anomaly: None, today_tokens: 200, avg_daily_tokens: Some(100) }
+        FaceInput { stale: false, minutes_since_last_turn: Some(5), quota_pct: Some(10.0), thresholds: (70, 90), minutes_since_anomaly: None, today_tokens: 200, avg_daily_tokens: Some(100), quota_at_risk: false }
+    }
+
+    #[test]
+    fn at_risk_quota_worries_even_below_the_warning_threshold() {
+        assert_eq!(face_for(&FaceInput { quota_pct: Some(40.0), quota_at_risk: true, ..base() }), Face::Worry);
+        assert_eq!(face_for(&FaceInput { quota_pct: Some(95.0), quota_at_risk: true, ..base() }), Face::Blaze, "danger still wins");
     }
 
     #[test]

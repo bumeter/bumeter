@@ -27,6 +27,9 @@ export interface BumStateInput {
   todayTokens: number;
   /** Average tokens per day over 30 days, null if there is not enough data yet. */
   avgDailyTokens: number | null;
+  /** A quota forecast says the limit comes before the reset (same rule as `face.rs`). The app only feeds the Claude
+   * 5h/7d forecasts here (it has no Kiro credit meter), while the tray also counts Kiro credits. */
+  quotaAtRisk?: boolean;
 }
 
 /** Choose Bum's expression from the data, in the exact priority order of spec 3.4:
@@ -41,7 +44,7 @@ export function bumStateFor(i: BumStateInput): BumState {
   if (quotaAtDanger || anomalyRecent) return 'blaze';
 
   const quotaAtWarning = i.quotaPct !== null && i.quotaPct >= i.thresholds[0];
-  if (quotaAtWarning) return 'worry';
+  if (quotaAtWarning || i.quotaAtRisk) return 'worry';
 
   if (i.avgDailyTokens !== null && i.todayTokens < i.avgDailyTokens) return 'happy';
 

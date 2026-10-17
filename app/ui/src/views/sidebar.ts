@@ -35,14 +35,22 @@ export async function mountSidebar(el: HTMLElement) {
     const skills = inScope.reduce((n, s) => n + (skillCount[s.info.id] ?? 0), 0);
 
     const { mood, pct, showQuota } = bumMood(bumInfo, { scope: state.scope, sources, limits });
+    const clock = (s: number) => new Date(s * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
     const resets = showQuota ? limits?.five_hour?.resets_at : null;
-    const resetTime = resets ? new Date(resets * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) : null;
+    const resetTime = resets ? clock(resets) : null;
+    const f = showQuota ? limits?.forecast_five_hour : null;
+    const f7 = showQuota ? limits?.forecast_seven_day : null;
+    // One line explaining a worried Bum: the 5-hour time, else the 7-day date.
+    const outLine = f?.at_risk && f.hits_at ? t('bum.out', { time: clock(f.hits_at) })
+      : f7?.at_risk && f7.hits_at ? t('bum.out7', { date: new Date(f7.hits_at * 1000).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' }) })
+      : null;
     const bumCard = h('div', { class: 'bumcard', 'data-bum': mood },
       bum(mood, 36),
       h('div', { class: 'bum-text' },
         ...(pct !== null
           ? [h('b', {}, t('bum.quota', { pct })),
              resetTime ? h('span', {}, t('bum.resets', { time: resetTime })) : null,
+             outLine ? h('span', { class: 'bum-out' }, outLine) : null,
              h('div', { class: 'fuel' }, h('div', { class: 'bar' }, h('i', { class: pct >= bumInfo.thresholds[1] ? 'hot' : '', style: `width:${Math.min(pct, 100)}%` })))]
           : [h('b', {}, t(`bum.status.${mood}` as 'bum.status.calm'))])));
 

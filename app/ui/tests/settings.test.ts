@@ -60,6 +60,56 @@ describe('settings', () => {
     expect(el.textContent).toContain('0 dòng');
   });
 
+  it('forecast switch and lead minutes save; the minutes field follows the switch', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    expect(input('forecast_lead_minutes').value).toBe('30');
+    expect(input('notify_forecast').checked).toBe(true);
+    expect(input('forecast_lead_minutes').disabled).toBe(false);
+    type('forecast_lead_minutes', '45');
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f).at(-1)!.params.config.notify.forecast_lead_minutes).toBe(45);
+    const sw = input('notify_forecast');
+    sw.checked = false; sw.dispatchEvent(new Event('change', { bubbles: true }));
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f).at(-1)!.params.config.notify.forecast).toBe(false);
+    expect(input('forecast_lead_minutes').disabled).toBe(true);
+  });
+
+  it('an invalid lead time does not block saving once the forecast switch is turned off', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('forecast_lead_minutes', '0');
+    const sw = input('notify_forecast');
+    sw.checked = false; sw.dispatchEvent(new Event('change', { bubbles: true }));
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    const saved = saves(f).at(-1)!.params.config;
+    expect(saved.notify.forecast).toBe(false);
+    expect(saved.notify.forecast_lead_minutes).toBe(30); // last saved value, not the invalid "0"
+    expect(input('forecast_lead_minutes').value).toBe('30');
+    expect(input('forecast_lead_minutes').getAttribute('aria-invalid')).not.toBe('true');
+  });
+
+  it('a hand-edited invalid saved lead time falls back to 30 once the switch is off', async () => {
+    const config = { ...cfg, notify: { ...cfg.notify, forecast: true, forecast_lead_minutes: 0 } };
+    const f = fake({ settings_get: () => hookedInfo(config), save_config: () => true });
+    await mountSettings(el);
+    const sw = input('notify_forecast');
+    sw.checked = false; sw.dispatchEvent(new Event('change', { bubbles: true }));
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f).at(-1)!.params.config.notify).toMatchObject({ forecast: false, forecast_lead_minutes: 30 });
+  });
+
+  it('lead minutes "0" is not saved and is flagged when leaving the field', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('forecast_lead_minutes', '0');
+    input('forecast_lead_minutes').dispatchEvent(new Event('blur'));
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    expect(saves(f)).toHaveLength(0);
+    expect(input('forecast_lead_minutes').getAttribute('aria-invalid')).toBe('true');
+  });
+
   it('quota "abc": not saved, error only shown when leaving the field', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);

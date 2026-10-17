@@ -6,6 +6,7 @@ use chrono::{DateTime, Datelike, Months, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::config::{Config, ToolLimit};
+use crate::forecast::{self, Forecast};
 use crate::i18n::Lang;
 use crate::insight::fmt_tokens;
 use crate::limits::{LimitState, Window};
@@ -56,6 +57,18 @@ pub struct CreditMeter {
     pub next_reset: NaiveDate,
     /// Set when the data came from the tool (rather than being computed from logs).
     pub fetched_at: Option<i64>,
+    /// When the credits run out at this period's pace; set by `with_forecast`.
+    pub forecast: Option<Forecast>,
+}
+
+impl CreditMeter {
+    /// Average-pace forecast over the current period (starts one month before `next_reset`, local midnight).
+    pub fn with_forecast(mut self, now: DateTime<Utc>) -> Self {
+        let ts = |d: NaiveDate| DateTime::parse_from_rfc3339(&crate::handlers::local_date_start(d)).ok().map(|t| t.timestamp());
+        let period = ts(self.next_reset - Months::new(1)).zip(ts(self.next_reset));
+        self.forecast = period.and_then(|(start, end)| forecast::paced(self.used, self.limit, start, end, now.timestamp(), forecast::CREDIT_MIN_ELAPSED));
+        self
+    }
 }
 
 /// Pick the source: fresh tool-reported data → user-entered quota + credits computed from logs (`log_credits(from, to)`) → none.
@@ -66,13 +79,13 @@ pub fn pick_credit(
     log_credits: impl FnOnce(&str, &str) -> rusqlite::Result<f64>,
 ) -> rusqlite::Result<Option<CreditMeter>> {
     if let Some(q) = quota.filter(|q| now.timestamp() - q.fetched_at < QUOTA_MAX_AGE_SECS && q.limit > 0.0) {
-        return Ok(Some(CreditMeter { used: q.used, limit: q.limit, next_reset: q.resets_on, fetched_at: Some(q.fetched_at) }));
+        return Ok(Some(CreditMeter { used: q.used, limit: q.limit, next_reset: q.resets_on, fetched_at: Some(q.fetched_at), forecast: None }.with_forecast(now)));
     }
     let Some((limit, reset_day)) = user.and_then(|u| u.monthly_credits.filter(|c| *c > 0.0).map(|c| (c, u.reset_day))) else { return Ok(None) };
     let today = now.with_timezone(&chrono::Local).date_naive();
     let (start, next) = credit_period(today, reset_day);
     let used = log_credits(&crate::handlers::local_date_start(start), &crate::handlers::local_date_start(next))?;
-    Ok(Some(CreditMeter { used, limit, next_reset: next, fetched_at: None }))
+    Ok(Some(CreditMeter { used, limit, next_reset: next, fetched_at: None, forecast: None }.with_forecast(now)))
 }
 
 /// Menu data: per-tool credits (only tools with a quota) and today's activity.
@@ -167,11 +180,19 @@ fn no_data(name: &str, lang: Lang) -> String {
     format!("{name} · {}", lang.pick("chưa có dữ liệu", "no data yet"))
 }
 
-fn window(name: &str, w: Option<Window>, by_date: bool, limits: &LimitState, now: i64, lang: Lang) -> String {
+/// "hết ~14:20 · " before the reset part when the forecast says the limit comes first; a date for long windows. Empty otherwise.
+fn out_part(f: Option<Forecast>, by_date: bool, lang: Lang) -> String {
+    let Some(t) = f.filter(|f| f.at_risk).and_then(|f| f.hits_at).and_then(|h| DateTime::from_timestamp(h, 0)) else { return String::new() };
+    let t = t.with_timezone(&chrono::Local);
+    let when = if by_date { reset_date(t.date_naive(), lang) } else { t.format("%H:%M").to_string() };
+    format!("{} ~{when} · ", lang.pick("hết", "out"))
+}
+
+fn window(name: &str, w: Option<Window>, by_date: bool, f: Option<Forecast>, limits: &LimitState, now: i64, lang: Lang) -> String {
     match w {
         Some(w) => {
             let (pct, when, fresh) = window_parts(w, by_date, limits, now, lang);
-            format!("{}  {} · {name} · reset {when}{fresh}", bar(pct), pct_str(pct))
+            format!("{}  {} · {name} · {}reset {when}{fresh}", bar(pct), pct_str(pct), out_part(f, by_date, lang))
         }
         None => no_data(name, lang),
     }
@@ -188,7 +209,8 @@ fn reset_date(d: NaiveDate, lang: Lang) -> String {
 fn credit_parts(c: &CreditMeter, now: i64, lang: Lang) -> (f64, String, String) {
     let pct = c.used / c.limit * 100.0;
     let note = c.fetched_at.filter(|t| now - t > QUOTA_NOTE_AFTER_SECS).map(|t| updated(now - t, lang)).unwrap_or_default();
-    (pct, format!("{}/{} {} · reset {}", fmt_credit(c.used), fmt_credit(c.limit), credit_unit(lang), reset_date(c.next_reset, lang)), note)
+    let body = format!("{}/{} {} · {}reset {}", fmt_credit(c.used), fmt_credit(c.limit), credit_unit(lang), out_part(c.forecast, true, lang), reset_date(c.next_reset, lang));
+    (pct, body, note)
 }
 
 fn credit_line(c: &CreditMeter, now: i64, lang: Lang) -> String {
@@ -226,8 +248,8 @@ pub fn render(sources: &[SourceInfo], limits: &LimitState, snap: &Snapshot, now:
     for s in sources {
         let name = col(&s.label);
         if s.limits {
-            tools.push(name + &window(lang.pick("5 giờ", "5 hours"), limits.five_hour, false, limits, now, lang));
-            tools.push(blank.clone() + &window(lang.pick("7 ngày", "7 days"), limits.seven_day, true, limits, now, lang));
+            tools.push(name + &window(lang.pick("5 giờ", "5 hours"), limits.five_hour, false, limits.forecast_five_hour, limits, now, lang));
+            tools.push(blank.clone() + &window(lang.pick("7 ngày", "7 days"), limits.seven_day, true, limits.forecast_seven_day, limits, now, lang));
         } else if let Some(c) = snap.credits.get(&s.id) {
             tools.push(name + &credit_line(c, now, lang));
         } else {
@@ -253,8 +275,8 @@ pub enum TrayIcon {
     None,
     /// Tool logo (header row).
     Logo,
-    /// % ring: `pct` None = no data yet; `stale` = stale figure.
-    Ring { pct: Option<f64>, stale: bool },
+    /// % ring: `pct` None = no data yet; `stale` = stale figure; `at_risk` = forecast says the limit comes before the reset.
+    Ring { pct: Option<f64>, stale: bool, at_risk: bool },
 }
 
 /// A tray menu row belonging to tool `tool`.
@@ -285,19 +307,25 @@ pub fn render_tray(sources: &[SourceInfo], limits: &LimitState, snap: &Snapshot,
         let row = |text: String, icon| TrayRow { tool: s.id.clone(), text, icon };
         rows.push(row(s.label.clone(), TrayIcon::Logo));
         if s.limits {
-            for (name, w, by_date) in [(lang.pick("5 giờ", "5 hours"), limits.five_hour, false), (lang.pick("7 ngày", "7 days"), limits.seven_day, true)] {
+            let windows = [
+                (lang.pick("5 giờ", "5 hours"), limits.five_hour, false, limits.forecast_five_hour),
+                (lang.pick("7 ngày", "7 days"), limits.seven_day, true, limits.forecast_seven_day),
+            ];
+            for (name, w, by_date, f) in windows {
                 rows.push(match w {
                     Some(w) => {
                         let (pct, when, fresh) = window_parts(w, by_date, limits, now, lang);
-                        row(format!("{name} · {} · reset {when}{fresh}", pct_str(pct)), TrayIcon::Ring { pct: Some(pct), stale: limits.stale })
+                        let icon = TrayIcon::Ring { pct: Some(pct), stale: limits.stale, at_risk: f.is_some_and(|f| f.at_risk) };
+                        row(format!("{name} · {} · {}reset {when}{fresh}", pct_str(pct), out_part(f, by_date, lang)), icon)
                     }
-                    None => row(no_data(name, lang), TrayIcon::Ring { pct: None, stale: false }),
+                    None => row(no_data(name, lang), TrayIcon::Ring { pct: None, stale: false, at_risk: false }),
                 });
             }
         } else if let Some(c) = snap.credits.get(&s.id) {
             let (pct, body, note) = credit_parts(c, now, lang);
             let stale = !note.is_empty();
-            rows.push(row(format!("{} · {} · {body}{note}", lang.pick("Tháng", "Month"), pct_str(pct)), TrayIcon::Ring { pct: Some(pct), stale }));
+            let icon = TrayIcon::Ring { pct: Some(pct), stale, at_risk: c.forecast.is_some_and(|f| f.at_risk) };
+            rows.push(row(format!("{} · {} · {body}{note}", lang.pick("Tháng", "Month"), pct_str(pct)), icon));
         } else {
             rows.push(row(format!("{} · {}", s.label, today_usage(s, snap, lang)), TrayIcon::None));
         }

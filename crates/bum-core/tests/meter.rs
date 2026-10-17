@@ -44,7 +44,7 @@ fn act(tool: &str, tokens: u64, credits: f64, prompts: u64) -> ToolActivity {
 #[test]
 fn menu_has_two_window_lines_for_limits_tool_and_credit_bar_for_kiro() {
     let st = state(Some(LimitsFile { updated_at: 10_000, five_hour: Some(Window { used_percentage: 47.0, resets_at: 4_102_444_800 }), seven_day: Some(Window { used_percentage: 79.0, resets_at: 4_102_444_800 }) }), None, 10_000);
-    let credit = CreditMeter { used: 212.0, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: None };
+    let credit = CreditMeter { used: 212.0, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: None, forecast: None };
     let snap = snapshot(Some(credit), vec![act("claude_code", 114_000_000, 0.0, 30), act("kiro", 9_000, 12.34, 54)]);
     let m = render(&sources(), &st, &snap, 10_000, Lang::Vi);
     assert_eq!(m.tools.len(), 3);
@@ -78,7 +78,7 @@ fn stale_and_missing_windows_keep_their_notes() {
 #[test]
 fn over_limit_shows_real_percent_with_full_bar() {
     let st = state(None, None, 0);
-    let credit = CreditMeter { used: 1234.5, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 15).unwrap(), fetched_at: None };
+    let credit = CreditMeter { used: 1234.5, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 15).unwrap(), fetched_at: None, forecast: None };
     let m = render(&sources(), &st, &snapshot(Some(credit), vec![]), 0, Lang::Vi);
     assert_eq!(m.tools[2], format!("{}▰▰▰▰▰▰▰▰▰▰  123% · 1234/1000 credit · reset 15/11", col("Kiro")));
 }
@@ -107,7 +107,7 @@ fn line_count_depends_only_on_source_info() {
 #[test]
 fn credit_from_kiro_usage_notes_age_only_after_20_minutes() {
     let st = state(None, None, 0);
-    let mk = |fetched_at| CreditMeter { used: 270.69, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: Some(fetched_at) };
+    let mk = |fetched_at| CreditMeter { used: 270.69, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: Some(fetched_at), forecast: None };
     let now = 100_000;
     let m = render(&sources(), &st, &snapshot(Some(mk(now - 19 * 60)), vec![]), now, Lang::Vi);
     assert_eq!(m.tools[2], format!("{}▰▰▰▱▱▱▱▱▱▱  27% · 271/1000 credit · reset 01/11", col("Kiro")));

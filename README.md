@@ -27,6 +27,9 @@ Everything is read from your own machine. Nothing is uploaded.
   Kiro
   ▰▰▰▱▱▱▱▱▱▱ 🟢  Month · 27% · 271/1000 credits · reset Nov 1
   ```
+- **Limit forecast.** When your current pace would hit the 5-hour, 7-day or monthly limit before it resets,
+  the tray, `bum status` and the app show when (`out ~14:20`), Bum gets worried, and you get one notification
+  (lead time in Settings).
 - **Overview** for today, 7, 30 or 90 days: tokens compared with the previous period,
   tokens per day, costliest projects and models, and suggestions from Bum
   (unusually costly turns, a project eating most of the budget, skills that cost tokens but are never used).
@@ -50,7 +53,7 @@ Bumeter needs a desktop with WebKitGTK 4.1, i.e. **Ubuntu 24.04 or newer** (or a
 **Debian/Ubuntu package**
 
 ```bash
-sudo apt install ./Bumeter_1.0.2_amd64.deb
+sudo apt install ./Bumeter_1.0.3_amd64.deb
 ```
 
 This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin`.
@@ -58,8 +61,8 @@ This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin
 **AppImage** (no install, libraries included)
 
 ```bash
-chmod +x Bumeter_1.0.2_amd64.AppImage
-./Bumeter_1.0.2_amd64.AppImage
+chmod +x Bumeter_1.0.3_amd64.AppImage
+./Bumeter_1.0.3_amd64.AppImage
 ```
 
 **Snap** — the `bumeter` snap is waiting for the Snap Store's classic-confinement review.
@@ -110,7 +113,7 @@ Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --no
 - `.github/workflows/ci.yml` runs the Rust tests on Linux, macOS and Windows, plus the UI tests, on every push and pull request.
 - `.github/workflows/release.yml` builds the installers: `.deb` + `.AppImage` (Ubuntu 22.04+), `.dmg` (Apple Silicon and Intel),
   `.exe` (NSIS) + `.msi` (Windows). Run it from the Actions tab to get the files as artifacts, or push a tag
-  (`git tag v1.0.2 && git push origin v1.0.2`) to get a published GitHub Release with the files attached.
+  (`git tag v1.0.3 && git push origin v1.0.3`) to get a published GitHub Release with the files attached.
   The macOS and Windows builds are not code-signed yet, so Gatekeeper and SmartScreen will warn on first launch.
 
 ### Project layout

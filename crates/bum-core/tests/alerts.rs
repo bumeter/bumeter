@@ -125,3 +125,62 @@ fn anomaly_mark_is_recorded_even_when_notification_is_off() {
     assert!(!fired.iter().any(|x| matches!(x, Alert::Anomaly { .. })));
     assert_eq!(s.latest_anomaly_ts(None).unwrap().as_deref(), Some("2026-09-11T05:00:00.000Z"));
 }
+
+fn at_risk_state(now: i64, minutes_left: i64) -> bum_core::limits::LimitState {
+    use bum_core::forecast::Sample;
+    // 24 %/h; current pct chosen so the limit is `minutes_left` away, reset 4 h out.
+    let reset = now + 4 * 3600;
+    let last = 100.0 - 24.0 * minutes_left as f64 / 60.0;
+    let samples: Vec<Sample> = (0..=6).map(|i| Sample { ts: now - 1800 + i * 300, pct: last - 2.0 * (6 - i) as f64, resets_at: reset }).collect();
+    let file = LimitsFile { updated_at: now, five_hour: Some(Window { used_percentage: last, resets_at: reset }), seven_day: None };
+    state(Some(file), None, now).with_forecast(&samples, now)
+}
+
+fn forecast_only() -> Config {
+    Config { quota_thresholds: vec![], ..Default::default() }
+}
+
+#[test]
+fn forecast_alert_fires_once_when_the_limit_is_within_the_lead_time() {
+    let (mut s, mut a, _) = setup(forecast_only());
+    let now = 1_789_100_000;
+    assert!(a.on_limits(&mut s, &at_risk_state(now, 60)).unwrap().is_empty(), "60 min away, lead is 30");
+    let got = a.on_limits(&mut s, &at_risk_state(now, 25)).unwrap();
+    assert!(matches!(got.as_slice(), [Alert::Forecast { window: "five_hour", .. }]), "{got:?}");
+    assert!(a.on_limits(&mut s, &at_risk_state(now, 20)).unwrap().is_empty(), "once per cycle");
+}
+
+#[test]
+fn forecast_alert_respects_the_switch_and_lead_minutes() {
+    use bum_core::config::Notify;
+    let now = 1_789_100_000;
+    let off = Config { notify: Notify { forecast: false, ..Default::default() }, ..forecast_only() };
+    let (mut s, mut a, _) = setup(off);
+    assert!(a.on_limits(&mut s, &at_risk_state(now, 10)).unwrap().is_empty());
+    let long = Config { notify: Notify { forecast_lead_minutes: 90, ..Default::default() }, ..forecast_only() };
+    let (mut s, mut a, _) = setup(long);
+    assert_eq!(a.on_limits(&mut s, &at_risk_state(now, 60)).unwrap().len(), 1);
+}
+
+#[test]
+fn quota_switch_off_still_allows_forecast_alerts() {
+    use bum_core::config::Notify;
+    let now = 1_789_100_000;
+    let cfg = Config { notify: Notify { quota: false, ..Default::default() }, ..Config::default() };
+    let (mut s, mut a, _) = setup(cfg);
+    let got = a.on_limits(&mut s, &at_risk_state(now, 10)).unwrap();
+    assert!(matches!(got.as_slice(), [Alert::Forecast { .. }]), "{got:?}");
+}
+
+#[test]
+fn credit_forecast_alerts_once_within_three_days() {
+    use bum_core::forecast::Forecast;
+    let (mut s, mut a, _) = setup(Config::default());
+    let now = t("2026-10-20T00:00:00Z");
+    let f = |days: i64| Forecast { rate_per_hour: 1.0, hits_at: Some(now.timestamp() + days * 86_400), resets_at: now.timestamp() + 12 * 86_400, at_risk: true };
+    assert!(a.on_credits(&mut s, &[("kiro".into(), "Kiro".into(), f(5))], now).unwrap().is_empty());
+    let got = a.on_credits(&mut s, &[("kiro".into(), "Kiro".into(), f(2))], now).unwrap();
+    assert!(matches!(got.as_slice(), [Alert::CreditForecast { tool, .. }] if tool == "kiro"));
+    assert!(got[0].body(bum_core::i18n::Lang::En).contains("Kiro"));
+    assert!(a.on_credits(&mut s, &[("kiro".into(), "Kiro".into(), f(1))], now).unwrap().is_empty());
+}

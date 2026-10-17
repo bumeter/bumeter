@@ -15,7 +15,7 @@ let cleanup: (() => void) | null = null;
 /** Message left over after a language change (the screen is remounted). */
 let carried = '';
 
-type NumField = 'anomaly_multiplier' | 'context_threshold' | 'quota_thresholds' | `credits_limit_${string}` | `credits_reset_${string}`;
+type NumField = 'anomaly_multiplier' | 'context_threshold' | 'quota_thresholds' | 'forecast_lead_minutes' | `credits_limit_${string}` | `credits_reset_${string}`;
 type Parsed = { ok: true; value: number | number[] | null } | { ok: false; error: Key };
 
 function parseField(name: NumField, raw: string): Parsed {
@@ -34,6 +34,10 @@ function parseField(name: NumField, raw: string): Parsed {
     const nums = parts.map((x) => (/^\d+$/.test(x) ? Number(x) : NaN));
     if (!v || nums.some((n) => !(n >= 1 && n <= 100))) return { ok: false, error: 'set.errQuota' };
     return { ok: true, value: nums };
+  }
+  if (name === 'forecast_lead_minutes') {
+    const n = /^\d+$/.test(v) ? Number(v) : NaN;
+    return n >= 1 && n <= 300 ? { ok: true, value: n } : { ok: false, error: 'set.errMinutes' };
   }
   const n = v === '' ? NaN : Number(v);
   if (!Number.isFinite(n) || n <= 0) return { ok: false, error: 'set.errNumber' };
@@ -104,7 +108,10 @@ export async function mountSettings(el: HTMLElement) {
       anomaly_multiplier: v.anomaly_multiplier as number,
       context_threshold: v.context_threshold as number,
       quota_thresholds: v.quota_thresholds as number[],
-      notify: { quota: notify.notify_quota.checked, blocked: notify.notify_blocked.checked, anomaly: notify.notify_anomaly.checked, context: notify.notify_context.checked },
+      notify: {
+        quota: notify.notify_quota.checked, blocked: notify.notify_blocked.checked, anomaly: notify.notify_anomaly.checked, context: notify.notify_context.checked,
+        forecast: notify.notify_forecast.checked, forecast_lead_minutes: v.forecast_lead_minutes as number,
+      },
       language,
       theme,
     };
@@ -242,6 +249,8 @@ export async function mountSettings(el: HTMLElement) {
         field(t('set.context'), 'context_threshold', Math.round(c.context_threshold / 1000), t('set.contextHint')),
         field(t('set.quota'), 'quota_thresholds', c.quota_thresholds.join(', '), t('set.quotaHint')),
         toggle(t('set.notifyQuota'), 'notify_quota', c.notify.quota),
+        toggle(t('set.notifyForecast'), 'notify_forecast', c.notify.forecast ?? true),
+        field(t('set.forecastLead'), 'forecast_lead_minutes', c.notify.forecast_lead_minutes ?? 30, t('set.forecastLeadHint')),
         toggle(t('set.notifyBlocked'), 'notify_blocked', c.notify.blocked),
         toggle(t('set.notifyAnomaly'), 'notify_anomaly', c.notify.anomaly),
         toggle(t('set.notifyContext'), 'notify_context', c.notify.context),
@@ -253,6 +262,20 @@ export async function mountSettings(el: HTMLElement) {
         h('div', { class: 'sub' }, t('set.parseErrors', { n: info.parse_errors })))),
   );
   renderLimits();
+  // The lead time only matters while forecast notifications are on. A disabled field can't be fixed by the user,
+  // so an invalid value there falls back to the last saved one instead of blocking every save.
+  const lead = inputs.get('forecast_lead_minutes')!;
+  lead.inputMode = 'numeric'; // whole minutes
+  const syncLead = () => {
+    lead.disabled = !notify.notify_forecast.checked;
+    if (lead.disabled && !parseField('forecast_lead_minutes', lead.value).ok) {
+      const saved = String(info.config.notify.forecast_lead_minutes ?? 30);
+      lead.value = parseField('forecast_lead_minutes', saved).ok ? saved : '30'; // config.toml may hold a hand-edited bad value
+      validate('forecast_lead_minutes');
+    }
+  };
+  notify.notify_forecast.addEventListener('change', syncLead);
+  syncLead();
   // Leaving the screen with a pending edit: flush the save (if valid) rather than lose it.
   cleanup = () => { if (timer) void save(true); };
 }

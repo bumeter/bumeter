@@ -103,7 +103,7 @@ export const transport = {
       case 'prompt_detail': return detail(params.key);
       case 'sidebar_counts': return { prompts: 595, skills: 16, projects: 23, anomalous: 59, big_context: 41, interrupted: 21, starred: 3, by_tool: { claude_code: 380, kiro: 215 } };
       case 'today_summary': return { prompts: 45, usage: u(38_000_000, 0, 600_000), total: 38_620_966, cost_usd: 27.27, unpriced_models: [] };
-      case 'limit_state': return { five_hour: { used_percentage: 78, resets_at: Date.now() / 1000 + 5400 }, seven_day: { used_percentage: 41, resets_at: Date.now() / 1000 + 86400 * 3 }, updated_at: Date.now() / 1000 - 12, stale: false, blocked: null };
+      case 'limit_state': return { five_hour: { used_percentage: 78, resets_at: Date.now() / 1000 + 5400 }, seven_day: { used_percentage: 41, resets_at: Date.now() / 1000 + 86400 * 3 }, updated_at: Date.now() / 1000 - 12, stale: false, blocked: null, forecast_five_hour: { rate_per_hour: 18, hits_at: Date.now() / 1000 + 3600, resets_at: Date.now() / 1000 + 5400, at_risk: true }, forecast_seven_day: null };
       case 'latest_anomaly_ts': return new Date(Date.now() - 25 * 60_000).toISOString();
       case 'set_note': return true;
       case 'skills:list': return mockSkills();
@@ -172,7 +172,7 @@ export const transport = {
       case 'skills:plan': return { id: 'mock', description: '• move ~/.claude/skills/pj-debug → ~/.claude/skills-disabled/pj-debug\nTakes effect in the next Claude Code session.' };
       case 'skills:apply': return { id: 'op', ts: new Date().toISOString(), op: 'disable', description: '', undone: false };
       case 'skills:undo': return true;
-      case 'settings:get': return { config: { anomaly_multiplier: 3, context_threshold: 300000, quota_thresholds: [70, 90], notify: { quota: true, blocked: true, anomaly: true, context: true }, claude_projects_dir: null }, statusline: { kind: 'custom', command: 'bash ~/.claude/statusline-command.sh' }, data_dir: '~/.local/share/bumeter', parse_errors: 0 };
+      case 'settings:get': return { config: { anomaly_multiplier: 3, context_threshold: 300000, quota_thresholds: [70, 90], notify: { quota: true, blocked: true, anomaly: true, context: true, forecast: true, forecast_lead_minutes: 30 }, claude_projects_dir: null }, statusline: { kind: 'custom', command: 'bash ~/.claude/statusline-command.sh' }, data_dir: '~/.local/share/bumeter', parse_errors: 0 };
       case 'settings:statusline_plan': return { description: 'Will change statusLine.command in ~/.claude/settings.json', noop: false };
       case 'settings:statusline_apply': case 'settings:statusline_undo': case 'settings:save_config': return true;
       default: throw new Error(`mock: no such method ${method}`);
