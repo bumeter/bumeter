@@ -29,6 +29,7 @@ export const en: Record<keyof typeof vi, string> = {
   'scope.notFound': 'Log folder not found: {path}',
   'bum.quota': '5-hour quota {pct}%',
   'bum.resets': 'resets at {time}',
+  'bum.out': 'may run out ~{time}',
   'bum.status.happy': 'Using less than usual today',
   'bum.status.calm': 'All good',
   'bum.status.worry': 'Quota is getting high',

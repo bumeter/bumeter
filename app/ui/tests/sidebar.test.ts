@@ -117,4 +117,18 @@ describe('sidebar', () => {
     expect(el.textContent).toContain('Conversations');
     expect(el.textContent).toContain('5-hour quota 78%');
   });
+
+  it('shows the forecast line only when the 5-hour window is at risk', async () => {
+    const at = (risk: boolean) => () => ({
+      five_hour: { used_percentage: 40, resets_at: 2_000_000_000 }, seven_day: null, updated_at: 1, stale: false, blocked: null,
+      forecast_five_hour: { rate_per_hour: 24, hits_at: 1_999_990_000, resets_at: 2_000_000_000, at_risk: risk }, forecast_seven_day: null,
+    });
+    fake({ ...handlers, latest_anomaly_ts: () => null, limit_state: at(true) });
+    await mountSidebar(el);
+    expect(el.querySelector('.bum-out')?.textContent).toMatch(/~\d{2}:\d{2}/);
+    expect(el.querySelector('.bumcard')?.getAttribute('data-bum')).toBe('worry');
+    fake({ ...handlers, latest_anomaly_ts: () => null, limit_state: at(false) });
+    await mountSidebar(el);
+    expect(el.querySelector('.bum-out')).toBeNull();
+  });
 });

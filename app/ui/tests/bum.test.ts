@@ -96,6 +96,12 @@ describe('bumStateFor — rules per spec 3.4', () => {
   it('priority: worry outranks happy', () => {
     expect(bumStateFor({ ...base(), quotaPct: 75, todayTokens: 10, avgDailyTokens: 200 })).toBe('worry');
   });
+
+  it('an at-risk quota worries below the warning threshold; danger still blazes', () => {
+    expect(bumStateFor({ ...base(), quotaAtRisk: true })).toBe('worry');
+    expect(bumStateFor({ ...base(), quotaPct: 95, quotaAtRisk: true })).toBe('blaze');
+    expect(bumStateFor({ ...base(), quotaAtRisk: false })).toBe('calm');
+  });
 });
 
 describe('bum() — mascot SVG', () => {

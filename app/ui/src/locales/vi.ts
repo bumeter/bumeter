@@ -28,6 +28,7 @@ export const vi = {
   'scope.notFound': 'Không thấy thư mục log: {path}',
   'bum.quota': 'Quota 5 giờ {pct}%',
   'bum.resets': 'reset lúc {time}',
+  'bum.out': 'có thể hết lúc ~{time}',
   'bum.status.happy': 'Hôm nay dùng ít hơn thường lệ',
   'bum.status.calm': 'Mọi thứ ổn',
   'bum.status.worry': 'Quota đang cao',
