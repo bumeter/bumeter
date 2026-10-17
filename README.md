@@ -82,9 +82,9 @@ cask prints this when it installs). That is also why it is not in `homebrew/cask
 notarized applications. The `.dmg` on [Releases](https://github.com/chieund/bumeter/releases) works
 the same way.
 
-**Windows** — the `.msi` and `.exe` are on Releases. The WinGet manifest is generated from those
-files (`scripts/packaging.py`) but the package is not in `winget-pkgs` yet; see
-[docs/packaging.md](docs/packaging.md) for what publishing it takes.
+**Windows** — the `.msi` and `.exe` are on Releases. The WinGet manifests are generated from those
+files (`scripts/packaging.py`) and `scripts/winget-pr.sh` turns them into a `winget-pkgs` pull
+request; the package is not in WinGet yet.
 
 ## How it gets the numbers
 

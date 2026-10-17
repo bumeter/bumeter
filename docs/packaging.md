@@ -8,6 +8,7 @@ Windows. Both are generated from the release assets, so the versions and hashes 
 scripts/packaging.py                       # latest release → packaging/
 scripts/packaging.py --version v1.0.5      # a specific tag
 scripts/packaging.py --check               # verify what is committed, write nothing
+scripts/winget-pr.sh                       # the manifests → a winget-pkgs pull request
 ```
 
 The script downloads each asset once (cached in the system temp directory), hashes it, and writes:
@@ -20,6 +21,10 @@ The script downloads each asset once (cached in the system temp directory), hash
 `--check` exits non-zero when a committed manifest no longer matches the release, which is the sanity
 check to run before tagging the next version. It needs no token; `GITHUB_TOKEN` in the environment
 only raises the API rate limit, and `BUMETER_REPO` overrides the repository.
+
+The three WinGet manifests carry the schema version the community repository asks for
+(`MANIFEST_VERSION` in the script, 1.12 as of the current PR template — 1.6.0 is deprecated there)
+and open with the `yaml-language-server` comment its checklist requires.
 
 ## Homebrew
 
@@ -53,19 +58,37 @@ without the Gatekeeper dialog".
 winget install Bumeter.Bumeter
 ```
 
-WinGet packages are manifests in a monorepo, so a release is a pull request:
+WinGet packages are manifests inside a monorepo, so a release is a branch and a pull request. After
+the first version is in, `scripts/winget-pr.sh` does the whole round trip:
 
 ```bash
-gh repo fork microsoft/winget-pkgs --clone --remote
-cd winget-pkgs
-mkdir -p manifests/b/Bumeter/Bumeter/1.0.5
-cp <bumeter>/packaging/winget/Bumeter.Bumeter*.yaml manifests/b/Bumeter/Bumeter/1.0.5/
-winget validate --manifest manifests/b/Bumeter/Bumeter/1.0.5   # on Windows
-git checkout -b bumeter-1.0.5 && git commit -am "New package: Bumeter.Bumeter 1.0.5" && gh pr create
+scripts/winget-pr.sh                       # version from packaging/, fork chieund
+scripts/winget-pr.sh --version 1.0.6       # a specific version
+scripts/winget-pr.sh --no-push             # stop after the commit and print the push command
+WINGET_FORK=someone scripts/winget-pr.sh   # another fork
 ```
 
-`wingetcreate update Bumeter.Bumeter --version 1.0.5 --submit` does the same in one command once the
-first version is merged. The manifest uses the NSIS installer (`.exe`), which installs into the user
+It clones the fork shallowly (`--depth 1`, blobless, sparse on `manifests/b/Bumeter`, so a few
+hundred KB rather than the whole catalogue), copies the three manifests into
+`manifests/b/Bumeter/Bumeter/<version>/`, and checks them against the official WinGet schemas before
+committing — the first thing the winget-pkgs bot does, so a typo fails on your machine instead of in
+CI. It picks the title the pull request template asks for (`New package: Bumeter.Bumeter version
+1.0.5` the first time, `Update: Bumeter.Bumeter to 1.0.6` after that), pushes the branch, and prints
+the URL to open the pull request; with `gh` installed it opens it directly with the body.
+
+Forking is a web click the first time: <https://github.com/microsoft/winget-pkgs/fork>. The commit is
+authored with your `git` identity, which the CLA bot matches to your GitHub account — a placeholder
+`user.email` is the one thing that stops a pull request before a human looks at it.
+
+On Windows, the checks the checklist asks for are still available:
+
+```powershell
+winget validate --manifest manifests/b/Bumeter/Bumeter/1.0.5
+winget settings --enable LocalManifestFiles ; winget install --manifest manifests/b/Bumeter/Bumeter/1.0.5
+```
+
+`wingetcreate update Bumeter.Bumeter --version 1.0.6 --submit` does the same from Windows, if you
+prefer it to the script. The manifest uses the NSIS installer (`.exe`), which installs into the user
 profile without an administrator prompt; `scripts/packaging.py --installer msi --product-code '{GUID}'`
 switches to the WiX package instead. The MSI ProductCode can be read with
 `msiinfo export Bumeter_1.0.5_x64_en-US.msi Property` (package `msitools`).
@@ -78,7 +101,8 @@ More info → Run anyway. `winget install` itself does not show that dialog.
 1. Bump `version` in `Cargo.toml` and `app/src-tauri/tauri.conf.json`, commit, tag `v1.0.6`, push the tag.
 2. Wait for the release workflow to attach the assets.
 3. `scripts/packaging.py` (or `--version v1.0.6`), then commit `packaging/`.
-4. Copy the cask into the tap and push; open the WinGet pull request.
+4. Copy the cask into the tap and push; `scripts/winget-pr.sh` for the WinGet pull request.
+5. First time only: fork `microsoft/winget-pkgs` in the browser and sign the CLA when the bot asks.
 
 The app updates itself from GitHub Releases (`src/update.rs`), so the package managers only have to
 get the user to the first install; the later versions arrive on their own.
