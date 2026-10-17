@@ -113,15 +113,15 @@ fn incremental_scan_reads_changed_rows_and_finds_the_turn_before_the_watermark()
     let (ev, wm2) = src.scan(Some(wm)).unwrap();
     assert_eq!(wm2, wm + 200);
     let c = calls(&ev);
-    // Changed rows, plus rows inside the 5 s lookback before the watermark (here the subagent's last call).
-    assert_eq!(c.iter().map(|x| x.0.as_str()).collect::<Vec<_>>(), vec!["opencode:msg_a1", "opencode:msg_a3", "opencode:msg_s1"]);
+    // Only changed rows: the lookback window is re-read, but rows already returned and unchanged are not sent again.
+    assert_eq!(c.iter().map(|x| x.0.as_str()).collect::<Vec<_>>(), vec!["opencode:msg_a1", "opencode:msg_a3"]);
     assert_eq!(c[1].1.as_deref(), Some("opencode:msg_u2"), "turn looked up before the watermark");
     assert_eq!(c[0].3.output, 25, "rewritten row re-read");
     assert!(ev.iter().any(|e| matches!(e, RawEvent::Session { session_id, .. } if session_id == "ses_a")), "session emitted for changed messages");
     assert!(!ev.iter().any(|e| matches!(e, RawEvent::Prompt { .. })), "unchanged user rows not re-sent");
 
     let (again, wm3) = src.scan(Some(wm2)).unwrap();
-    assert!(calls(&again).iter().all(|c| ["opencode:msg_a1", "opencode:msg_a3", "opencode:msg_s1"].contains(&c.0.as_str())), "only the lookback window is re-read");
+    assert!(again.is_empty(), "rows already returned and unchanged are not re-sent: {again:?}");
     assert_eq!(wm3, wm2, "watermark kept when nothing changed");
 }
 
@@ -132,6 +132,16 @@ fn an_old_schema_is_an_error_not_a_crash() {
     Connection::open(&db).unwrap().execute_batch("CREATE TABLE session(id TEXT); CREATE TABLE message(id TEXT);").unwrap();
     let err = OpenCode::new(&db).scan(None).unwrap_err().to_string();
     assert!(err.contains("unsupported OpenCode schema"), "{err}");
+}
+
+#[test]
+fn accepts_a_sessions_table_named_session() {
+    // OpenCode builds differ: some call the table `session_v2`, others (after migration) `session`.
+    let (_d, db) = fixture();
+    Connection::open(&db).unwrap().execute_batch("ALTER TABLE session_v2 RENAME TO session;").unwrap();
+    let (ev, _) = OpenCode::new(&db).scan(None).unwrap();
+    assert!(ev.iter().any(|e| matches!(e, RawEvent::Session { session_id, .. } if session_id == "ses_a")));
+    assert!(ev.iter().any(|e| matches!(e, RawEvent::ApiCall { request_id, .. } if request_id == "opencode:msg_a1")));
 }
 
 #[test]
@@ -146,6 +156,7 @@ fn scanning_never_writes_to_the_opencode_database() {
 fn info_describes_a_token_source_without_extras() {
     let i = bum_adapters::opencode::info();
     assert_eq!((i.id.as_str(), i.label.as_str(), i.letter.as_str()), ("opencode", "OpenCode", "O"));
+    assert_eq!(i.icon.as_deref(), Some("opencode.png"));
     assert!(i.real_tokens && !i.composition && !i.limits && !i.credits && !i.transcript);
 }
 
@@ -171,4 +182,24 @@ fn a_late_updated_old_question_does_not_capture_a_new_answer() {
     let (ev, _) = src.scan(Some(wm)).unwrap();
     let a3 = calls(&ev).into_iter().find(|c| c.0 == "opencode:msg_a3").unwrap();
     assert_eq!(a3.1.as_deref(), Some("opencode:msg_u2"), "belongs to the latest question before it, not to the re-read old one");
+}
+
+#[test]
+fn an_idle_database_yields_no_events_on_later_scans() {
+    let (_d, db) = fixture();
+    let mut src = OpenCode::new(&db);
+    let (_, wm) = src.scan(None).unwrap();
+    let (ev, _) = src.scan(Some(wm)).unwrap();
+    assert!(ev.is_empty(), "the lookback window was already returned: {ev:?}");
+}
+
+#[test]
+fn an_empty_question_is_never_used_as_a_turn() {
+    let (_d, db) = fixture();
+    let c = Connection::open(&db).unwrap();
+    c.execute("INSERT INTO session_message VALUES('msg_empty', 'ses_a', 'user', 11, ?1, ?1, ?2)", params![T0 + 60_000, user("  ")]).unwrap();
+    c.execute("INSERT INTO session_message VALUES('msg_a9', 'ses_a', 'assistant', 12, ?1, ?1, ?2)", params![T0 + 61_000, assistant(1, 1, 0, 0, 0, 0.0, &[])]).unwrap();
+    let (ev, _) = OpenCode::new(&db).scan(None).unwrap();
+    let a9 = calls(&ev).into_iter().find(|c| c.0 == "opencode:msg_a9").unwrap();
+    assert_eq!(a9.1.as_deref(), Some("opencode:msg_u2"), "the empty row isn't a Prompt, so it can't be a turn either");
 }

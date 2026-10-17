@@ -27,6 +27,8 @@ impl IngestReport {
 
 /// Minimum time between two scans of the same database: a streaming tool writes its WAL many times per second.
 const DB_MIN_INTERVAL: Duration = Duration::from_secs(1);
+/// A database that keeps failing (e.g. locked) is retried every tick but logged at most this often.
+const DB_ERROR_LOG_EVERY: Duration = Duration::from_secs(60);
 
 pub struct Engine {
     store: Store,
@@ -36,17 +38,19 @@ pub struct Engine {
     /// Per database source: when it was last scanned, and whether a change arrived since (deferred scan).
     db_last: Vec<Option<Instant>>,
     db_pending: Vec<bool>,
+    db_error_logged: Vec<Option<Instant>>,
 }
 
 impl Engine {
     pub fn new(store: Store, sources: Vec<Box<dyn LogSource>>) -> Self {
-        Self { store, sources, db_sources: Vec::new(), db_min_interval: DB_MIN_INTERVAL, db_last: Vec::new(), db_pending: Vec::new() }
+        Self { store, sources, db_sources: Vec::new(), db_min_interval: DB_MIN_INTERVAL, db_last: Vec::new(), db_pending: Vec::new(), db_error_logged: Vec::new() }
     }
 
     /// Add database sources (read by watermark, never purged).
     pub fn with_db_sources(mut self, db_sources: Vec<Box<dyn DbSource>>) -> Self {
         self.db_last = vec![None; db_sources.len()];
         self.db_pending = vec![false; db_sources.len()];
+        self.db_error_logged = vec![None; db_sources.len()];
         self.db_sources = db_sources;
         self
     }
@@ -57,15 +61,34 @@ impl Engine {
         self
     }
 
-    /// Run the database scans deferred by throttling once their interval has passed. Call it periodically (host tick).
+    /// Run the database scans deferred by throttling (or by a failure) once their interval has passed. Call it periodically
+    /// (host tick). A failing source stays pending and is logged at most every `DB_ERROR_LOG_EVERY`.
     pub fn scan_pending_db(&mut self) -> anyhow::Result<IngestReport> {
         let mut report = IngestReport::default();
         for i in 0..self.db_sources.len() {
             if self.db_pending[i] && self.db_last[i].is_none_or(|t| t.elapsed() >= self.db_min_interval) {
-                report.merge(self.ingest_db(i)?);
+                report.merge(self.try_ingest_db(i));
             }
         }
         Ok(report)
+    }
+
+    /// Watcher/tick path: a failed scan is kept pending (retried) and its error rate-limited, instead of being returned.
+    fn try_ingest_db(&mut self, i: usize) -> IngestReport {
+        match self.ingest_db(i) {
+            Ok(r) => {
+                self.db_error_logged[i] = None;
+                r
+            }
+            Err(e) => {
+                self.db_pending[i] = true;
+                if self.db_error_logged[i].is_none_or(|t| t.elapsed() >= DB_ERROR_LOG_EVERY) {
+                    eprintln!("bumeter: cannot read the {} database (will retry): {e}", self.db_sources[i].id());
+                    self.db_error_logged[i] = Some(Instant::now());
+                }
+                IngestReport::default()
+            }
+        }
     }
 
     pub fn store(&self) -> &Store {
@@ -105,7 +128,7 @@ impl Engine {
                 self.db_pending[i] = true; // picked up by `scan_pending_db`
                 return Ok(IngestReport::default());
             }
-            return self.ingest_db(i);
+            return Ok(self.try_ingest_db(i));
         }
         let Some(src) = self.sources.iter().position(|s| s.accepts(path)) else { return Ok(IngestReport::default()) };
         let meta = match std::fs::metadata(path) {
@@ -177,9 +200,9 @@ impl Engine {
     /// (key `db:<id>`) in the same transaction as the rows; the file itself is never compared or purged.
     fn ingest_db(&mut self, i: usize) -> anyhow::Result<IngestReport> {
         self.db_last[i] = Some(Instant::now());
-        self.db_pending[i] = false;
         let db = self.db_sources[i].db_path();
         if !db.exists() {
+            self.db_pending[i] = false;
             return Ok(IngestReport::default());
         }
         let key = format!("db:{}", self.db_sources[i].id());
@@ -188,8 +211,14 @@ impl Engine {
         let saved = self.store.get_offset(&key)?.and_then(|o| serde_json::from_str::<serde_json::Value>(&o.ctx_json).ok());
         let watermark = saved.filter(|v| v["path"].as_str() == Some(path.as_str())).and_then(|v| v["watermark"].as_i64());
         let (events, next) = self.db_sources[i].scan(watermark)?;
+        if watermark.is_none() {
+            // Starting over (first read, another database file, or an older format): drop this source's previous rows
+            // so the full re-read replaces them instead of mixing with them.
+            self.store.purge_file(&key)?;
+        }
         let off = FileOffset { path: key, file_id: "db".into(), size: 0, offset: 0, mtime: 0, ctx_json: serde_json::json!({ "watermark": next, "path": path }).to_string() };
         let summary = self.store.ingest_batch(&off, &events, 0)?;
+        self.db_pending[i] = false;
         Ok(IngestReport { summary, parse_errors: 0, file_errors: 0, lines: events.len() as u64 })
     }
 

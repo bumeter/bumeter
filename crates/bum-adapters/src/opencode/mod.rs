@@ -14,14 +14,24 @@ pub const TOOL_ID: &str = "opencode";
 const LOOKBACK_MS: i64 = 5_000;
 /// Same cap as Claude Code prompts.
 const MAX_PROMPT_CHARS: usize = 2000;
+/// SQL condition: the message's `text` is not blank.
+const HAS_TEXT: &str = "trim(COALESCE(json_extract(data, '$.text'), '')) <> ''";
 
 pub struct OpenCode {
     db: PathBuf,
+    /// Rows returned recently (key → `time_updated`): the lookback re-reads them, and unchanged ones are not sent again,
+    /// so an idle database yields no events. Kept only for the lookback window; a restart re-sends that window once.
+    returned: HashMap<String, i64>,
 }
 
 impl OpenCode {
     pub fn new(db: impl Into<PathBuf>) -> Self {
-        Self { db: db.into() }
+        Self { db: db.into(), returned: HashMap::new() }
+    }
+
+    /// Whether this version of a row was already returned; records it otherwise.
+    fn is_new(&mut self, key: String, updated: i64) -> bool {
+        self.returned.insert(key, updated) != Some(updated)
     }
 
     /// `BUM_OPENCODE_DB` if set, otherwise `~/.local/share/opencode/opencode.db`.
@@ -35,7 +45,7 @@ impl OpenCode {
 
 pub fn info() -> SourceInfo {
     SourceInfo {
-        id: TOOL_ID.into(), label: "OpenCode".into(), letter: "O".into(), color: "#4b8bbe".into(), icon: None,
+        id: TOOL_ID.into(), label: "OpenCode".into(), letter: "O".into(), color: "#4b8bbe".into(), icon: Some("opencode.png".into()),
         real_tokens: true, composition: false, limits: false, credits: false, transcript: false,
     }
 }
@@ -137,23 +147,31 @@ impl DbSource for OpenCode {
         let conn = open_readonly(&self.db)?;
         // One read transaction: both queries see the same snapshot.
         let tx = conn.unchecked_transaction()?;
-        if !has_table(&tx, "session_v2")? || !has_table(&tx, "session_message")? {
-            bail!("unsupported OpenCode schema (needs session_v2 and session_message, OpenCode 2.x)");
+        // OpenCode 2.x calls it `session_v2`, but some builds (and the migrated SQLite schema) call it `session`.
+        let sessions_table = if has_table(&tx, "session_v2")? {
+            "session_v2"
+        } else if has_table(&tx, "session")? {
+            "session"
+        } else {
+            bail!("unsupported OpenCode schema (no sessions table)");
+        };
+        if !has_table(&tx, "session_message")? {
+            bail!("unsupported OpenCode schema (needs session_message)");
         }
         // Re-read a few seconds before the watermark: rows stamped in the same millisecond, or committed late by another
         // OpenCode process, would otherwise be skipped for good. Re-reading is harmless (every write is an upsert).
         let since = watermark.map_or(i64::MIN, |w| w - LOOKBACK_MS);
         let mut next = watermark.unwrap_or(0);
         let mut out = Vec::new();
-        let mut meta = Sessions::new(&tx)?;
+        let mut meta = Sessions::new(&tx, sessions_table)?;
 
         // Changed conversations first (subagent sessions are folded into their parent, not shown on their own).
         let mut emitted: HashSet<String> = HashSet::new();
-        let mut st = tx.prepare(&format!("SELECT {SESSION_COLS} FROM session_v2 WHERE time_updated > ?1 ORDER BY time_created"))?;
+        let mut st = tx.prepare(&format!("SELECT {SESSION_COLS} FROM {sessions_table} WHERE time_updated > ?1 ORDER BY time_created"))?;
         for s in st.query_map([since], session_row)? {
             let s = s?;
             next = next.max(s.updated);
-            if s.parent.is_none() {
+            if s.parent.is_none() && self.is_new(format!("s:{}", s.id), s.updated) {
                 session_events(&s, &mut out);
                 emitted.insert(s.id.clone());
             }
@@ -162,7 +180,9 @@ impl DbSource for OpenCode {
         let mut st = tx.prepare(
             "SELECT id, session_id, type, seq, time_created, time_updated, data FROM session_message WHERE time_updated > ?1 ORDER BY session_id, seq",
         )?;
-        let rows: Vec<MessageRow> = st.query_map([since], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?.collect::<rusqlite::Result<_>>()?;
+        let all: Vec<MessageRow> = st.query_map([since], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?.collect::<rusqlite::Result<_>>()?;
+        next = all.iter().map(|r| r.5).fold(next, i64::max);
+        let rows: Vec<MessageRow> = all.into_iter().filter(|r| self.is_new(format!("m:{}", r.0), r.5)).collect();
 
         // Conversations referenced by changed messages but not changed themselves.
         for (_, sid, ..) in &rows {
@@ -177,12 +197,12 @@ impl DbSource for OpenCode {
 
         // Always look the turn up in the DB: a batch can hold an old question re-read after a late update, so the previous
         // row of the batch is not necessarily the question an answer belongs to.
-        let mut prev_user = tx.prepare("SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND seq < ?2 ORDER BY seq DESC LIMIT 1")?;
-        let mut user_before = tx.prepare(
-            "SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND time_created <= ?2 ORDER BY time_created DESC, seq DESC LIMIT 1",
-        )?;
-        for (id, sid, kind, seq, created, updated, data) in &rows {
-            next = next.max(*updated);
+        // Only questions with text: empty ones are not Prompts, so they can't be a turn either.
+        let mut prev_user = tx.prepare(&format!("SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND {HAS_TEXT} AND seq < ?2 ORDER BY seq DESC LIMIT 1"))?;
+        let mut user_before = tx.prepare(&format!(
+            "SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND {HAS_TEXT} AND time_created <= ?2 ORDER BY time_created DESC, seq DESC LIMIT 1"
+        ))?;
+        for (id, sid, kind, seq, created, _updated, data) in &rows {
             let root = meta.root(sid)?;
             let subagent = root != *sid;
             let d: Value = serde_json::from_str(data).unwrap_or(Value::Null);
@@ -224,6 +244,9 @@ impl DbSource for OpenCode {
                 _ => {}
             }
         }
+        // Rows older than the next lookback window won't be read again.
+        let floor = next - LOOKBACK_MS;
+        self.returned.retain(|_, updated| *updated > floor);
         Ok((out, next))
     }
 }
@@ -238,8 +261,8 @@ struct Sessions<'c> {
 }
 
 impl<'c> Sessions<'c> {
-    fn new(conn: &'c Connection) -> rusqlite::Result<Self> {
-        Ok(Self { by_id: conn.prepare(&format!("SELECT {SESSION_COLS} FROM session_v2 WHERE id = ?1"))?, cache: HashMap::new() })
+    fn new(conn: &'c Connection, table: &str) -> rusqlite::Result<Self> {
+        Ok(Self { by_id: conn.prepare(&format!("SELECT {SESSION_COLS} FROM {table} WHERE id = ?1"))?, cache: HashMap::new() })
     }
 
     fn row(&mut self, id: &str) -> rusqlite::Result<Option<SessionRow>> {
