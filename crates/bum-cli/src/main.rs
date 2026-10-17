@@ -1,8 +1,9 @@
-//! The `bum` command: statusline, audit, scan, daemon, status.
+//! The `bum` command: statusline, audit, scan, daemon, status, skills.
 mod audit;
 mod daemon;
 mod statusline;
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
@@ -14,6 +15,8 @@ use bum_core::paths::Paths;
 use bum_core::store::Store;
 use bum_service::host::claude_root;
 use bum_service::lock::HostLock;
+use bum_skills::ops::{Manager, OpRequest};
+use bum_skills::plugins::ClaudeCli;
 
 #[derive(Parser)]
 #[command(name = "bum", about = "Bumeter: AI usage statistics")]
@@ -43,11 +46,43 @@ enum Cmd {
     Status,
     /// Analyze the context composition of a session (read-only).
     Session { session_id: String },
-    /// List skills: always-on cost and usage (read-only).
+    /// Skills: list, enable/disable, undo, log.
     Skills {
-        #[arg(long)]
+        #[command(subcommand)]
+        cmd: Option<SkillsCmd>,
+        /// Tool whose `skills/` directory is used: `claude_code` (default) or `kiro`.
+        #[arg(long, default_value = "claude_code", global = true)]
+        tool: String,
+        /// Print JSON instead of a table (for agents and scripts).
+        #[arg(long, global = true)]
         json: bool,
     },
+}
+
+#[derive(Subcommand)]
+enum SkillsCmd {
+    /// List skills: always-on cost and usage (read-only).
+    List,
+    /// Move skills into `skills-disabled/`. Reversible: the journal keeps the way back.
+    Disable {
+        /// Skill names, as shown by `bum skills list`.
+        names: Vec<String>,
+        /// Apply the plan. Without it the plan is printed and nothing changes.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Move skills back into `skills/`.
+    Enable {
+        names: Vec<String>,
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Put the files of one journal entry back, by id.
+    Undo { id: String },
+    /// Operations done from the app or the CLI, newest first.
+    Log,
+    /// Check installed skills for hijacked instructions, credentials and duplicates (read-only).
+    Audit,
 }
 
 fn config(paths: &Paths) -> Config {
@@ -66,7 +101,7 @@ fn main() -> ExitCode {
         Cmd::Scan => scan(&paths),
         Cmd::Daemon => daemon::run(paths.clone(), config(&paths)).map(|_| true),
         Cmd::Status => status(&paths),
-        Cmd::Skills { json } => skills(&paths, json),
+        Cmd::Skills { cmd, tool, json } => skills(&paths, &tool, json, cmd),
         Cmd::Session { session_id } => session(&paths, &session_id),
     };
     match result {
@@ -124,14 +159,151 @@ fn tool_lines(paths: &Paths, limits: &bum_core::limits::LimitState, now: chrono:
     bum_core::meter::render(&sources, limits, &snap, now.timestamp(), cfg.language).tools
 }
 
-fn skills(paths: &Paths, json: bool) -> anyhow::Result<bool> {
-    use bum_skills::catalog::{scan_personal, SkillState};
-    use bum_skills::plugins::{scan_plugins, ClaudeCli};
+/// `~/.claude` (default) or `~/.kiro`: both use `skills/` + `skills-disabled/`.
+fn tool_dir(tool: &str) -> PathBuf {
+    if tool == "kiro" {
+        dirs::home_dir().unwrap_or_default().join(".kiro")
+    } else {
+        bum_adapters::claude_code::statusline::StatuslineSetup::default_claude_dir()
+    }
+}
+
+fn check_tool(tool: &str) -> anyhow::Result<()> {
+    if tool == "claude_code" || tool == "kiro" {
+        return Ok(());
+    }
+    anyhow::bail!("unknown tool '{tool}' (use claude_code or kiro)")
+}
+
+/// Same layout as the app, and the same journal: Kiro's ops live in `data_dir/kiro`.
+fn skill_manager(paths: &Paths, tool: &str) -> Manager {
+    let data = if tool == "kiro" { paths.data_dir.join("kiro") } else { paths.data_dir.clone() };
+    Manager::new(tool_dir(tool), data, ClaudeCli::system())
+}
+
+fn skills(paths: &Paths, tool: &str, json: bool, cmd: Option<SkillsCmd>) -> anyhow::Result<bool> {
+    check_tool(tool)?;
+    match cmd.unwrap_or(SkillsCmd::List) {
+        SkillsCmd::List => skills_list(paths, tool, json),
+        SkillsCmd::Log => {
+            let entries = skill_manager(paths, tool).log()?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&entries)?);
+            } else if entries.is_empty() {
+                println!("No operations in the journal.");
+            } else {
+                for e in &entries {
+                    let ts = e.ts.get(..19).unwrap_or(&e.ts).replace('T', " ");
+                    println!("{ts}  {:<9} {:<28} {}{}", e.op, e.id, e.description.lines().next().unwrap_or_default(), if e.undone { "  (undone)" } else { "" });
+                }
+            }
+            Ok(true)
+        }
+        SkillsCmd::Undo { id } => {
+            skill_manager(paths, tool).undo(&id)?;
+            if json {
+                println!("{}", serde_json::json!({ "undone": id, "tool": tool }));
+            } else {
+                println!("Restored: {id}");
+            }
+            Ok(true)
+        }
+        SkillsCmd::Disable { names, yes } => move_skills(paths, tool, json, "disable", names, yes),
+        SkillsCmd::Enable { names, yes } => move_skills(paths, tool, json, "enable", names, yes),
+        SkillsCmd::Audit => {
+            let (entries, _) = scan_entries(tool);
+            let audit = bum_skills::audit::audit(&entries);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&audit)?);
+            } else {
+                print_audit(&audit);
+            }
+            if !audit.ok {
+                eprintln!("bum: {} high-risk finding(s)", audit.findings.iter().filter(|f| f.severity == bum_skills::audit::Severity::High).count());
+            }
+            Ok(audit.ok)
+        }
+    }
+}
+
+fn print_audit(a: &bum_skills::audit::Audit) {
+    use bum_skills::audit::Severity::{High, Info, Warn};
+    let count = |s| a.findings.iter().filter(|f| f.severity == s).count();
+    println!("{} skills · {} with a SKILL.md", a.skills, a.scanned);
+    for (label, sev) in [("HIGH", High), ("WARN", Warn), ("INFO", Info)] {
+        let found: Vec<_> = a.findings.iter().filter(|f| f.severity == sev).collect();
+        if found.is_empty() {
+            continue;
+        }
+        println!("\n{label} ({})", found.len());
+        for f in found {
+            println!("  {} [{}] line {}", f.skill, f.kind, f.line);
+            println!("    {}", f.text);
+            println!("    ↳ {}", f.why);
+            println!("    {}", f.path.display());
+        }
+    }
+    if !a.duplicates.is_empty() {
+        println!("\nDUPLICATES ({})", a.duplicates.len());
+        for d in &a.duplicates {
+            println!("  [{}] {} — {}", d.kind, d.skills.join(", "), d.why);
+        }
+    }
+    if a.findings.is_empty() && a.duplicates.is_empty() {
+        println!("\nNothing suspicious.");
+        return;
+    }
+    println!("\n{} high, {} warn, {} info · {} duplicates", count(High), count(Warn), count(Info), a.duplicates.len());
+    println!("Heuristics: read the matched line before you act on it.");
+}
+
+/// disable/enable are reversible (a move plus a journal entry) but they do change what the next
+/// session loads, so they are never applied implicitly: without `--yes` only the plan is printed.
+fn move_skills(paths: &Paths, tool: &str, json: bool, op: &str, targets: Vec<String>, yes: bool) -> anyhow::Result<bool> {
+    if targets.is_empty() {
+        anyhow::bail!("no skill name given");
+    }
+    let m = skill_manager(paths, tool);
+    let req = OpRequest { op: op.to_string(), targets, source: None, tool: Some(tool.to_string()), skill: None };
+    let plan = m.plan(&req)?;
+    let entry = yes.then(|| m.apply(&plan)).transpose()?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+            "applied": entry.is_some(), "op": op, "tool": tool,
+            "plan": { "id": plan.id, "description": plan.description },
+            "entry": entry,
+        }))?);
+    } else {
+        println!("{}", plan.description);
+        if let Some(e) = &entry {
+            println!("\nApplied: {}\nUndo with: bum skills undo {}", e.id, e.id);
+        }
+    }
+    if entry.is_none() {
+        eprintln!("\nbum: nothing changed — re-run with --yes to apply");
+    }
+    Ok(entry.is_some())
+}
+
+/// Installed skills for one tool, plus whatever the plugin scan could not read.
+fn scan_entries(tool: &str) -> (Vec<bum_skills::catalog::SkillEntry>, Vec<String>) {
+    use bum_skills::catalog::scan_personal_for;
+    use bum_skills::plugins::scan_plugins;
+    let mut entries = scan_personal_for(&tool_dir(tool), tool);
+    let mut warnings = Vec::new();
+    // Plugins are a Claude Code concept (`claude plugin list`); Kiro has none.
+    if tool == "claude_code" {
+        let (plugins, w) = scan_plugins(&ClaudeCli::system());
+        entries.extend(plugins);
+        warnings = w;
+    }
+    (entries, warnings)
+}
+
+fn skills_list(paths: &Paths, tool: &str, json: bool) -> anyhow::Result<bool> {
+    use bum_skills::catalog::SkillState;
     use bum_skills::report::{build, Usage};
-    let claude_dir = dirs::home_dir().unwrap_or_default().join(".claude");
-    let mut entries = scan_personal(&claude_dir);
-    let (plugins, warnings) = scan_plugins(&ClaudeCli::system());
-    entries.extend(plugins);
+    let (entries, warnings) = scan_entries(tool);
     let usage: Option<Vec<Usage>> = Store::open_readonly(&paths.db())
         .ok()
         .and_then(|s| bum_core::handlers::skill_stats(&s).ok())
