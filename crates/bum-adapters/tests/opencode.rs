@@ -37,19 +37,21 @@ fn fixture() -> (tempfile::TempDir, std::path::PathBuf) {
         c.execute("INSERT INTO session_v2 VALUES(?1, 'p', ?2, ?3, ?4, '2.0.27', ?5, ?5)", params![id, parent, dir, title, t]).unwrap();
     };
     s("ses_a", None, "/home/u/project/bumeter", "Add forecast", T0);
-    s("ses_sub", Some("ses_a"), "/home/u/project/bumeter", "", T0 + 10);
+    // Subagent spawned during the first turn (after msg_u1, before msg_u2).
+    s("ses_sub", Some("ses_a"), "/home/u/project/bumeter", "Explore the code", T0 + 22_000);
     let m = |id: &str, sid: &str, ty: &str, seq: i64, t: i64, data: String| {
         c.execute("INSERT INTO session_message VALUES(?1, ?2, ?3, ?4, ?5, ?5, ?6)", params![id, sid, ty, seq, t, data]).unwrap();
     };
-    m("msg_u1", "ses_a", "user", 1, T0 + 1_000, user("read the project"));
-    m("msg_syn", "ses_a", "synthetic", 2, T0 + 1_500, serde_json::json!({ "text": "<system-reminder>opened a file</system-reminder>", "time": {} }).to_string());
-    m("msg_a1", "ses_a", "assistant", 3, T0 + 2_000, assistant(100, 20, 30, 5_000, 400, 0.01, &[("call-1", "read")]));
-    m("msg_sys", "ses_a", "system", 4, T0 + 2_500, serde_json::json!({ "text": "tools changed", "time": {} }).to_string());
-    m("msg_a2", "ses_a", "assistant", 5, T0 + 3_000, assistant(10, 5, 0, 6_000, 0, 0.002, &[]));
-    m("msg_idle", "ses_a", "idle", 6, T0 + 3_500, serde_json::json!({ "outcome": "done", "time": {} }).to_string());
-    m("msg_cmp", "ses_a", "compaction", 7, T0 + 4_000, serde_json::json!({ "status": "completed", "reason": "auto", "summary": "…", "time": { "created": T0 + 4_000 } }).to_string());
-    m("msg_u2", "ses_a", "user", 8, T0 + 5_000, user("now add tests"));
-    m("msg_s1", "ses_sub", "assistant", 1, T0 + 5_500, assistant(7, 3, 0, 0, 0, 0.0, &[]));
+    m("msg_u1", "ses_a", "user", 1, T0 + 10_000, user("read the project"));
+    m("msg_syn", "ses_a", "synthetic", 2, T0 + 15_000, serde_json::json!({ "text": "<system-reminder>opened a file</system-reminder>", "time": {} }).to_string());
+    m("msg_a1", "ses_a", "assistant", 3, T0 + 20_000, assistant(100, 20, 30, 5_000, 400, 0.01, &[("call-1", "read")]));
+    m("msg_sys", "ses_a", "system", 4, T0 + 25_000, serde_json::json!({ "text": "tools changed", "time": {} }).to_string());
+    m("msg_a2", "ses_a", "assistant", 5, T0 + 30_000, assistant(10, 5, 0, 6_000, 0, 0.002, &[]));
+    m("msg_idle", "ses_a", "idle", 6, T0 + 35_000, serde_json::json!({ "outcome": "done", "time": {} }).to_string());
+    m("msg_cmp", "ses_a", "compaction", 7, T0 + 40_000, serde_json::json!({ "status": "completed", "reason": "auto", "summary": "…", "time": { "created": T0 + 40_000 } }).to_string());
+    m("msg_u2", "ses_a", "user", 8, T0 + 50_000, user("now add tests"));
+    m("msg_su", "ses_sub", "user", 1, T0 + 23_000, user("find where limits are computed"));
+    m("msg_s1", "ses_sub", "assistant", 2, T0 + 55_000, assistant(7, 3, 0, 0, 0, 0.0, &[]));
     (dir, db)
 }
 
@@ -71,15 +73,15 @@ fn calls(ev: &[RawEvent]) -> Vec<Call> {
 fn maps_sessions_turns_calls_and_compactions() {
     let (_d, db) = fixture();
     let (ev, wm) = OpenCode::new(&db).scan(None).unwrap();
-    assert_eq!(wm, T0 + 5_500, "watermark = newest time_updated");
+    assert_eq!(wm, T0 + 55_000, "watermark = newest time_updated");
 
     let sessions: Vec<_> = ev.iter().filter_map(|e| match e { RawEvent::Session { session_id, tool, project, cwd, .. } => Some((session_id.as_str(), tool.as_str(), project.as_str(), cwd.clone())), _ => None }).collect();
     assert!(sessions.contains(&("ses_a", "opencode", "bumeter", Some("/home/u/project/bumeter".into()))), "{sessions:?}");
     assert!(ev.contains(&RawEvent::Title { session_id: "ses_a".into(), title: "Add forecast".into() }));
-    assert!(!ev.iter().any(|e| matches!(e, RawEvent::Title { session_id, .. } if session_id == "ses_sub")), "empty title skipped");
+    assert!(!ev.iter().any(|e| matches!(e, RawEvent::Session { session_id, .. } | RawEvent::Title { session_id, .. } if session_id == "ses_sub")), "a subagent is not a conversation of its own");
 
     let prompts: Vec<_> = ev.iter().filter_map(|e| match e { RawEvent::Prompt { key, text, .. } => Some((key.as_str(), text.as_str())), _ => None }).collect();
-    assert_eq!(prompts, vec![("opencode:msg_u1", "read the project"), ("opencode:msg_u2", "now add tests")], "synthetic/system/idle are not turns");
+    assert_eq!(prompts, vec![("opencode:msg_u1", "read the project"), ("opencode:msg_u2", "now add tests")], "synthetic/system/idle and the subagent's task are not turns");
 
     let c = calls(&ev);
     assert_eq!(c.len(), 3);
@@ -92,7 +94,10 @@ fn maps_sessions_turns_calls_and_compactions() {
     assert!(!a1.5);
     assert_eq!(a1.6, Some(0.01));
     assert_eq!(c[1].1.as_deref(), Some("opencode:msg_u1"), "second call of the same turn");
-    assert!(c[2].5, "subagent session → sidechain");
+    assert!(c[2].5, "subagent call → sidechain");
+    assert_eq!(c[2].1.as_deref(), Some("opencode:msg_u1"), "counted in the parent turn that spawned it");
+    let sub_sid = ev.iter().find_map(|e| match e { RawEvent::ApiCall { request_id, session_id, .. } if request_id == "opencode:msg_s1" => Some(session_id.clone()), _ => None });
+    assert_eq!(sub_sid.as_deref(), Some("ses_a"), "attached to the parent session, like Claude Code subagents");
     assert!(ev.iter().any(|e| matches!(e, RawEvent::Compacted { session_id, .. } if session_id == "ses_a")));
 }
 
@@ -108,14 +113,15 @@ fn incremental_scan_reads_changed_rows_and_finds_the_turn_before_the_watermark()
     let (ev, wm2) = src.scan(Some(wm)).unwrap();
     assert_eq!(wm2, wm + 200);
     let c = calls(&ev);
-    assert_eq!(c.iter().map(|x| x.0.as_str()).collect::<Vec<_>>(), vec!["opencode:msg_a1", "opencode:msg_a3"], "only changed rows");
+    // Changed rows, plus rows inside the 5 s lookback before the watermark (here the subagent's last call).
+    assert_eq!(c.iter().map(|x| x.0.as_str()).collect::<Vec<_>>(), vec!["opencode:msg_a1", "opencode:msg_a3", "opencode:msg_s1"]);
     assert_eq!(c[1].1.as_deref(), Some("opencode:msg_u2"), "turn looked up before the watermark");
     assert_eq!(c[0].3.output, 25, "rewritten row re-read");
     assert!(ev.iter().any(|e| matches!(e, RawEvent::Session { session_id, .. } if session_id == "ses_a")), "session emitted for changed messages");
     assert!(!ev.iter().any(|e| matches!(e, RawEvent::Prompt { .. })), "unchanged user rows not re-sent");
 
-    let (none, wm3) = src.scan(Some(wm2)).unwrap();
-    assert!(none.is_empty());
+    let (again, wm3) = src.scan(Some(wm2)).unwrap();
+    assert!(calls(&again).iter().all(|c| ["opencode:msg_a1", "opencode:msg_a3", "opencode:msg_s1"].contains(&c.0.as_str())), "only the lookback window is re-read");
     assert_eq!(wm3, wm2, "watermark kept when nothing changed");
 }
 
@@ -141,4 +147,28 @@ fn info_describes_a_token_source_without_extras() {
     let i = bum_adapters::opencode::info();
     assert_eq!((i.id.as_str(), i.label.as_str(), i.letter.as_str()), ("opencode", "OpenCode", "O"));
     assert!(i.real_tokens && !i.composition && !i.limits && !i.credits && !i.transcript);
+}
+
+#[test]
+fn a_row_committed_at_the_watermark_is_not_lost() {
+    let (_d, db) = fixture();
+    let mut src = OpenCode::new(&db);
+    let (_, wm) = src.scan(None).unwrap();
+    // Same millisecond as the newest row, committed after our read (another process, or a final streaming update).
+    Connection::open(&db).unwrap().execute("INSERT INTO session_message VALUES('msg_late', 'ses_a', 'assistant', 10, ?1, ?1, ?2)", params![wm, assistant(1, 1, 0, 0, 0, 0.0, &[])]).unwrap();
+    let (ev, _) = src.scan(Some(wm)).unwrap();
+    assert!(calls(&ev).iter().any(|c| c.0 == "opencode:msg_late"), "lookback re-reads the boundary");
+}
+
+#[test]
+fn a_late_updated_old_question_does_not_capture_a_new_answer() {
+    let (_d, db) = fixture();
+    let mut src = OpenCode::new(&db);
+    let (_, wm) = src.scan(None).unwrap();
+    let c = Connection::open(&db).unwrap();
+    c.execute("UPDATE session_message SET time_updated = ?1 WHERE id = 'msg_u1'", [wm + 50]).unwrap();
+    c.execute("INSERT INTO session_message VALUES('msg_a3', 'ses_a', 'assistant', 9, ?1, ?1, ?2)", params![wm + 100, assistant(5, 5, 0, 0, 0, 0.0, &[])]).unwrap();
+    let (ev, _) = src.scan(Some(wm)).unwrap();
+    let a3 = calls(&ev).into_iter().find(|c| c.0 == "opencode:msg_a3").unwrap();
+    assert_eq!(a3.1.as_deref(), Some("opencode:msg_u2"), "belongs to the latest question before it, not to the re-read old one");
 }

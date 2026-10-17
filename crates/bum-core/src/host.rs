@@ -63,6 +63,12 @@ pub fn run_host(engine: &mut Engine, rx: &Receiver<HostMsg>, limits_file: &Path,
             }
             Err(RecvTimeoutError::Timeout) => {}
         }
+        // Database scans deferred by throttling (a tool streaming into its WAL).
+        match engine.scan_pending_db() {
+            Ok(r) if r.lines > 0 => handler.on_ingest(engine, &r),
+            Ok(_) => {}
+            Err(e) => eprintln!("bumeter: database scan failed: {e}"),
+        }
         handler.on_tick(engine);
         // Reconciliation scan to catch missed events (machine sleep, inotify overflow).
         if last_rescan.elapsed() >= rescan_every {

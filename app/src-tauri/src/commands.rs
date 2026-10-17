@@ -18,6 +18,9 @@ pub fn call(state: State<'_, AppState>, method: String, params: Option<Value>) -
         use bum_adapters::claude_code::composition::{analyze_file, call_detail};
         let sid = params["session_id"].as_str().ok_or("missing 'session_id'")?;
         let file = store.session_file(sid).map_err(|e| e.to_string())?.ok_or("session log file not found")?;
+        if file.starts_with("db:") {
+            return Err("context analysis is not available for this tool yet".into());
+        }
         let path = std::path::Path::new(&file);
         return if method == "session_analysis" {
             analyze_file(path).map(|a| serde_json::to_value(a).unwrap_or_default()).map_err(|e| e.to_string())
@@ -30,6 +33,9 @@ pub fn call(state: State<'_, AppState>, method: String, params: Option<Value>) -
         let sid = params["session_id"].as_str().ok_or("missing 'session_id'")?;
         let file = store.session_file(sid).map_err(|e| e.to_string())?.ok_or("session log file not found")?;
         let tool = store.session_tool(sid).map_err(|e| e.to_string())?.unwrap_or_default();
+        if file.starts_with("db:") {
+            return Err("the conversation transcript is not available for this tool yet".into());
+        }
         let path = std::path::Path::new(&file);
         let turns = match tool.as_str() {
             bum_adapters::kiro::TOOL_ID => bum_adapters::kiro::transcript(path),
@@ -48,7 +54,7 @@ pub fn call(state: State<'_, AppState>, method: String, params: Option<Value>) -
     dispatch(&ctx, &method, &params, chrono::Utc::now())
 }
 
-/// Per tool: description from the adapter + state (whether the log directory exists, number of sessions, prompts, last time).
+/// Per tool: description from the adapter + state (whether its data exists — a log directory, or a database file for OpenCode —, number of sessions, prompts, last time).
 fn sources_json(roots: Vec<(bum_core::source::SourceInfo, std::path::PathBuf)>, stats: &[bum_core::handlers::ToolStat]) -> Value {
     let list: Vec<Value> = roots
         .into_iter()
@@ -57,7 +63,7 @@ fn sources_json(roots: Vec<(bum_core::source::SourceInfo, std::path::PathBuf)>, 
             serde_json::json!({
                 "info": info,
                 "root": root.to_string_lossy(),
-                "found": root.is_dir(),
+                "found": root.exists(),
                 "sessions": st.map_or(0, |s| s.sessions),
                 "prompts": st.map_or(0, |s| s.prompts),
                 "last_ts": st.and_then(|s| s.last_ts.clone()),
@@ -80,5 +86,11 @@ mod tests {
         assert_eq!(v[0]["sessions"], 0);
         assert_eq!(v[0]["found"], false);
         assert_eq!((v[1]["sessions"].as_u64(), v[1]["prompts"].as_u64(), v[1]["last_ts"].as_str()), (Some(2), Some(5), Some("t")));
+        // OpenCode's root is a database file, not a directory.
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("opencode.db");
+        std::fs::write(&db, b"").unwrap();
+        let reg = bum_adapters::registry(&bum_adapters::Roots { claude: "/nonexistent-c".into(), kiro: "/nonexistent-k".into(), opencode_db: db });
+        assert_eq!(sources_json(reg, &[])[2]["found"], true);
     }
 }

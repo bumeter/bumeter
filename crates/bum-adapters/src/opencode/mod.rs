@@ -10,6 +10,10 @@ use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use serde_json::Value;
 
 pub const TOOL_ID: &str = "opencode";
+/// Re-read this much before the watermark on each scan (see `scan`).
+const LOOKBACK_MS: i64 = 5_000;
+/// Same cap as Claude Code prompts.
+const MAX_PROMPT_CHARS: usize = 2000;
 
 pub struct OpenCode {
     db: PathBuf,
@@ -36,7 +40,8 @@ pub fn info() -> SourceInfo {
     }
 }
 
-/// Read-only connection that still sees WAL commits (never `immutable=1`).
+/// Read-only connection that still sees WAL commits (never `immutable=1`). The main database file is never modified; when
+/// OpenCode isn't running, SQLite may still create its `-wal`/`-shm` side files next to it, as any reader of a WAL database does.
 fn open_readonly(db: &Path) -> anyhow::Result<Connection> {
     let conn = Connection::open_with_flags(db, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
         .with_context(|| format!("cannot open {}", db.display()))?;
@@ -57,6 +62,7 @@ fn project_of(directory: &str) -> String {
     Path::new(directory).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| directory.to_string())
 }
 
+#[derive(Clone)]
 struct SessionRow {
     id: String,
     parent: Option<String>,
@@ -129,77 +135,134 @@ impl DbSource for OpenCode {
 
     fn scan(&mut self, watermark: Option<i64>) -> anyhow::Result<(Vec<RawEvent>, i64)> {
         let conn = open_readonly(&self.db)?;
-        if !has_table(&conn, "session_v2")? || !has_table(&conn, "session_message")? {
+        // One read transaction: both queries see the same snapshot.
+        let tx = conn.unchecked_transaction()?;
+        if !has_table(&tx, "session_v2")? || !has_table(&tx, "session_message")? {
             bail!("unsupported OpenCode schema (needs session_v2 and session_message, OpenCode 2.x)");
         }
-        let since = watermark.unwrap_or(i64::MIN);
+        // Re-read a few seconds before the watermark: rows stamped in the same millisecond, or committed late by another
+        // OpenCode process, would otherwise be skipped for good. Re-reading is harmless (every write is an upsert).
+        let since = watermark.map_or(i64::MIN, |w| w - LOOKBACK_MS);
         let mut next = watermark.unwrap_or(0);
         let mut out = Vec::new();
+        let mut meta = Sessions::new(&tx)?;
 
-        // Changed sessions first, so every message below has its session row.
-        let mut sessions: HashMap<String, Option<String>> = HashMap::new();
-        let mut st = conn.prepare(&format!("SELECT {SESSION_COLS} FROM session_v2 WHERE time_updated > ?1 ORDER BY time_created"))?;
+        // Changed conversations first (subagent sessions are folded into their parent, not shown on their own).
+        let mut emitted: HashSet<String> = HashSet::new();
+        let mut st = tx.prepare(&format!("SELECT {SESSION_COLS} FROM session_v2 WHERE time_updated > ?1 ORDER BY time_created"))?;
         for s in st.query_map([since], session_row)? {
             let s = s?;
             next = next.max(s.updated);
-            session_events(&s, &mut out);
-            sessions.insert(s.id.clone(), s.parent.clone());
-        }
-
-        let mut st = conn.prepare(
-            "SELECT id, session_id, type, seq, time_created, time_updated, data FROM session_message WHERE time_updated > ?1 ORDER BY session_id, seq",
-        )?;
-        let rows: Vec<(String, String, String, i64, i64, i64, String)> =
-            st.query_map([since], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?.collect::<rusqlite::Result<_>>()?;
-
-        // Sessions referenced by changed messages but not changed themselves.
-        let missing: HashSet<&String> = rows.iter().map(|r| &r.1).filter(|sid| !sessions.contains_key(*sid)).collect();
-        let mut by_id = conn.prepare(&format!("SELECT {SESSION_COLS} FROM session_v2 WHERE id = ?1"))?;
-        for sid in missing {
-            if let Some(s) = by_id.query_row([sid], session_row).optional()? {
+            if s.parent.is_none() {
                 session_events(&s, &mut out);
-                sessions.insert(s.id.clone(), s.parent.clone());
+                emitted.insert(s.id.clone());
             }
         }
 
-        // The turn an assistant row belongs to: the last user row before it in the same session.
-        let mut turn: HashMap<String, String> = HashMap::new();
-        let mut prev_user = conn.prepare("SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND seq < ?2 ORDER BY seq DESC LIMIT 1")?;
+        let mut st = tx.prepare(
+            "SELECT id, session_id, type, seq, time_created, time_updated, data FROM session_message WHERE time_updated > ?1 ORDER BY session_id, seq",
+        )?;
+        let rows: Vec<MessageRow> = st.query_map([since], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?.collect::<rusqlite::Result<_>>()?;
+
+        // Conversations referenced by changed messages but not changed themselves.
+        for (_, sid, ..) in &rows {
+            let root = meta.root(sid)?;
+            if !emitted.contains(&root) {
+                if let Some(s) = meta.row(&root)? {
+                    session_events(&s, &mut out);
+                }
+                emitted.insert(root);
+            }
+        }
+
+        // Always look the turn up in the DB: a batch can hold an old question re-read after a late update, so the previous
+        // row of the batch is not necessarily the question an answer belongs to.
+        let mut prev_user = tx.prepare("SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND seq < ?2 ORDER BY seq DESC LIMIT 1")?;
+        let mut user_before = tx.prepare(
+            "SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND time_created <= ?2 ORDER BY time_created DESC, seq DESC LIMIT 1",
+        )?;
         for (id, sid, kind, seq, created, updated, data) in &rows {
             next = next.max(*updated);
+            let root = meta.root(sid)?;
+            let subagent = root != *sid;
             let d: Value = serde_json::from_str(data).unwrap_or(Value::Null);
             let ts = ms_to_rfc3339(*created);
             match kind.as_str() {
-                "user" => {
-                    out.push(RawEvent::Prompt { key: key(id), session_id: sid.clone(), ts, text: d["text"].as_str().unwrap_or_default().chars().take(2000).collect() });
-                    turn.insert(sid.clone(), key(id));
+                // A subagent's task prompt is not a turn of the user (same as Claude Code subagents).
+                "user" if !subagent => {
+                    let text = d["text"].as_str().unwrap_or_default();
+                    if !text.trim().is_empty() {
+                        out.push(RawEvent::Prompt { key: key(id), session_id: sid.clone(), ts, text: text.chars().take(MAX_PROMPT_CHARS).collect() });
+                    }
                 }
                 "assistant" => {
-                    let prompt_key = match turn.get(sid) {
-                        Some(k) => Some(k.clone()),
-                        None => prev_user.query_row(params![sid, seq], |r| r.get::<_, String>(0)).optional()?.map(|u| key(&u)),
+                    // Subagent calls count toward the parent turn that spawned the subagent session.
+                    let prompt_key = if subagent {
+                        let spawned = meta.created(sid)?.unwrap_or(*created);
+                        user_before.query_row(params![root, spawned], |r| r.get::<_, String>(0)).optional()?
+                    } else {
+                        prev_user.query_row(params![sid, seq], |r| r.get::<_, String>(0)).optional()?
                     };
                     let model = format!("{TOOL_ID}:{}/{}", d["model"]["providerID"].as_str().unwrap_or("?"), d["model"]["id"].as_str().unwrap_or("?"));
                     out.push(RawEvent::ApiCall {
                         request_id: key(id),
-                        session_id: sid.clone(),
-                        prompt_key,
+                        session_id: root.clone(),
+                        prompt_key: prompt_key.map(|u| key(&u)),
                         ts,
                         model,
                         usage: usage_of(&d["tokens"]),
                         tool_uses: tool_uses(&d["content"]),
-                        sidechain: sessions.get(sid).is_some_and(|p| p.is_some()),
+                        sidechain: subagent,
                         cost_usd: d["cost"].as_f64(),
                     });
                 }
-                "compaction" => {
+                "compaction" if !subagent => {
                     let at = d["time"]["created"].as_i64().unwrap_or(*created);
                     out.push(RawEvent::Compacted { session_id: sid.clone(), ts: ms_to_rfc3339(at) });
                 }
-                // synthetic (injected reminders), system (tool notices), idle, and future types: not turns, no tokens.
+                // synthetic (injected reminders), system (tool notices), idle, a subagent's own turns, and future types.
                 _ => {}
             }
         }
         Ok((out, next))
+    }
+}
+
+/// (id, session_id, type, seq, time_created, time_updated, data)
+type MessageRow = (String, String, String, i64, i64, i64, String);
+
+/// Session rows looked up by id, cached for one scan; resolves a subagent session to its top-level conversation.
+struct Sessions<'c> {
+    by_id: rusqlite::Statement<'c>,
+    cache: HashMap<String, Option<SessionRow>>,
+}
+
+impl<'c> Sessions<'c> {
+    fn new(conn: &'c Connection) -> rusqlite::Result<Self> {
+        Ok(Self { by_id: conn.prepare(&format!("SELECT {SESSION_COLS} FROM session_v2 WHERE id = ?1"))?, cache: HashMap::new() })
+    }
+
+    fn row(&mut self, id: &str) -> rusqlite::Result<Option<SessionRow>> {
+        if !self.cache.contains_key(id) {
+            let r = self.by_id.query_row([id], session_row).optional()?;
+            self.cache.insert(id.to_string(), r);
+        }
+        Ok(self.cache[id].clone())
+    }
+
+    fn created(&mut self, id: &str) -> rusqlite::Result<Option<i64>> {
+        Ok(self.row(id)?.map(|s| s.created))
+    }
+
+    /// The top-level conversation of `id` (itself when it has no parent); bounded against cycles.
+    fn root(&mut self, id: &str) -> rusqlite::Result<String> {
+        let mut cur = id.to_string();
+        for _ in 0..16 {
+            match self.row(&cur)?.and_then(|s| s.parent) {
+                Some(p) => cur = p,
+                None => break,
+            }
+        }
+        Ok(cur)
     }
 }

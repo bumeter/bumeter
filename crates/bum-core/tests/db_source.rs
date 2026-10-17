@@ -61,7 +61,8 @@ fn setup(fail: bool) -> Setup {
     let batches = Arc::new(Mutex::new(Vec::new()));
     let seen = Arc::new(Mutex::new(Vec::new()));
     let fake = Fake { path: db.clone(), batches: batches.clone(), seen: seen.clone(), fail };
-    let engine = Engine::new(Store::open_in_memory().unwrap(), vec![]).with_db_sources(vec![Box::new(fake)]);
+    // No throttling here; `scans_are_throttled_while_the_db_keeps_changing` covers it.
+    let engine = Engine::new(Store::open_in_memory().unwrap(), vec![]).with_db_sources(vec![Box::new(fake)]).with_db_min_interval(std::time::Duration::ZERO);
     Setup { _dir: dir, db, engine, batches, seen }
 }
 
@@ -126,4 +127,40 @@ fn db_sources_are_watched_non_recursively_with_their_files_listed() {
     let db = t.iter().find(|t| t.path == s.db.parent().unwrap()).expect("db parent watched");
     assert!(!db.recursive);
     assert_eq!(db.files, vec![s.db.clone(), wal(&s.db)]);
+}
+
+#[test]
+fn scans_are_throttled_while_the_db_keeps_changing() {
+    let mut s = setup(false);
+    s.engine = std::mem::replace(&mut s.engine, Engine::new(Store::open_in_memory().unwrap(), vec![])).with_db_min_interval(std::time::Duration::from_millis(200));
+    s.engine.ingest_path(&s.db).unwrap();
+    s.engine.ingest_path(&wal(&s.db)).unwrap(); // streaming: another write right away
+    assert_eq!(s.seen.lock().unwrap().len(), 1, "second change deferred");
+    assert_eq!(s.engine.scan_pending_db().unwrap().lines, 0);
+    assert_eq!(s.seen.lock().unwrap().len(), 1, "still inside the interval");
+    std::thread::sleep(std::time::Duration::from_millis(250));
+    s.engine.scan_pending_db().unwrap();
+    assert_eq!(s.seen.lock().unwrap().len(), 2, "deferred scan runs once the interval passed");
+    s.engine.scan_pending_db().unwrap();
+    assert_eq!(s.seen.lock().unwrap().len(), 2, "nothing pending any more");
+}
+
+#[test]
+fn the_watermark_is_reset_when_the_db_path_changes() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = dir.path().join("bumeter.db");
+    let (a, b) = (dir.path().join("a.db"), dir.path().join("b.db"));
+    std::fs::write(&a, b"x").unwrap();
+    std::fs::write(&b, b"x").unwrap();
+    let run = |path: &Path| {
+        let batches: Batches = Arc::new(Mutex::new(vec![(vec![], 5000)]));
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let fake = Fake { path: path.to_path_buf(), batches, seen: seen.clone(), fail: false };
+        Engine::new(Store::open(&store).unwrap(), vec![]).with_db_sources(vec![Box::new(fake)]).full_scan().unwrap();
+        let v = seen.lock().unwrap().clone();
+        v
+    };
+    assert_eq!(run(&a), vec![None]);
+    assert_eq!(run(&a), vec![Some(5000)], "same database: continue");
+    assert_eq!(run(&b), vec![None], "another database: start over");
 }

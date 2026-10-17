@@ -1,6 +1,7 @@
 //! Adapter → store pipeline: incrementally read each file from its saved offset.
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use crate::source::{DbSource, LogSource, ParseCtx, WatchTarget};
 use crate::store::{ApplySummary, FileOffset, Store};
@@ -24,21 +25,47 @@ impl IngestReport {
     }
 }
 
+/// Minimum time between two scans of the same database: a streaming tool writes its WAL many times per second.
+const DB_MIN_INTERVAL: Duration = Duration::from_secs(1);
+
 pub struct Engine {
     store: Store,
     sources: Vec<Box<dyn LogSource>>,
     db_sources: Vec<Box<dyn DbSource>>,
+    db_min_interval: Duration,
+    /// Per database source: when it was last scanned, and whether a change arrived since (deferred scan).
+    db_last: Vec<Option<Instant>>,
+    db_pending: Vec<bool>,
 }
 
 impl Engine {
     pub fn new(store: Store, sources: Vec<Box<dyn LogSource>>) -> Self {
-        Self { store, sources, db_sources: Vec::new() }
+        Self { store, sources, db_sources: Vec::new(), db_min_interval: DB_MIN_INTERVAL, db_last: Vec::new(), db_pending: Vec::new() }
     }
 
     /// Add database sources (read by watermark, never purged).
     pub fn with_db_sources(mut self, db_sources: Vec<Box<dyn DbSource>>) -> Self {
+        self.db_last = vec![None; db_sources.len()];
+        self.db_pending = vec![false; db_sources.len()];
         self.db_sources = db_sources;
         self
+    }
+
+    /// Change the minimum time between two scans of a database (tests).
+    pub fn with_db_min_interval(mut self, d: Duration) -> Self {
+        self.db_min_interval = d;
+        self
+    }
+
+    /// Run the database scans deferred by throttling once their interval has passed. Call it periodically (host tick).
+    pub fn scan_pending_db(&mut self) -> anyhow::Result<IngestReport> {
+        let mut report = IngestReport::default();
+        for i in 0..self.db_sources.len() {
+            if self.db_pending[i] && self.db_last[i].is_none_or(|t| t.elapsed() >= self.db_min_interval) {
+                report.merge(self.ingest_db(i)?);
+            }
+        }
+        Ok(report)
     }
 
     pub fn store(&self) -> &Store {
@@ -74,6 +101,10 @@ impl Engine {
             let db = d.db_path();
             path == db || path == wal_path(&db)
         }) {
+            if self.db_last[i].is_some_and(|t| t.elapsed() < self.db_min_interval) {
+                self.db_pending[i] = true; // picked up by `scan_pending_db`
+                return Ok(IngestReport::default());
+            }
             return self.ingest_db(i);
         }
         let Some(src) = self.sources.iter().position(|s| s.accepts(path)) else { return Ok(IngestReport::default()) };
@@ -145,13 +176,19 @@ impl Engine {
     /// Database source: read rows changed since the saved watermark. The watermark is stored in `file_offsets`
     /// (key `db:<id>`) in the same transaction as the rows; the file itself is never compared or purged.
     fn ingest_db(&mut self, i: usize) -> anyhow::Result<IngestReport> {
-        if !self.db_sources[i].db_path().exists() {
+        self.db_last[i] = Some(Instant::now());
+        self.db_pending[i] = false;
+        let db = self.db_sources[i].db_path();
+        if !db.exists() {
             return Ok(IngestReport::default());
         }
         let key = format!("db:{}", self.db_sources[i].id());
-        let watermark = self.store.get_offset(&key)?.and_then(|o| serde_json::from_str::<serde_json::Value>(&o.ctx_json).ok()).and_then(|v| v["watermark"].as_i64());
+        let path = db.to_string_lossy().to_string();
+        // The watermark belongs to one database file: pointing the source at another file starts over.
+        let saved = self.store.get_offset(&key)?.and_then(|o| serde_json::from_str::<serde_json::Value>(&o.ctx_json).ok());
+        let watermark = saved.filter(|v| v["path"].as_str() == Some(path.as_str())).and_then(|v| v["watermark"].as_i64());
         let (events, next) = self.db_sources[i].scan(watermark)?;
-        let off = FileOffset { path: key, file_id: "db".into(), size: 0, offset: 0, mtime: 0, ctx_json: serde_json::json!({ "watermark": next }).to_string() };
+        let off = FileOffset { path: key, file_id: "db".into(), size: 0, offset: 0, mtime: 0, ctx_json: serde_json::json!({ "watermark": next, "path": path }).to_string() };
         let summary = self.store.ingest_batch(&off, &events, 0)?;
         Ok(IngestReport { summary, parse_errors: 0, file_errors: 0, lines: events.len() as u64 })
     }

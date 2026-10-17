@@ -159,6 +159,9 @@ fn skills(paths: &Paths, json: bool) -> anyhow::Result<bool> {
 fn session(paths: &Paths, id: &str) -> anyhow::Result<bool> {
     let store = Store::open_readonly(&paths.db())?;
     let file = store.session_file(id)?.ok_or_else(|| anyhow::anyhow!("no session {id}"))?;
+    if file.starts_with("db:") {
+        anyhow::bail!("context analysis is not available for this tool yet");
+    }
     let t = std::time::Instant::now();
     let a = bum_adapters::claude_code::composition::analyze_file(std::path::Path::new(&file))?;
     println!("{} prompts · {} calls · {} compactions · analyzed in {:?}", a.prompts.len(), a.calls.len(), a.compactions.len(), t.elapsed());

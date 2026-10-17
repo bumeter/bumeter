@@ -351,7 +351,7 @@ impl Store {
     pub fn model_rows(&self) -> rusqlite::Result<Vec<ModelRow>> {
         let mut st = self.conn().prepare(&format!(
             "SELECT a.model, COALESCE(s.tool, 'claude_code'), COUNT(*), COUNT(DISTINCT a.prompt_key), {USAGE_SUMS}, COALESCE(SUM(a.credits), 0), MAX(a.ts)
-             FROM api_calls a LEFT JOIN sessions s ON s.id = a.session_id GROUP BY a.model, s.tool"
+             FROM api_calls a LEFT JOIN sessions s ON s.id = a.session_id GROUP BY a.model, COALESCE(s.tool, 'claude_code')"
         ))?;
         let rows = st.query_map([], |r| Ok(ModelRow { model: r.get(0)?, tool: r.get(1)?, calls: u64_at(r, 2)?, prompts: u64_at(r, 3)?, usage: usage_at(r, 4)?, credits: r.get(10)?, last_used: r.get(11)? }))?;
         rows.collect()

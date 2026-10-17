@@ -74,7 +74,6 @@ Once it is published: `sudo snap install bumeter --classic`.
 |---|---|
 | Claude Code | Session logs in `~/.claude/projects/**` (tokens, turns, tools, skills). The 5-hour and 7-day quota comes from Claude Code's status line: Bumeter adds `bum statusline --tee` in front of your existing status line command in `~/.claude/settings.json` (with a backup and an undo button in Settings). |
 | Kiro | Session files in `~/.kiro/sessions/cli/**`. Kiro does not log tokens, so context is estimated from each turn's context percentage, and cost is in credits. The monthly credit limit comes from `kiro-cli chat --no-interactive /usage`, run only when `kiro-cli` is installed and `kiro-cli whoami` says you are logged in. You can also type the limit in Settings. |
-
 | OpenCode (beta) | Its SQLite database `~/.local/share/opencode/opencode.db` (OpenCode 2.x), opened **read-only** and read incrementally. Real token counts per model call, including reasoning tokens. OpenCode also reports a USD cost per call; Bumeter stores it but shows tokens only for now. No quota and no conversation transcript yet. |
 
 Tools that are not installed are simply not shown.

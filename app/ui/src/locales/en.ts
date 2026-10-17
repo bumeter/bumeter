@@ -26,7 +26,7 @@ export const en: Record<keyof typeof vi, string> = {
 
   'scope.all': 'All tools',
   'scope.allShort': 'All',
-  'scope.notFound': 'Log folder not found: {path}',
+  'scope.notFound': 'Data not found: {path}',
   'bum.quota': '5-hour quota {pct}%',
   'bum.resets': 'resets at {time}',
   'bum.out': 'may run out ~{time}',
@@ -169,7 +169,7 @@ export const en: Record<keyof typeof vi, string> = {
   'set.themeDark': 'Dark',
   'set.tools': 'Tools',
   'set.toolFound': 'Tracking',
-  'set.toolMissing': 'Folder not found',
+  'set.toolMissing': 'Folder or file not found',
   'set.errResetDay': 'Enter a day from 1 to 28.',
   'set.errMinutes': 'Enter 1 to 300 minutes.',
   'set.creditLimit': 'Monthly credit limit',

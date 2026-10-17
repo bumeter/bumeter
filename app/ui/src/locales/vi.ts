@@ -25,7 +25,7 @@ export const vi = {
 
   'scope.all': 'Tất cả công cụ',
   'scope.allShort': 'Tất cả',
-  'scope.notFound': 'Không thấy thư mục log: {path}',
+  'scope.notFound': 'Không thấy dữ liệu: {path}',
   'bum.quota': 'Quota 5 giờ {pct}%',
   'bum.resets': 'reset lúc {time}',
   'bum.out': 'có thể hết lúc ~{time}',
@@ -168,7 +168,7 @@ export const vi = {
   'set.themeDark': 'Tối',
   'set.tools': 'Công cụ',
   'set.toolFound': 'Đang theo dõi',
-  'set.toolMissing': 'Không thấy thư mục',
+  'set.toolMissing': 'Không thấy thư mục hoặc file',
   'set.errResetDay': 'Nhập một ngày từ 1 đến 28.',
   'set.errMinutes': 'Nhập số phút từ 1 đến 300.',
   'set.creditLimit': 'Hạn mức credit mỗi tháng',
