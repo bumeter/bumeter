@@ -14,14 +14,24 @@ pub const TOOL_ID: &str = "opencode";
 const LOOKBACK_MS: i64 = 5_000;
 /// Same cap as Claude Code prompts.
 const MAX_PROMPT_CHARS: usize = 2000;
+/// SQL condition: the message's `text` is not blank.
+const HAS_TEXT: &str = "trim(COALESCE(json_extract(data, '$.text'), '')) <> ''";
 
 pub struct OpenCode {
     db: PathBuf,
+    /// Rows returned recently (key → `time_updated`): the lookback re-reads them, and unchanged ones are not sent again,
+    /// so an idle database yields no events. Kept only for the lookback window; a restart re-sends that window once.
+    returned: HashMap<String, i64>,
 }
 
 impl OpenCode {
     pub fn new(db: impl Into<PathBuf>) -> Self {
-        Self { db: db.into() }
+        Self { db: db.into(), returned: HashMap::new() }
+    }
+
+    /// Whether this version of a row was already returned; records it otherwise.
+    fn is_new(&mut self, key: String, updated: i64) -> bool {
+        self.returned.insert(key, updated) != Some(updated)
     }
 
     /// `BUM_OPENCODE_DB` if set, otherwise `~/.local/share/opencode/opencode.db`.
@@ -153,7 +163,7 @@ impl DbSource for OpenCode {
         for s in st.query_map([since], session_row)? {
             let s = s?;
             next = next.max(s.updated);
-            if s.parent.is_none() {
+            if s.parent.is_none() && self.is_new(format!("s:{}", s.id), s.updated) {
                 session_events(&s, &mut out);
                 emitted.insert(s.id.clone());
             }
@@ -162,7 +172,9 @@ impl DbSource for OpenCode {
         let mut st = tx.prepare(
             "SELECT id, session_id, type, seq, time_created, time_updated, data FROM session_message WHERE time_updated > ?1 ORDER BY session_id, seq",
         )?;
-        let rows: Vec<MessageRow> = st.query_map([since], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?.collect::<rusqlite::Result<_>>()?;
+        let all: Vec<MessageRow> = st.query_map([since], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)))?.collect::<rusqlite::Result<_>>()?;
+        next = all.iter().map(|r| r.5).fold(next, i64::max);
+        let rows: Vec<MessageRow> = all.into_iter().filter(|r| self.is_new(format!("m:{}", r.0), r.5)).collect();
 
         // Conversations referenced by changed messages but not changed themselves.
         for (_, sid, ..) in &rows {
@@ -177,12 +189,12 @@ impl DbSource for OpenCode {
 
         // Always look the turn up in the DB: a batch can hold an old question re-read after a late update, so the previous
         // row of the batch is not necessarily the question an answer belongs to.
-        let mut prev_user = tx.prepare("SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND seq < ?2 ORDER BY seq DESC LIMIT 1")?;
-        let mut user_before = tx.prepare(
-            "SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND time_created <= ?2 ORDER BY time_created DESC, seq DESC LIMIT 1",
-        )?;
-        for (id, sid, kind, seq, created, updated, data) in &rows {
-            next = next.max(*updated);
+        // Only questions with text: empty ones are not Prompts, so they can't be a turn either.
+        let mut prev_user = tx.prepare(&format!("SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND {HAS_TEXT} AND seq < ?2 ORDER BY seq DESC LIMIT 1"))?;
+        let mut user_before = tx.prepare(&format!(
+            "SELECT id FROM session_message WHERE session_id = ?1 AND type = 'user' AND {HAS_TEXT} AND time_created <= ?2 ORDER BY time_created DESC, seq DESC LIMIT 1"
+        ))?;
+        for (id, sid, kind, seq, created, _updated, data) in &rows {
             let root = meta.root(sid)?;
             let subagent = root != *sid;
             let d: Value = serde_json::from_str(data).unwrap_or(Value::Null);
@@ -224,6 +236,9 @@ impl DbSource for OpenCode {
                 _ => {}
             }
         }
+        // Rows older than the next lookback window won't be read again.
+        let floor = next - LOOKBACK_MS;
+        self.returned.retain(|_, updated| *updated > floor);
         Ok((out, next))
     }
 }

@@ -113,9 +113,12 @@ fn a_missing_db_file_is_a_no_op() {
 }
 
 #[test]
-fn a_scan_error_is_reported_and_the_full_scan_goes_on() {
+fn a_failed_scan_is_retried_and_the_full_scan_reports_it() {
     let mut s = setup(true);
-    assert!(s.engine.ingest_path(&s.db).is_err());
+    // A watcher-triggered scan that fails (locked DB) is kept pending and retried, not surfaced as an error each time.
+    assert_eq!(s.engine.ingest_path(&s.db).unwrap().lines, 0);
+    s.engine.scan_pending_db().unwrap();
+    assert_eq!(s.seen.lock().unwrap().len(), 2, "retried");
     let r = s.engine.full_scan().unwrap();
     assert_eq!(r.file_errors, 1);
 }
@@ -132,13 +135,13 @@ fn db_sources_are_watched_non_recursively_with_their_files_listed() {
 #[test]
 fn scans_are_throttled_while_the_db_keeps_changing() {
     let mut s = setup(false);
-    s.engine = std::mem::replace(&mut s.engine, Engine::new(Store::open_in_memory().unwrap(), vec![])).with_db_min_interval(std::time::Duration::from_millis(200));
+    s.engine = std::mem::replace(&mut s.engine, Engine::new(Store::open_in_memory().unwrap(), vec![])).with_db_min_interval(std::time::Duration::from_millis(100));
     s.engine.ingest_path(&s.db).unwrap();
     s.engine.ingest_path(&wal(&s.db)).unwrap(); // streaming: another write right away
     assert_eq!(s.seen.lock().unwrap().len(), 1, "second change deferred");
     assert_eq!(s.engine.scan_pending_db().unwrap().lines, 0);
     assert_eq!(s.seen.lock().unwrap().len(), 1, "still inside the interval");
-    std::thread::sleep(std::time::Duration::from_millis(250));
+    std::thread::sleep(std::time::Duration::from_millis(400));
     s.engine.scan_pending_db().unwrap();
     assert_eq!(s.seen.lock().unwrap().len(), 2, "deferred scan runs once the interval passed");
     s.engine.scan_pending_db().unwrap();
@@ -152,15 +155,16 @@ fn the_watermark_is_reset_when_the_db_path_changes() {
     let (a, b) = (dir.path().join("a.db"), dir.path().join("b.db"));
     std::fs::write(&a, b"x").unwrap();
     std::fs::write(&b, b"x").unwrap();
-    let run = |path: &Path| {
-        let batches: Batches = Arc::new(Mutex::new(vec![(vec![], 5000)]));
+    let run = |path: &Path, events: Vec<RawEvent>| {
+        let batches: Batches = Arc::new(Mutex::new(vec![(events, 5000)]));
         let seen = Arc::new(Mutex::new(Vec::new()));
         let fake = Fake { path: path.to_path_buf(), batches, seen: seen.clone(), fail: false };
-        Engine::new(Store::open(&store).unwrap(), vec![]).with_db_sources(vec![Box::new(fake)]).full_scan().unwrap();
+        let mut e = Engine::new(Store::open(&store).unwrap(), vec![]).with_db_sources(vec![Box::new(fake)]);
+        e.full_scan().unwrap();
         let v = seen.lock().unwrap().clone();
-        v
+        (v, prompt_count(&e))
     };
-    assert_eq!(run(&a), vec![None]);
-    assert_eq!(run(&a), vec![Some(5000)], "same database: continue");
-    assert_eq!(run(&b), vec![None], "another database: start over");
+    assert_eq!(run(&a, vec![session("x"), prompt("k1", "x")]), (vec![None], 1));
+    assert_eq!(run(&a, vec![]), (vec![Some(5000)], 1), "same database: continue");
+    assert_eq!(run(&b, vec![]), (vec![None], 0), "another database: start over, without the old database's rows");
 }
