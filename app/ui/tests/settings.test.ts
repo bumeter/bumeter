@@ -76,6 +76,20 @@ describe('settings', () => {
     expect(input('forecast_lead_minutes').disabled).toBe(true);
   });
 
+  it('an invalid lead time does not block saving once the forecast switch is turned off', async () => {
+    const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
+    await mountSettings(el);
+    type('forecast_lead_minutes', '0');
+    const sw = input('notify_forecast');
+    sw.checked = false; sw.dispatchEvent(new Event('change', { bubbles: true }));
+    await wait(SAVE_DEBOUNCE_MS + 100);
+    const saved = saves(f).at(-1)!.params.config;
+    expect(saved.notify.forecast).toBe(false);
+    expect(saved.notify.forecast_lead_minutes).toBe(30); // last saved value, not the invalid "0"
+    expect(input('forecast_lead_minutes').value).toBe('30');
+    expect(input('forecast_lead_minutes').getAttribute('aria-invalid')).not.toBe('true');
+  });
+
   it('lead minutes "0" is not saved and is flagged when leaving the field', async () => {
     const f = fake({ settings_get: () => hookedInfo(), save_config: () => true });
     await mountSettings(el);

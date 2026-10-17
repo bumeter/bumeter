@@ -86,3 +86,10 @@ fn paced_credit_forecast_and_guards() {
     assert_eq!(paced(0.0, 1000.0, NOW - 10 * 86_400, NOW + 86_400, NOW, 0), None, "nothing used");
     assert_eq!(paced(10.0, 1000.0, NOW - 86_400, NOW + 86_400, NOW, CREDIT_MIN_ELAPSED), None, "under 2 days");
 }
+
+#[test]
+fn paced_gives_none_once_the_limit_is_reached() {
+    assert_eq!(paced(1000.0, 1000.0, NOW - 10 * 86_400, NOW + 86_400, NOW, 0), None);
+    assert_eq!(paced(1234.5, 1000.0, NOW - 10 * 86_400, NOW + 86_400, NOW, 0), None);
+    assert_eq!(seven_day(100.0, NOW + 86_400, NOW), None);
+}

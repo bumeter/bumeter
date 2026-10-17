@@ -262,9 +262,16 @@ export async function mountSettings(el: HTMLElement) {
         h('div', { class: 'sub' }, t('set.parseErrors', { n: info.parse_errors })))),
   );
   renderLimits();
-  // The lead time only matters while forecast notifications are on.
+  // The lead time only matters while forecast notifications are on. A disabled field can't be fixed by the user,
+  // so an invalid value there falls back to the last saved one instead of blocking every save.
   const lead = inputs.get('forecast_lead_minutes')!;
-  const syncLead = () => { lead.disabled = !notify.notify_forecast.checked; };
+  const syncLead = () => {
+    lead.disabled = !notify.notify_forecast.checked;
+    if (lead.disabled && !parseField('forecast_lead_minutes', lead.value).ok) {
+      lead.value = String(info.config.notify.forecast_lead_minutes ?? 30);
+      validate('forecast_lead_minutes');
+    }
+  };
   notify.notify_forecast.addEventListener('change', syncLead);
   syncLead();
   // Leaving the screen with a pending edit: flush the save (if valid) rather than lose it.

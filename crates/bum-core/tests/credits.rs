@@ -96,3 +96,13 @@ fn credit_meter_forecasts_from_the_period_pace() {
     assert_eq!(meter(100.0).with_forecast(oct2).forecast, None, "under 2 days into the period");
     assert!(!meter(100.0).with_forecast(oct11).forecast.unwrap().at_risk, "10/day lasts past the reset");
 }
+
+#[test]
+fn credits_already_over_the_limit_get_no_forecast() {
+    use bum_core::meter::{pick_credit, ToolQuota};
+    use chrono::{Local, NaiveDate, TimeZone, Utc};
+    let now = Local.with_ymd_and_hms(2026, 10, 17, 12, 0, 0).unwrap().with_timezone(&Utc);
+    let q = ToolQuota { used: 1234.5, limit: 1000.0, resets_on: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), plan: "pro".into(), fetched_at: now.timestamp() };
+    let c = pick_credit(Some(&q), None, now, |_, _| Ok(0.0)).unwrap().expect("meter");
+    assert_eq!(c.forecast, None, "the limit is already reached: show the limited state, not 'out ~today'");
+}

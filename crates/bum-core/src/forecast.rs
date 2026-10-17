@@ -58,9 +58,10 @@ pub fn five_hour(samples: &[Sample], now: i64) -> Option<Forecast> {
 }
 
 /// Average pace since `start`: used for long windows where the recent slope swings with working hours (spec §3.2).
+/// None once the limit is reached: the "limited" state is shown instead (spec §3.3).
 pub fn paced(used: f64, limit: f64, start: i64, end: i64, now: i64, min_elapsed: i64) -> Option<Forecast> {
     let elapsed = now - start;
-    if limit <= 0.0 || used <= 0.0 || elapsed < min_elapsed.max(1) || now >= end {
+    if limit <= 0.0 || used <= 0.0 || used >= limit || elapsed < min_elapsed.max(1) || now >= end {
         return None;
     }
     Some(build(used / elapsed as f64, limit - used, now, end))
