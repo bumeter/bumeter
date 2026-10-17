@@ -6,6 +6,7 @@ use chrono::{DateTime, Datelike, Months, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::config::{Config, ToolLimit};
+use crate::forecast::{self, Forecast};
 use crate::i18n::Lang;
 use crate::insight::fmt_tokens;
 use crate::limits::{LimitState, Window};
@@ -56,6 +57,18 @@ pub struct CreditMeter {
     pub next_reset: NaiveDate,
     /// Set when the data came from the tool (rather than being computed from logs).
     pub fetched_at: Option<i64>,
+    /// When the credits run out at this period's pace; set by `with_forecast`.
+    pub forecast: Option<Forecast>,
+}
+
+impl CreditMeter {
+    /// Average-pace forecast over the current period (starts one month before `next_reset`, local midnight).
+    pub fn with_forecast(mut self, now: DateTime<Utc>) -> Self {
+        let ts = |d: NaiveDate| DateTime::parse_from_rfc3339(&crate::handlers::local_date_start(d)).ok().map(|t| t.timestamp());
+        let period = ts(self.next_reset - Months::new(1)).zip(ts(self.next_reset));
+        self.forecast = period.and_then(|(start, end)| forecast::paced(self.used, self.limit, start, end, now.timestamp(), forecast::CREDIT_MIN_ELAPSED));
+        self
+    }
 }
 
 /// Pick the source: fresh tool-reported data → user-entered quota + credits computed from logs (`log_credits(from, to)`) → none.
@@ -66,13 +79,13 @@ pub fn pick_credit(
     log_credits: impl FnOnce(&str, &str) -> rusqlite::Result<f64>,
 ) -> rusqlite::Result<Option<CreditMeter>> {
     if let Some(q) = quota.filter(|q| now.timestamp() - q.fetched_at < QUOTA_MAX_AGE_SECS && q.limit > 0.0) {
-        return Ok(Some(CreditMeter { used: q.used, limit: q.limit, next_reset: q.resets_on, fetched_at: Some(q.fetched_at) }));
+        return Ok(Some(CreditMeter { used: q.used, limit: q.limit, next_reset: q.resets_on, fetched_at: Some(q.fetched_at), forecast: None }.with_forecast(now)));
     }
     let Some((limit, reset_day)) = user.and_then(|u| u.monthly_credits.filter(|c| *c > 0.0).map(|c| (c, u.reset_day))) else { return Ok(None) };
     let today = now.with_timezone(&chrono::Local).date_naive();
     let (start, next) = credit_period(today, reset_day);
     let used = log_credits(&crate::handlers::local_date_start(start), &crate::handlers::local_date_start(next))?;
-    Ok(Some(CreditMeter { used, limit, next_reset: next, fetched_at: None }))
+    Ok(Some(CreditMeter { used, limit, next_reset: next, fetched_at: None, forecast: None }.with_forecast(now)))
 }
 
 /// Menu data: per-tool credits (only tools with a quota) and today's activity.

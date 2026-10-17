@@ -81,3 +81,18 @@ fn tool_stats_count_sessions_prompts_and_last_activity() {
     assert_eq!(kiro.last_ts.as_deref(), Some("2026-09-12T01:00:00.000Z"));
     assert_eq!(t.iter().find(|x| x.tool == "claude_code").unwrap().prompts, 2);
 }
+
+#[test]
+fn credit_meter_forecasts_from_the_period_pace() {
+    use bum_core::meter::CreditMeter;
+    use chrono::{Local, NaiveDate, TimeZone, Utc};
+    let meter = |used| CreditMeter { used, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: None, forecast: None };
+    let oct11 = Local.with_ymd_and_hms(2026, 10, 11, 0, 0, 0).unwrap().with_timezone(&Utc);
+    let f = meter(482.0).with_forecast(oct11).forecast.expect("10 days into the period");
+    assert!(f.at_risk);
+    let days = (f.hits_at.unwrap() - oct11.timestamp()) as f64 / 86_400.0;
+    assert!((10.0..11.5).contains(&days), "{days}"); // 518 left at 48.2/day ≈ 10.7 days
+    let oct2 = Local.with_ymd_and_hms(2026, 10, 2, 12, 0, 0).unwrap().with_timezone(&Utc);
+    assert_eq!(meter(100.0).with_forecast(oct2).forecast, None, "under 2 days into the period");
+    assert!(!meter(100.0).with_forecast(oct11).forecast.unwrap().at_risk, "10/day lasts past the reset");
+}

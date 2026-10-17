@@ -28,7 +28,7 @@ fn ring(pct: Option<f64>, stale: bool) -> TrayIcon {
 #[test]
 fn tray_rows_have_header_per_tool_then_metric_lines_without_bars() {
     let st = state(Some(LimitsFile { updated_at: 10_000, five_hour: Some(Window { used_percentage: 21.0, resets_at: 4_102_444_800 }), seven_day: Some(Window { used_percentage: 86.4, resets_at: 4_102_444_800 }) }), None, 10_000);
-    let credit = CreditMeter { used: 270.69, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: Some(10_000) };
+    let credit = CreditMeter { used: 270.69, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: Some(10_000), forecast: None };
     let t = render_tray(&sources(), &st, &snap(Some(credit), vec![act("claude_code", 16_200_000, 0.0, 30), act("kiro", 9_000, 12.34, 54)]), 10_000, Lang::Vi);
     assert_eq!(t.rows.len(), sources().iter().map(tray_row_count).sum::<usize>());
     assert_eq!(t.rows[0], TrayRow { tool: "claude_code".into(), text: "Claude Code".into(), icon: TrayIcon::Logo });
@@ -45,7 +45,7 @@ fn tray_rows_have_header_per_tool_then_metric_lines_without_bars() {
     }
     assert_eq!(t.today, "Hôm nay: Claude Code 16.2M token · Kiro 12.3 credit");
     assert_eq!(t.title.as_deref(), Some("86%"));
-    let en = render_tray(&sources(), &st, &snap(Some(CreditMeter { used: 270.69, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: None }), vec![]), 10_000, Lang::En);
+    let en = render_tray(&sources(), &st, &snap(Some(CreditMeter { used: 270.69, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: None, forecast: None }), vec![]), 10_000, Lang::En);
     assert!(en.rows[1].text.starts_with("5 hours · 21% · reset "), "{}", en.rows[1].text);
     assert_eq!(en.rows[4].text, "Month · 27% · 271/1000 credits · reset Nov 1");
     for r in &t.rows {
@@ -56,7 +56,7 @@ fn tray_rows_have_header_per_tool_then_metric_lines_without_bars() {
 #[test]
 fn stale_windows_and_old_kiro_usage_are_marked_stale_and_keep_notes() {
     let st = state(Some(LimitsFile { updated_at: 0, five_hour: Some(Window { used_percentage: 78.0, resets_at: 4_102_444_800 }), seven_day: None }), None, 7_200);
-    let credit = CreditMeter { used: 100.0, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: Some(7_200 - 25 * 60) };
+    let credit = CreditMeter { used: 100.0, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: Some(7_200 - 25 * 60), forecast: None };
     let t = render_tray(&sources(), &st, &snap(Some(credit), vec![]), 7_200, Lang::Vi);
     assert!(t.rows[1].text.starts_with("5 giờ · 78% · reset ") && t.rows[1].text.ends_with(" · cập nhật 2 giờ trước"), "{}", t.rows[1].text);
     assert_eq!(t.rows[1].icon, ring(Some(78.0), true));
@@ -83,7 +83,7 @@ fn title_is_highest_percent_rounded_including_over_limit() {
     let st = state(Some(LimitsFile { updated_at: 0, five_hour: Some(Window { used_percentage: 12.6, resets_at: 4_102_444_800 }), seven_day: None }), None, 0);
     let t = render_tray(&sources(), &st, &snap(None, vec![]), 0, Lang::Vi);
     assert_eq!(t.title.as_deref(), Some("13%"));
-    let credit = CreditMeter { used: 1234.5, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 15).unwrap(), fetched_at: None };
+    let credit = CreditMeter { used: 1234.5, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 15).unwrap(), fetched_at: None, forecast: None };
     let t = render_tray(&sources(), &st, &snap(Some(credit), vec![]), 0, Lang::Vi);
     assert_eq!(t.title.as_deref(), Some("123%"));
 }
