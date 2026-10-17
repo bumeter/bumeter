@@ -172,7 +172,7 @@ export const transport = {
       case 'skills:plan': return { id: 'mock', description: '• move ~/.claude/skills/pj-debug → ~/.claude/skills-disabled/pj-debug\nTakes effect in the next Claude Code session.' };
       case 'skills:apply': return { id: 'op', ts: new Date().toISOString(), op: 'disable', description: '', undone: false };
       case 'skills:undo': return true;
-      case 'settings:get': return { config: { anomaly_multiplier: 3, context_threshold: 300000, quota_thresholds: [70, 90], notify: { quota: true, blocked: true, anomaly: true, context: true }, claude_projects_dir: null }, statusline: { kind: 'custom', command: 'bash ~/.claude/statusline-command.sh' }, data_dir: '~/.local/share/bumeter', parse_errors: 0 };
+      case 'settings:get': return { config: { anomaly_multiplier: 3, context_threshold: 300000, quota_thresholds: [70, 90], notify: { quota: true, blocked: true, anomaly: true, context: true, forecast: true, forecast_lead_minutes: 30 }, claude_projects_dir: null }, statusline: { kind: 'custom', command: 'bash ~/.claude/statusline-command.sh' }, data_dir: '~/.local/share/bumeter', parse_errors: 0 };
       case 'settings:statusline_plan': return { description: 'Will change statusLine.command in ~/.claude/settings.json', noop: false };
       case 'settings:statusline_apply': case 'settings:statusline_undo': case 'settings:save_config': return true;
       default: throw new Error(`mock: no such method ${method}`);

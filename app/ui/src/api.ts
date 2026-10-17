@@ -29,7 +29,7 @@ export interface Config {
   language?: 'vi' | 'en';
   theme?: 'system' | 'light' | 'dark';
   anomaly_multiplier: number; context_threshold: number; quota_thresholds: number[];
-  notify: { quota: boolean; blocked: boolean; anomaly: boolean; context: boolean }; claude_projects_dir: string | null;
+  notify: { quota: boolean; blocked: boolean; anomaly: boolean; context: boolean; forecast?: boolean; forecast_lead_minutes?: number }; claude_projects_dir: string | null;
   /** Per-tool user-entered limits (id → limit); `monthly_credits` null = not tracked. */
   tool_limits?: Record<string, { monthly_credits: number | null; reset_day: number }>;
 }
