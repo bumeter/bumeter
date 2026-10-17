@@ -30,13 +30,13 @@ const MID_R: f64 = 12.5;
 const HALF_W: f64 = 2.5;
 const SS: usize = 4;
 
-/// Quantize % to an integer 0–100 (>100 → full) and pick the color: stale/missing → gray, ≥ threshold → red.
-pub fn ring_key(pct: Option<f64>, stale: bool, threshold: u8) -> (u8, RingTone) {
+/// Quantize % to an integer 0–100 (>100 → full) and pick the color: stale/missing → gray, ≥ threshold or at risk → red.
+pub fn ring_key(pct: Option<f64>, stale: bool, threshold: u8, at_risk: bool) -> (u8, RingTone) {
     let p = pct.filter(|p| !p.is_nan()).unwrap_or(0.0);
     let q = p.round().clamp(0.0, 100.0) as u8;
     let tone = if stale || pct.is_none() {
         RingTone::Stale
-    } else if p >= threshold as f64 {
+    } else if p >= threshold as f64 || at_risk {
         RingTone::Alert
     } else {
         RingTone::Normal

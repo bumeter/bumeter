@@ -65,8 +65,8 @@ fn row_icon(icon: &TrayIcon, threshold: u8) -> RowIcon {
     match *icon {
         TrayIcon::None => RowIcon::Empty,
         TrayIcon::Logo => RowIcon::Logo,
-        TrayIcon::Ring { pct, stale } => {
-            let (p, tone) = meter::ring_key(pct, stale, threshold);
+        TrayIcon::Ring { pct, stale, at_risk } => {
+            let (p, tone) = meter::ring_key(pct, stale, threshold, at_risk);
             RowIcon::Ring(p, tone)
         }
     }
@@ -150,6 +150,7 @@ pub fn face_input(store: &Store, cfg: &Config, limits: &LimitState, today_tokens
         minutes_since_anomaly: minutes_since(store.latest_anomaly_ts(None).ok().flatten(), now),
         today_tokens,
         avg_daily_tokens,
+        quota_at_risk: limits.at_risk(),
     }
 }
 
@@ -193,14 +194,14 @@ fn block_bar(pct: Option<f64>) -> String {
     format!("{}{}", "▰".repeat(on), "▱".repeat(N - on))
 }
 
-/// Color dot by usage level (menu text can't be colored, emoji can): below threshold 1 green, from threshold 1 orange,
-/// from threshold 2 red; stale or missing data is white.
-fn level_dot(pct: Option<f64>, stale: bool, [t1, t2]: [u8; 2]) -> &'static str {
+/// Color dot by usage level (menu text can't be colored, emoji can): below threshold 1 green, from threshold 1 or at risk
+/// (forecast limit before the reset) orange, from threshold 2 red; stale or missing data is white.
+fn level_dot(pct: Option<f64>, stale: bool, at_risk: bool, [t1, t2]: [u8; 2]) -> &'static str {
     match pct {
         Some(_) if stale => "⚪",
         None => "⚪",
         Some(p) if p >= f64::from(t2) => "🔴",
-        Some(p) if p >= f64::from(t1) => "🟠",
+        Some(p) if p >= f64::from(t1) || at_risk => "🟠",
         Some(_) => "🟢",
     }
 }
@@ -213,7 +214,7 @@ fn row_label(text: &str, icon: &TrayIcon, thresholds: [u8; 2]) -> String {
     }
     match icon {
         TrayIcon::Logo | TrayIcon::None => text.to_string(),
-        TrayIcon::Ring { pct, stale } => format!("{} {}  {text}", block_bar(*pct), level_dot(*pct, *stale, thresholds)),
+        TrayIcon::Ring { pct, stale, at_risk } => format!("{} {}  {text}", block_bar(*pct), level_dot(*pct, *stale, *at_risk, thresholds)),
     }
 }
 
@@ -315,7 +316,7 @@ mod tests {
         if !cfg!(target_os = "linux") {
             return;
         }
-        let ring = |p: f64| TrayIcon::Ring { pct: Some(p), stale: false };
+        let ring = |p: f64| TrayIcon::Ring { pct: Some(p), stale: false, at_risk: false };
         let t = [70, 90];
         assert_eq!(row_label("5 hours · 42% · reset 13:10", &ring(42.0), t), "▰▰▰▰▱▱▱▱▱▱ 🟢  5 hours · 42% · reset 13:10");
         // Color by threshold: < 70 green, 70–89 orange, ≥ 90 red.
@@ -330,11 +331,22 @@ mod tests {
         assert_eq!(row_label("x", &ring(0.4), t), "▰▱▱▱▱▱▱▱▱▱ 🟢  x");
         assert_eq!(row_label("x", &ring(99.6), t), "▰▰▰▰▰▰▰▰▰▱ 🔴  x");
         // Stale or missing data: white dot.
-        assert_eq!(row_label("x", &TrayIcon::Ring { pct: Some(95.0), stale: true }, t), "▰▰▰▰▰▰▰▰▰▱ ⚪  x");
-        assert_eq!(row_label("x", &TrayIcon::Ring { pct: None, stale: false }, t), "▱▱▱▱▱▱▱▱▱▱ ⚪  x");
+        assert_eq!(row_label("x", &TrayIcon::Ring { pct: Some(95.0), stale: true, at_risk: false }, t), "▰▰▰▰▰▰▰▰▰▱ ⚪  x");
+        assert_eq!(row_label("x", &TrayIcon::Ring { pct: None, stale: false, at_risk: false }, t), "▱▱▱▱▱▱▱▱▱▱ ⚪  x");
         // Rows without a % and tool titles: kept as-is.
         assert_eq!(row_label("Kiro · today", &TrayIcon::None, t), "Kiro · today");
         assert_eq!(row_label("Kiro", &TrayIcon::Logo, t), "Kiro");
+    }
+
+    #[test]
+    fn at_risk_row_is_orange_below_the_first_threshold() {
+        if !cfg!(target_os = "linux") {
+            return;
+        }
+        let t = [70, 90];
+        assert_eq!(row_label("x", &TrayIcon::Ring { pct: Some(40.0), stale: false, at_risk: true }, t), "▰▰▰▰▱▱▱▱▱▱ 🟠  x");
+        assert_eq!(row_label("x", &TrayIcon::Ring { pct: Some(95.0), stale: false, at_risk: true }, t), "▰▰▰▰▰▰▰▰▰▱ 🔴  x");
+        assert_eq!(row_label("x", &TrayIcon::Ring { pct: Some(40.0), stale: true, at_risk: true }, t), "▰▰▰▰▱▱▱▱▱▱ ⚪  x");
     }
 
     #[test]
@@ -368,8 +380,8 @@ mod tests {
         let mut cfg = Config::default();
         assert_eq!(first_threshold(&cfg), 70);
         cfg.quota_thresholds = vec![80, 95];
-        assert_eq!(row_icon(&TrayIcon::Ring { pct: Some(75.2), stale: false }, first_threshold(&cfg)), RowIcon::Ring(75, RingTone::Normal));
-        assert_eq!(row_icon(&TrayIcon::Ring { pct: Some(75.2), stale: false }, 70), RowIcon::Ring(75, RingTone::Alert));
+        assert_eq!(row_icon(&TrayIcon::Ring { pct: Some(75.2), stale: false, at_risk: false }, first_threshold(&cfg)), RowIcon::Ring(75, RingTone::Normal));
+        assert_eq!(row_icon(&TrayIcon::Ring { pct: Some(75.2), stale: false, at_risk: false }, 70), RowIcon::Ring(75, RingTone::Alert));
         cfg.quota_thresholds.clear();
         assert_eq!(first_threshold(&cfg), 70);
         let img = ring_image(21, RingTone::Normal);

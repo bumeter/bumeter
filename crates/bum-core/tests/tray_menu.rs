@@ -22,7 +22,7 @@ fn act(tool: &str, tokens: u64, credits: f64, prompts: u64) -> ToolActivity {
 }
 
 fn ring(pct: Option<f64>, stale: bool) -> TrayIcon {
-    TrayIcon::Ring { pct, stale }
+    TrayIcon::Ring { pct, stale, at_risk: false }
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn tray_rows_have_header_per_tool_then_metric_lines_without_bars() {
     assert_eq!(t.rows[3], TrayRow { tool: "kiro".into(), text: "Kiro".into(), icon: TrayIcon::Logo });
     assert_eq!(t.rows[4].text, "Tháng · 27% · 271/1000 credit · reset 01/11");
     assert_eq!(t.rows[4].tool, "kiro");
-    assert!(matches!(t.rows[4].icon, TrayIcon::Ring { pct: Some(p), stale: false } if (p - 27.069).abs() < 1e-9));
+    assert!(matches!(t.rows[4].icon, TrayIcon::Ring { pct: Some(p), stale: false, .. } if (p - 27.069).abs() < 1e-9));
     for r in &t.rows {
         assert!(!r.text.contains('▰') && !r.text.contains('▱'), "{}", r.text);
     }
@@ -90,13 +90,48 @@ fn title_is_highest_percent_rounded_including_over_limit() {
 
 #[test]
 fn ring_key_quantizes_and_picks_tone_by_threshold_and_staleness() {
-    assert_eq!(ring_key(Some(21.4), false, 70), (21, RingTone::Normal));
-    assert_eq!(ring_key(Some(69.6), false, 70), (70, RingTone::Normal), "compares the threshold against the real number");
-    assert_eq!(ring_key(Some(70.0), false, 70), (70, RingTone::Alert));
-    assert_eq!(ring_key(Some(86.0), false, 70), (86, RingTone::Alert));
-    assert_eq!(ring_key(Some(150.0), false, 70), (100, RingTone::Alert));
-    assert_eq!(ring_key(Some(-3.0), false, 70), (0, RingTone::Normal));
-    assert_eq!(ring_key(Some(f64::NAN), false, 70), (0, RingTone::Normal));
-    assert_eq!(ring_key(Some(86.0), true, 70), (86, RingTone::Stale));
-    assert_eq!(ring_key(None, false, 70), (0, RingTone::Stale));
+    assert_eq!(ring_key(Some(21.4), false, 70, false), (21, RingTone::Normal));
+    assert_eq!(ring_key(Some(69.6), false, 70, false), (70, RingTone::Normal), "compares the threshold against the real number");
+    assert_eq!(ring_key(Some(70.0), false, 70, false), (70, RingTone::Alert));
+    assert_eq!(ring_key(Some(86.0), false, 70, false), (86, RingTone::Alert));
+    assert_eq!(ring_key(Some(150.0), false, 70, false), (100, RingTone::Alert));
+    assert_eq!(ring_key(Some(-3.0), false, 70, false), (0, RingTone::Normal));
+    assert_eq!(ring_key(Some(f64::NAN), false, 70, false), (0, RingTone::Normal));
+    assert_eq!(ring_key(Some(86.0), true, 70, false), (86, RingTone::Stale));
+    assert_eq!(ring_key(None, false, 70, false), (0, RingTone::Stale));
+}
+
+#[test]
+fn at_risk_rows_show_out_time_and_alert_ring() {
+    use bum_core::forecast::Sample;
+    let now = 1_000_000;
+    let reset = now + 4 * 3600;
+    let file = LimitsFile { updated_at: now, five_hour: Some(Window { used_percentage: 40.0, resets_at: reset }), seven_day: None };
+    let samples: Vec<Sample> = (0..=6).map(|i| Sample { ts: now - 1800 + i * 300, pct: 28.0 + 2.0 * i as f64, resets_at: reset }).collect();
+    let st = state(Some(file), None, now).with_forecast(&samples, now);
+    let t = render_tray(&sources(), &st, &snap(None, vec![]), now, Lang::Vi);
+    assert!(t.rows[1].text.starts_with("5 giờ · 40% · hết ~"), "{}", t.rows[1].text);
+    assert!(t.rows[1].text.contains(" · reset "));
+    assert_eq!(t.rows[1].icon, TrayIcon::Ring { pct: Some(40.0), stale: false, at_risk: true });
+    let en = render_tray(&sources(), &st, &snap(None, vec![]), now, Lang::En);
+    assert!(en.rows[1].text.starts_with("5 hours · 40% · out ~"), "{}", en.rows[1].text);
+}
+
+#[test]
+fn at_risk_credit_row_shows_out_date() {
+    let now = 1_000_000;
+    let f = bum_core::forecast::Forecast { rate_per_hour: 2.0, hits_at: Some(now + 86_400), resets_at: now + 10 * 86_400, at_risk: true };
+    let credit = CreditMeter { used: 482.0, limit: 1000.0, next_reset: NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(), fetched_at: None, forecast: Some(f) };
+    let st = state(None, None, now);
+    let t = render_tray(&sources(), &st, &snap(Some(credit), vec![]), now, Lang::Vi);
+    assert!(t.rows[4].text.contains("credit · hết ~"), "{}", t.rows[4].text);
+    assert!(t.rows[4].text.ends_with("reset 01/11"), "{}", t.rows[4].text);
+    assert!(matches!(t.rows[4].icon, TrayIcon::Ring { at_risk: true, .. }));
+}
+
+#[test]
+fn ring_turns_alert_when_at_risk_unless_stale() {
+    assert_eq!(ring_key(Some(40.0), false, 70, true), (40, RingTone::Alert));
+    assert_eq!(ring_key(Some(40.0), true, 70, true), (40, RingTone::Stale));
+    assert_eq!(ring_key(None, false, 70, true), (0, RingTone::Stale));
 }
