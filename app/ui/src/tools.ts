@@ -73,9 +73,9 @@ export function toolTag(id: string | null | undefined): HTMLElement {
   return h('span', { class: 'ttag', 'data-tool': d.id, style: `--tc:${d.color}`, title: d.label }, glyph(d.id), d.label);
 }
 
-/** `claude-opus-5-5` → `opus-5-5`, `kiro:claude-opus-4.6` → `opus-4.6`. */
+/** `claude-opus-5-5` → `opus-5-5`, `kiro:claude-opus-4.6` → `opus-4.6`, `opencode:deepseek/deepseek-v4.1-flash` → `deepseek-v4.1-flash`. */
 export function shortModel(m: string): string {
-  return m.replace(/^kiro:/, '').replace(/^claude-/, '');
+  return m.replace(/^kiro:/, '').replace(/^opencode:[^/]*\//, '').replace(/^claude-/, '');
 }
 
 /** Model tag; the colored dot shows which tool the model belongs to. */

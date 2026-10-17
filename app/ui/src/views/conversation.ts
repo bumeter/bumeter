@@ -86,7 +86,8 @@ export async function mountConversation(el: HTMLElement) {
         cell(t('turn.calls'), String(dd.calls.length)),
         cell(d.realTokens ? t('turn.ctxStart') : t('turn.ctxStartEst'), fmtTokens(r.stats.context_at_start), r.stats.context_at_start > CONTEXT_THRESHOLD ? 'red' : undefined),
         d.realTokens ? cell(t('turn.reread'), `${(dd.reread_share * 100).toFixed(1)}%`) : cell(t('turn.credits'), fmtCredits(r.stats.credits)),
-        d.realTokens ? cell(t('turn.output'), fmtTokens(r.stats.usage.output), 'green') : cell(t('turn.duration'), fmtDuration(dd.duration_secs))) : null,
+        d.realTokens ? cell(t('turn.output'), fmtTokens(r.stats.usage.output), 'green') : cell(t('turn.duration'), fmtDuration(dd.duration_secs)),
+        r.stats.usage.reasoning ? cell(t('turn.reasoning'), fmtTokens(r.stats.usage.reasoning)) : null) : null,
       dd && d.realTokens && dd.calls.length > 1 ? callsChart(dd.calls) : null,
       why ? h('div', { class: 'callout why' }, bum('worry', 28), h('div', {}, h('b', {}, `${t('why.title')} `), why)) : null,
       editing

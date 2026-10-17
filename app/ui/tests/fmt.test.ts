@@ -52,3 +52,12 @@ describe('fmt', () => {
     expect(heat(null)).toBe('');
   });
 });
+
+describe('totalOf', () => {
+  it('counts reasoning tokens when present', async () => {
+    const { totalOf } = await import('../src/fmt');
+    const u = { input: 1, cache_write_5m: 2, cache_write_1h: 3, cache_read: 4, output: 5 };
+    expect(totalOf(u)).toBe(15);
+    expect(totalOf({ ...u, reasoning: 10 })).toBe(25);
+  });
+});

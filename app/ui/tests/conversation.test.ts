@@ -40,6 +40,25 @@ beforeEach(async () => {
 });
 
 describe('conversation detail', () => {
+  it('shows a reasoning cell only for turns that report reasoning tokens', async () => {
+    const withReasoning = () => {
+      const r = turns()[0];
+      return { ...r, stats: { ...r.stats, usage: { ...r.stats.usage, reasoning: 25_000 } } };
+    };
+    fake(handlers({
+      conversation_turns: () => ({ title: 't', turns: [withReasoning(), turns()[1]] }),
+      prompt_detail: (p: any) => ({ ...detail(p.key), row: p.key === 'p1' ? withReasoning() : turns()[1] }),
+    }));
+    await mountConversation(el);
+    await flush();
+    (el.querySelector('[data-key="p1"] .turn-head') as HTMLButtonElement).click();
+    await flush(); await flush();
+    expect(el.querySelector('[data-key="p1"] .exp .cells')?.textContent).toContain('Suy luận25K');
+    (el.querySelector('[data-key="p2"] .turn-head') as HTMLButtonElement).click();
+    await flush(); await flush();
+    expect(el.querySelector('[data-key="p2"] .exp .cells')?.textContent).not.toContain('Suy luận');
+  });
+
   it('title, turn list with a preview of the last answer, cost-level colors', async () => {
     fake(handlers());
     await mountConversation(el);

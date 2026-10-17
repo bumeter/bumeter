@@ -88,6 +88,7 @@ export const vi = {
   'turn.ctxStartEst': 'Context (ước lượng)',
   'turn.reread': 'Đọc lại context',
   'turn.output': 'Output thật',
+  'turn.reasoning': 'Suy luận',
   'turn.credits': 'Credit',
   'turn.duration': 'Thời gian',
   'why.title': 'Vì sao tốn?',

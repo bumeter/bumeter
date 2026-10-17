@@ -89,6 +89,7 @@ export const en: Record<keyof typeof vi, string> = {
   'turn.ctxStartEst': 'Context (estimated)',
   'turn.reread': 'Context re-read',
   'turn.output': 'Real output',
+  'turn.reasoning': 'Reasoning',
   'turn.credits': 'Credits',
   'turn.duration': 'Duration',
   'why.title': 'Why so costly?',

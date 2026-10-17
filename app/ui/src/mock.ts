@@ -60,6 +60,7 @@ function listConversations(p: any): ConversationList {
 const sources: Source[] = [
   { info: { id: 'claude_code', label: 'Claude Code', letter: 'C', color: '#d77655', icon: 'claude_code.svg', real_tokens: true, composition: true, limits: true, credits: false, transcript: true }, root: '~/.claude/projects', found: true, sessions: 214, prompts: 380, last_ts: '2026-09-11T04:40:00Z' },
   { info: { id: 'kiro', label: 'Kiro', letter: 'K', color: '#9046ff', icon: 'kiro.svg', real_tokens: false, composition: false, limits: false, credits: true, transcript: true }, root: '~/.kiro/sessions/cli', found: true, sessions: 164, prompts: 215, last_ts: '2026-09-11T09:12:00Z' },
+  { info: { id: 'opencode', label: 'OpenCode', letter: 'O', color: '#4b8bbe', icon: null, real_tokens: true, composition: false, limits: false, credits: false, transcript: false }, root: '~/.local/share/opencode/opencode.db', found: true, sessions: 84, prompts: 1171, last_ts: '2026-09-11T08:30:00Z' },
 ];
 
 function detail(key: string): PromptDetail {

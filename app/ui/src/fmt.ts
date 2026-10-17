@@ -61,8 +61,8 @@ export function fmtCredits(n: number): string {
   return t('credits', { n: n.toFixed(n >= 10 ? 0 : 1) });
 }
 
-export function totalOf(u: { input: number; cache_write_5m: number; cache_write_1h: number; cache_read: number; output: number }): number {
-  return u.input + u.cache_write_5m + u.cache_write_1h + u.cache_read + u.output;
+export function totalOf(u: { input: number; cache_write_5m: number; cache_write_1h: number; cache_read: number; output: number; reasoning?: number }): number {
+  return u.input + u.cache_write_5m + u.cache_write_1h + u.cache_read + u.output + (u.reasoning ?? 0);
 }
 
 /** Cost level vs the median: red ≥5×, orange 2–5× (spec section 4.4). */

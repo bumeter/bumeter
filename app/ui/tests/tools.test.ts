@@ -40,3 +40,13 @@ describe('tool logo', () => {
     expect(glyph('kiro').querySelector('img')).toBeNull();
   });
 });
+
+describe('shortModel', () => {
+  it('strips tool prefixes and the OpenCode provider', async () => {
+    const { shortModel } = await import('../src/tools');
+    expect(shortModel('claude-opus-5-5')).toBe('opus-5-5');
+    expect(shortModel('kiro:claude-opus-4.6')).toBe('opus-4.6');
+    expect(shortModel('opencode:deepseek/deepseek-v4.1-flash')).toBe('deepseek-v4.1-flash');
+    expect(shortModel('opencode:anthropic/claude-sonnet-5')).toBe('sonnet-5');
+  });
+});

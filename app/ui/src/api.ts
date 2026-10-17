@@ -1,7 +1,8 @@
 // The UI's single core-call layer. Under Tauri it uses IPC; outside Tauri (browser preview) it uses mock data.
 // M8 (VS Code) only needs to swap the transport here.
 
-export interface Usage { input: number; cache_write_5m: number; cache_write_1h: number; cache_read: number; output: number }
+/** `reasoning`: tokens a tool reports separately (OpenCode), billed like output; absent/0 for Claude Code and Kiro. */
+export interface Usage { input: number; cache_write_5m: number; cache_write_1h: number; cache_read: number; output: number; reasoning?: number }
 export interface PromptStats {
   key: string; tool: string; credits: number; models: string[]; session_id: string; project: string; ts: string; text: string; interrupted: boolean;
   usage: Usage; api_calls: number; context_at_start: number; last_call_ts: string | null;
