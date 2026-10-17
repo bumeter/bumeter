@@ -27,6 +27,9 @@ Everything is read from your own machine. Nothing is uploaded.
   Kiro
   ▰▰▰▱▱▱▱▱▱▱ 🟢  Month · 27% · 271/1000 credits · reset Nov 1
   ```
+- **Limit forecast.** When your current pace would hit the 5-hour, 7-day or monthly limit before it resets,
+  the tray, `bum status` and the app show when (`out ~14:20`), Bum gets worried, and you get one notification
+  (lead time in Settings).
 - **Overview** for today, 7, 30 or 90 days: tokens compared with the previous period,
   tokens per day, costliest projects and models, and suggestions from Bum
   (unusually costly turns, a project eating most of the budget, skills that cost tokens but are never used).
