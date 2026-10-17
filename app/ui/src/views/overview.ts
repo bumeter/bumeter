@@ -1,6 +1,6 @@
 // Overview: 3 cards (Tokens + Bum, Turns, Conversations), tokens per day, "Bum suggests", projects and models. Scoped to the selected tool.
 import { api } from '../api';
-import type { DayStat, Forecast, LimitState, ModelStat, ProjectStat, SidebarCounts, SkillReport, ToolQuota, Window } from '../api';
+import type { DayStat, Effect, Forecast, LimitState, ModelStat, ProjectStat, SidebarCounts, SkillReport, ToolQuota, Window } from '../api';
 import { bum } from '../components/bum';
 import { bumMood, EMPTY_BUM_INFO, loadBumInfo } from '../components/bum-data';
 import type { BumInfo } from '../components/bum-data';
@@ -87,8 +87,10 @@ export async function mountOverview(el: HTMLElement) {
   let info: BumInfo = EMPTY_BUM_INFO;
   /** Number of conversations with turns in the selected range, per tool. */
   let convCounts: Record<string, number> = {};
+  let effect: Effect | null = null;
   let seq = 0;
   let convSeq = 0;
+  let effSeq = 0;
 
   const go = (filter: object) => update({ view: 'conversations', filter: { tool: state.scope, ...filter }, conversation: null, turn: null });
 
@@ -165,6 +167,31 @@ export async function mountOverview(el: HTMLElement) {
             h('button', { class: 'btn', type: 'button', onclick: () => update({ view: 'settings' }) }, t('ov.quotaNoneAction')))]));
   };
 
+  /**
+   * Effectiveness: did the tokens produce a result? Behavioural proxies only — a turn the user cut
+   * off, a turn the user immediately corrected, a context overflow. No model is called, so this
+   * costs no tokens, and it says nothing about the *quality* of an answer.
+   */
+  const effectPanel = (): HTMLElement => {
+    const head = h('div', { class: 'section-title' }, h('span', {}, t('ov.effect')), h('span', {}, t('ov.effectRange', { n: range })));
+    if (!effect || effect.turns === 0) {
+      return h('div', { class: 'panel ov-effect', 'data-empty': '1' }, head, h('div', { class: 'empty' }, t('ov.effectNone')));
+    }
+    const row = (label: string, n: number) => h('div', { class: 'eff-row' }, h('span', { class: 'name' }, label), h('span', { class: 'num' }, String(n)));
+    const worst = effect.worst_projects[0];
+    return h('div', { class: 'panel ov-effect' }, head,
+      h('div', { class: 'eff-head' },
+        h('span', { class: 'eff-pct num' }, `${effect.waste_pct.toFixed(1)}%`),
+        h('span', { class: 'sub' }, t('ov.effectHead', { wasted: fmtTokens(effect.wasted_tokens), total: fmtTokens(effect.total_tokens) }))),
+      row(t('ov.effectInterrupted'), effect.interrupted_turns),
+      row(t('ov.effectRework'), effect.rework_turns),
+      row(t('ov.effectCompactions'), effect.compactions),
+      worst ? h('div', { class: 'eff-worst' }, t('ov.effectWorst', { project: worst.project, tokens: fmtTokens(worst.wasted) })) : null,
+      h('div', { class: 'eff-actions' },
+        h('button', { class: 'btn', type: 'button', onclick: (() => go({ quick: 'interrupted' })) as EventListener }, t('ov.effectSeeInterrupted'))),
+      h('p', { class: 'sub eff-note' }, t('ov.effectNote')));
+  };
+
   const render = () => {
     const inRange = days.filter((d) => d.day >= daysAgo(new Date(), range - 1));
     const tokens = inRange.reduce((n, d) => n + d.tokens, 0);
@@ -186,7 +213,7 @@ export async function mountOverview(el: HTMLElement) {
     el.replaceChildren(
       h('div', { class: 'toolbar' }, h('h1', {}, t('nav.overview')), h('span', { class: 'spacer' }),
         h('div', { class: 'segmented', role: 'group', 'aria-label': t('filter.range') },
-          ...RANGES.map((r) => h('button', { 'data-range': r, 'aria-pressed': String(r === range), onclick: (() => { range = r; render(); void loadConvs(); }) as EventListener },
+          ...RANGES.map((r) => h('button', { 'data-range': r, 'aria-pressed': String(r === range), onclick: (() => { range = r; render(); void loadConvs(); void loadEffect(); }) as EventListener },
             r === 1 ? t('range.today') : r === 7 ? t('range.7d') : t('range.nd', { n: r }))))),
       toolTabs(),
       h('div', { class: 'scroll pad overview' }, ...compact([
@@ -200,6 +227,7 @@ export async function mountOverview(el: HTMLElement) {
             h('div', { class: 'ov-card-body' }, h('div', { class: 'lbl' }, t('nav.conversations')), h('div', { class: 'big num' }, String(convs)),
               state.scope ? null : h('div', { class: 'sub' }, sources.filter((s) => (convCounts[s.info.id] ?? 0) > 0).map((s) => `${s.info.label} ${convCounts[s.info.id]}`).join(' · '))))),
         quotaPanel(),
+        effectPanel(),
         h('div', { class: 'ov-mid' },
           h('div', { class: 'panel' },
             h('div', { class: 'section-title' }, h('span', {}, t('ov.byDay')), h('span', {}, t('ov.byDayHint'))),
@@ -243,16 +271,26 @@ export async function mountOverview(el: HTMLElement) {
     render();
   };
 
+  /** Only the effectiveness panel changes with the range, so it is refreshed without a full reload. */
+  const loadEffect = async () => {
+    const my = ++effSeq;
+    const e = await api.effectiveness(range, state.scope ?? undefined).catch(() => null);
+    if (my !== effSeq) return;
+    effect = e;
+    render();
+  };
+
   const load = async () => {
     const my = ++seq;
     const tool = state.scope;
-    const [d, p, m, c, rep, lim, bi, q] = await Promise.all([
+    const [d, p, m, c, rep, lim, bi, q, eff] = await Promise.all([
       api.dayStats(tool), api.projectStats(tool), api.modelStats(), api.sidebarCounts(),
       api.skills(false).catch(() => null), api.limitState().catch(() => null), loadBumInfo(tool),
       api.settings().then((s) => s.tool_quotas ?? null).catch(() => null),
+      api.effectiveness(range, tool).catch(() => null),
     ]);
     if (my !== seq) return;
-    days = d; projects = p; models = m.filter((x) => !tool || x.tool === tool); counts = c; report = rep; limits = lim; info = bi; quotas = q;
+    days = d; projects = p; models = m.filter((x) => !tool || x.tool === tool); counts = c; report = rep; limits = lim; info = bi; quotas = q; effect = eff;
     render();
     await loadConvs();
   };
@@ -261,6 +299,6 @@ export async function mountOverview(el: HTMLElement) {
   const offData = await api.onDataChanged(() => void load());
   // The host pushes a new LimitState whenever the statusline JSON changes: repaint the quota panel without a full reload.
   const offLimits = await api.onLimitsChanged((l) => { limits = l; render(); });
-  cleanup = () => { seq = Number.MAX_SAFE_INTEGER; convSeq = Number.MAX_SAFE_INTEGER; unsub(); offData(); offLimits(); };
+  cleanup = () => { seq = Number.MAX_SAFE_INTEGER; convSeq = Number.MAX_SAFE_INTEGER; effSeq = Number.MAX_SAFE_INTEGER; unsub(); offData(); offLimits(); };
   await load();
 }
