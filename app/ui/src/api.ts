@@ -91,6 +91,22 @@ export interface Source { info: SourceInfo; root: string; found: boolean; sessio
 export type TranscriptItem = { kind: 'text'; text: string } | { kind: 'tool'; id: string; name: string; input: string; output: string | null; error: boolean };
 export interface TranscriptTurn { key: string; ts: string; question: string; items: TranscriptItem[]; interrupted: boolean }
 
+/** Effectiveness over a window: turns the user cancelled or immediately corrected, and context overflows. */
+export interface ProjectWaste { project: string; wasted: number }
+
+export interface Effect {
+  turns: number;
+  sessions: number;
+  total_tokens: number;
+  interrupted_turns: number;
+  rework_turns: number;
+  waste_turns: number;
+  wasted_tokens: number;
+  waste_pct: number;
+  compactions: number;
+  worst_projects: ProjectWaste[];
+}
+
 type Transport = {
   call: (method: string, params?: unknown) => Promise<unknown>;
   listen: (event: string, cb: (payload: unknown) => void) => Promise<() => void>;
@@ -136,6 +152,7 @@ export const api = {
   sidebarCounts: () => call<SidebarCounts>('sidebar_counts'),
   todaySummary: () => call<TodaySummary>('today_summary'),
   limitState: () => call<LimitState>('limit_state'),
+  effectiveness: (days: number, tool?: string) => call<Effect>('effectiveness', { days, tool }),
   setNote: (key: string, starred: boolean, note: string) => call<boolean>('set_note', { key, starred, note }),
   settings: () => call<SettingsInfo>('settings:get'),
   statuslinePlan: () => call<{ description: string; noop: boolean }>('settings:statusline_plan'),

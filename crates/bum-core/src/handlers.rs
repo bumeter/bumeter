@@ -103,6 +103,15 @@ pub fn limit_state(ctx: &HandlerCtx, now: chrono::DateTime<chrono::Utc>) -> rusq
     Ok(crate::limits::state(file, ctx.store.latest_rate_limit()?, now).with_forecast(&samples, now))
 }
 
+/// "Did the tokens produce a result?" over `[from, to)`: turns the user interrupted, turns the
+/// user immediately corrected, and context overflows. Behavioural proxies computed from the local
+/// history — no model calls (see `crate::effect`).
+pub fn effectiveness(store: &Store, tool: Option<&str>, from: &str, to: &str) -> rusqlite::Result<crate::effect::Effect> {
+    let items = store.prompt_items_for(None, None, Some(from), Some(to), tool)?;
+    let compactions = store.compaction_count_between(from, to, tool)?;
+    Ok(crate::effect::summarize(&items, compactions))
+}
+
 pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now: chrono::DateTime<chrono::Utc>) -> Result<serde_json::Value, String> {
     let to_value = |r: Result<serde_json::Value, rusqlite::Error>| r.map_err(|e| e.to_string());
     match method {
@@ -151,6 +160,12 @@ pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now:
         }
         "latest_anomaly_ts" => to_value(ctx.store.latest_anomaly_ts(params["tool"].as_str()).map(|t| serde_json::json!(t))),
         "skill_stats" => to_value(skill_stats(ctx.store).map(|c| serde_json::to_value(c).unwrap_or_default())),
+        "effectiveness" => {
+            let days = params["days"].as_u64().unwrap_or(30).clamp(1, 365) as i64;
+            let to = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            let from = (now - chrono::Duration::days(days)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            to_value(effectiveness(ctx.store, params["tool"].as_str(), &from, &to).map(|e| serde_json::to_value(e).unwrap_or_default()))
+        }
         "set_note" => {
             let key = params["key"].as_str().ok_or("missing 'key'")?;
             let starred = params["starred"].as_bool().unwrap_or(false);

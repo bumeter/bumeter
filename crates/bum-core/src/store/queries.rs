@@ -187,6 +187,16 @@ impl Store {
         let rows = st.query_map([session_id], |r| r.get(0))?;
         rows.collect()
     }
+
+    /// Context overflows in `[from, to)`, optionally limited to one AI tool.
+    pub fn compaction_count_between(&self, from: &str, to: &str, tool: Option<&str>) -> rusqlite::Result<u64> {
+        self.conn().query_row(
+            "SELECT COUNT(*) FROM compactions c LEFT JOIN sessions s ON s.id = c.session_id
+             WHERE c.ts >= ?1 AND c.ts < ?2 AND (?3 IS NULL OR s.tool = ?3)",
+            params![from, to, tool],
+            |r| u64_at(r, 0),
+        )
+    }
 }
 
 /// One row for the list: turn stats + ⭐.

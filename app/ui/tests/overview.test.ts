@@ -24,7 +24,14 @@ const handlers = () => ({
     { model: 'kiro:auto', tool: 'kiro', calls: 9, prompts: 5, tokens: 1_000_000, output: 0, cost_usd: null, credits: 1.2, last_used: '' },
   ],
   sidebar_counts: () => ({ prompts: 35, skills: 3, projects: 2, anomalous: 4, big_context: 1, interrupted: 0, starred: 0, by_tool: {} }),
+  effectiveness: () => EFFECT,
 });
+
+const EFFECT = {
+  turns: 40, sessions: 6, total_tokens: 1_000_000, interrupted_turns: 12, rework_turns: 8,
+  waste_turns: 15, wasted_tokens: 250_000, waste_pct: 25, compactions: 3,
+  worst_projects: [{ project: 'TICKET-101', wasted: 200_000 }],
+};
 
 const skillReport = { rows: [
   { entry: { name: 'a', tool: 'claude_code', always_on_tokens: 300 }, uses: 0, projects: 0, tokens: 0, avg_tokens: null, last_used: null, unused_30d: true, usage_known: true },
@@ -267,6 +274,34 @@ describe('Overview quota panel', () => {
     update({ scope: 'kiro' });
     await mountOverview(el);
     expect(el.querySelector('.ov-quota')!.textContent).toContain('hạn mức credit tháng');
+  });
+
+  it('effectiveness: the wasted share, the behavioural rows, and a jump to the cancelled turns', async () => {
+    const f = fake(handlers());
+    await mountOverview(el);
+    const panel = el.querySelector('.ov-effect')!;
+    expect(panel.querySelector('.eff-pct')?.textContent).toBe('25.0%');
+    expect(panel.textContent).toContain('250K trên 1.0M token');
+    expect([...panel.querySelectorAll('.eff-row .num')].map((n) => n.textContent)).toEqual(['12', '8', '3']);
+    expect(panel.textContent).toContain('TICKET-101 (200K)');
+    // The numbers are labelled as proxies, not as a quality score.
+    expect(panel.textContent).toContain('không phải đánh giá chất lượng');
+    // Changing the range refetches for that range only.
+    (el.querySelector('[data-range="1"]') as HTMLButtonElement).click();
+    await flush(); await flush();
+    expect(f.calls.filter((c) => c.method === 'effectiveness').some((c) => c.params.days === 1)).toBe(true);
+    // The button opens the turns that were cut off, on the Conversations screen.
+    (panel.querySelector('button') as HTMLButtonElement).click();
+    expect(state.view).toBe('conversations');
+    expect(state.filter.quick).toBe('interrupted');
+  });
+
+  it('effectiveness: an empty range says so instead of showing zeros', async () => {
+    fake({ ...handlers(), effectiveness: () => ({ ...EFFECT, turns: 0, waste_pct: 0, wasted_tokens: 0, worst_projects: [] }) });
+    await mountOverview(el);
+    const panel = el.querySelector('.ov-effect')!;
+    expect(panel.getAttribute('data-empty')).toBe('1');
+    expect(panel.textContent).toContain('Chưa có lượt nào');
   });
 
   it('a live limits-changed event repaints the panel without a reload', async () => {

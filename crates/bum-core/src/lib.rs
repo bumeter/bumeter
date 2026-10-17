@@ -2,6 +2,7 @@ pub mod alerts;
 pub mod attribution;
 pub mod coalesce;
 pub mod config;
+pub mod effect;
 pub mod engine;
 pub mod face;
 pub mod forecast;
