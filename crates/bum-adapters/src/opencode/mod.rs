@@ -45,7 +45,7 @@ impl OpenCode {
 
 pub fn info() -> SourceInfo {
     SourceInfo {
-        id: TOOL_ID.into(), label: "OpenCode".into(), letter: "O".into(), color: "#4b8bbe".into(), icon: None,
+        id: TOOL_ID.into(), label: "OpenCode".into(), letter: "O".into(), color: "#4b8bbe".into(), icon: Some("opencode.png".into()),
         real_tokens: true, composition: false, limits: false, credits: false, transcript: false,
     }
 }

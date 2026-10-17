@@ -156,6 +156,7 @@ fn scanning_never_writes_to_the_opencode_database() {
 fn info_describes_a_token_source_without_extras() {
     let i = bum_adapters::opencode::info();
     assert_eq!((i.id.as_str(), i.label.as_str(), i.letter.as_str()), ("opencode", "OpenCode", "O"));
+    assert_eq!(i.icon.as_deref(), Some("opencode.png"));
     assert!(i.real_tokens && !i.composition && !i.limits && !i.credits && !i.transcript);
 }
 
