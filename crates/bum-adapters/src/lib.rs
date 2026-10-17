@@ -1,5 +1,6 @@
 pub mod claude_code;
 pub mod kiro;
+pub mod opencode;
 pub mod process;
 
 /// All supported tools, in display order, with their log directory. Add a new tool here.
