@@ -33,7 +33,12 @@
     ],
     "externalBin": [
       "binaries/bum"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/hooks.nsh"
+      }
+    }
   },
   "plugins": {
     "updater": {

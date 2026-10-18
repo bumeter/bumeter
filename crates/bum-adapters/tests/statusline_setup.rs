@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
-use bum_adapters::claude_code::statusline::{Status, StatuslineSetup};
+use bum_adapters::claude_code::statusline::{Mode, Status, StatuslineSetup};
 
 /// Fake `bum`: forwards stdin to stdout like `bum statusline --tee`.
 fn fake_bin(dir: &Path, name: &str) -> String {
@@ -190,4 +190,55 @@ fn missing_binary_error_names_bum_not_tk() {
     let msg = s.plan().unwrap_err().to_string();
     assert!(msg.contains("bum"), "{msg}");
     assert!(!msg.split(|c: char| !c.is_alphanumeric()).any(|w| w == "tk"), "{msg}");
+}
+
+#[test]
+fn show_mode_runs_the_original_inside_bum_and_switching_keeps_the_first_backup() {
+    let dir = tempfile::tempdir().unwrap();
+    // A command with single quotes, like a PS1 converted by the statusline-setup agent.
+    let original = r#"{"statusLine":{"type":"command","command":"printf '%s' \"$(cat)\" | tr a-z A-Z"}}"#;
+    write_settings(dir.path(), original);
+    let s = setup(dir.path());
+
+    s.apply(&s.plan_for(Mode::Show).unwrap()).unwrap();
+    let shown = command(dir.path());
+    assert!(shown.contains("statusline --around '"), "{shown}");
+    assert!(matches!(s.status().unwrap(), Status::Hooked { show: true, .. }));
+    // The quoting round-trips: the shell hands `bum` exactly the original command.
+    assert_eq!(run_sh(&format!("printf '%s' {}", &shown[shown.find("--around ").unwrap() + 9..]), ""), "printf '%s' \"$(cat)\" | tr a-z A-Z");
+    assert!(s.plan_for(Mode::Show).unwrap().is_noop());
+
+    // Switch to recording only: rebuilt from the original, not wrapped around the --around form.
+    s.apply(&s.plan_for(Mode::Record).unwrap()).unwrap();
+    let recorded = command(dir.path());
+    assert!(recorded.ends_with("statusline --tee | { printf '%s' \"$(cat)\" | tr a-z A-Z; }"), "{recorded}");
+    assert!(matches!(s.status().unwrap(), Status::Hooked { show: false, .. }));
+
+    // And back, then undo: the file is exactly what it was before the first enable.
+    s.apply(&s.plan_for(Mode::Show).unwrap()).unwrap();
+    s.undo().unwrap();
+    assert_eq!(std::fs::read_to_string(settings(dir.path())).unwrap(), original);
+}
+
+#[test]
+fn a_hand_written_around_hook_is_unwrapped_not_lost() {
+    // Set up by hand (no Bumeter backup), with a bare `bum` on PATH.
+    let dir = tempfile::tempdir().unwrap();
+    write_settings(dir.path(), r#"{"statusLine":{"type":"command","command":"bum statusline --around 'echo hi'\\''there'"}}"#);
+    let s = setup(dir.path());
+    s.apply(&s.plan_for(Mode::Show).unwrap()).unwrap();
+    let cmd = command(dir.path());
+    assert!(cmd.ends_with("statusline --around 'echo hi'\\''there'"), "{cmd}");
+    assert!(cmd.starts_with('"'), "rewritten with the absolute bum path: {cmd}");
+}
+
+#[test]
+fn without_a_statusline_both_modes_show_bums_own_line() {
+    let dir = tempfile::tempdir().unwrap();
+    write_settings(dir.path(), "{}");
+    let s = setup(dir.path());
+    s.apply(&s.plan_for(Mode::Record).unwrap()).unwrap();
+    assert!(command(dir.path()).ends_with("\" statusline"));
+    assert!(matches!(s.status().unwrap(), Status::Hooked { show: true, .. }));
+    assert!(s.plan_for(Mode::Show).unwrap().is_noop());
 }

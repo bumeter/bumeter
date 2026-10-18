@@ -407,6 +407,7 @@ dependencies = [
  "chrono",
  "clap",
  "dirs",
+ "serde",
  "serde_json",
  "tempfile",
 ]

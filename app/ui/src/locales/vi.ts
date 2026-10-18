@@ -225,6 +225,8 @@ export const vi = {
   'set.none': 'Chưa bật. Claude Code chưa có statusline.',
   'set.enable': 'Bật theo dõi giới hạn',
   'set.undo': 'Gỡ',
+  'set.slShow': 'Hiện hạn mức và context ngay trên status line của Claude Code',
+  'set.hookedShow': '● Đang bật · hạn mức và context hiện ngay trên status line của Claude Code',
   'set.undoConfirm': 'Gỡ theo dõi giới hạn và trả settings.json về như trước khi bật?',
   'set.savedStatusline': 'Đã lưu. Có hiệu lực từ lần Claude Code cập nhật statusline tiếp theo.',
   'set.thresholds': 'Ngưỡng',

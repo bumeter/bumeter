@@ -5,6 +5,8 @@ PackageVersion: 1.0.6
 InstallerLocale: en-US
 InstallerType: nullsoft
 Scope: user
+Commands:
+  - bum
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/chieund/bumeter/releases/download/v1.0.6/Bumeter_1.0.6_x64-setup.exe

@@ -80,9 +80,11 @@ The cask lives in [chieund/homebrew-tap](https://github.com/chieund/homebrew-tap
 signed with an Apple Developer ID, so macOS quarantines it: open it once with right-click → Open (the
 cask prints this when it installs). That is also why it is not in `homebrew/cask`, which requires
 notarized applications. The `.dmg` on [Releases](https://github.com/chieund/bumeter/releases) works
-the same way.
+the same way. The cask also links `bum` into Homebrew's `bin`; with the `.dmg`, link it yourself:
+`ln -s /Applications/Bumeter.app/Contents/MacOS/bum /usr/local/bin/bum`.
 
-**Windows** — the `.msi` and `.exe` are on Releases. The WinGet manifests are generated from those
+**Windows** — the `.msi` and `.exe` are on Releases. From the next release on, the `.exe` installer
+adds its folder to your user `PATH`, so `bum` works in a new terminal (the uninstaller takes it off). The WinGet manifests are generated from those
 files (`scripts/packaging.py`) and `scripts/winget-pr.sh` turns them into a `winget-pkgs` pull
 request; the package is not in WinGet yet.
 
@@ -101,12 +103,24 @@ Data lives in `~/.local/share/bumeter/` (a SQLite database, `config.toml`, backu
 ## Command line
 
 ```
+bum report       what burned the quota and what to do about it (works without the app)
 bum status       today's summary and quota bars from the running app
 bum statusline   used by the Claude Code status line hook
 bum scan         read the logs into the database without the app
 bum daemon       run the background host without a window
 bum session      context breakdown of one session
 bum audit        compare Bumeter's token totals with an independent count
+```
+
+`bum report` is the Overview for a terminal — handy over SSH, on a server or in WSL, where there is no
+tray: the 5-hour and weekly limits, quota-weighted tokens by tool and project, the costliest turns, and
+the same advice as the Effectiveness panel. Without the app running it reads the logs first.
+
+```
+bum report                     the last 7 days, every tool
+bum report --days 1            today
+bum report --tool claude_code  one tool (claude_code, kiro, opencode)
+bum report --json              the same numbers for scripts and agents
 ```
 
 `bum skills` works on what Claude Code (or `--tool kiro`) loads, from a terminal or from an agent:

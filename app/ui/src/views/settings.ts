@@ -196,21 +196,41 @@ export async function mountSettings(el: HTMLElement) {
 
   // Statusline state + confirm box: rendered separately so typing in another field is not lost.
   const limitsHost = h('div', {});
+  /** Show Bumeter's part on the user's status line (`--around`), or only record the numbers (`--tee`). */
+  let showOnLine = true;
   const renderLimits = () => {
     const hooked = status.kind === 'hooked';
-    const text = status.kind === 'hooked' ? h('div', { class: 'status ok' }, t('set.hooked'))
+    const text = status.kind === 'hooked' ? h('div', { class: 'status ok' }, t(status.show ? 'set.hookedShow' : 'set.hooked'))
       : status.kind === 'custom' ? h('div', { class: 'status' }, t('set.custom'), h('code', {}, status.command))
       : h('div', { class: 'status' }, t('set.none'));
     const ask = async (planned: Promise<{ description: string }>, run: () => Promise<unknown>) => {
       try { confirm = { text: (await planned).description, run }; } catch (e) { say(t('common.error', { e: String(e) }), true); }
       renderLimits();
     };
+    // The switch only means something next to a status line the user already has: without one, Claude Code
+    // shows Bumeter's own line either way.
+    const ownLine = status.kind === 'not_configured' || (status.kind === 'hooked' && !/--around |--tee/.test(status.command));
+    const on = status.kind === 'hooked' ? status.show : showOnLine;
+    const showSwitch = ownLine ? '' : h('label', { class: 'toggle' },
+      h('input', {
+        type: 'checkbox', name: 'statusline_show', checked: on,
+        onchange: ((e: Event) => {
+          const want = (e.target as HTMLInputElement).checked;
+          if (status.kind !== 'hooked') { showOnLine = want; return; }
+          // Already on: switching modes rewrites the hook, so confirm it like enabling does.
+          const mode = want ? 'show' : 'record';
+          void ask(api.statuslinePlan(mode), () => api.statuslineApply(mode));
+        }) as EventListener,
+      }),
+      t('set.slShow'));
+    const mode = (): StatuslineMode => (showOnLine ? 'show' : 'record');
     limitsHost.replaceChildren(
       text,
+      showSwitch,
       h('div', { class: 'actions' },
         hooked
           ? h('button', { class: 'btn', type: 'button', 'data-action': 'statusline-undo', onclick: (() => void ask(Promise.resolve({ description: t('set.undoConfirm') }), api.statuslineUndo)) as EventListener }, t('set.undo'))
-          : h('button', { class: 'btn primary', type: 'button', 'data-action': 'statusline-enable', onclick: (() => void ask(api.statuslinePlan(), api.statuslineApply)) as EventListener }, t('set.enable'))),
+          : h('button', { class: 'btn primary', type: 'button', 'data-action': 'statusline-enable', onclick: (() => void ask(api.statuslinePlan(mode()), () => api.statuslineApply(mode()))) as EventListener }, t('set.enable'))),
       confirm
         ? h('div', { class: 'confirm', role: 'dialog', 'aria-label': t('common.confirm') },
             h('pre', {}, confirm.text),

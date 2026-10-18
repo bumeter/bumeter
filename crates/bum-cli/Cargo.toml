@@ -13,6 +13,7 @@ bum-core = { path = "../bum-core" }
 bum-adapters = { path = "../bum-adapters" }
 bum-service = { path = "../bum-service" }
 bum-skills = { path = "../bum-skills" }
+serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 clap.workspace = true

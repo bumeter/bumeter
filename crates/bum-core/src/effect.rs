@@ -43,6 +43,42 @@ pub struct Advice {
     pub session_id: Option<String>,
 }
 
+impl Advice {
+    /// The finding, for the CLI (the UI translates it from the code; keep the two in step).
+    pub fn text(&self, lang: crate::i18n::Lang) -> String {
+        use crate::i18n::Lang::*;
+        let (n, t) = (self.count, crate::insight::fmt_tokens(self.weighted));
+        match (self.code, lang) {
+            ("late_cancel", Vi) => format!("{n} lượt bị dừng khi model đã chạy hơn 2 phút — ≈ {t} token quy đổi không ra kết quả"),
+            ("late_cancel", En) => format!("{n} turns stopped after the model had run for over 2 minutes — ≈ {t} quota-weighted tokens with no result"),
+            ("big_context", Vi) => format!("{n} lượt bắt đầu với context rất lớn — ≈ {t} token quy đổi"),
+            ("big_context", En) => format!("{n} turns started with a very large context — ≈ {t} quota-weighted tokens"),
+            ("split_session", Vi) => format!("{n} phiên tràn context từ 2 lần trở lên — ≈ {t} token quy đổi"),
+            ("split_session", En) => format!("{n} sessions overflowed their context 2 or more times — ≈ {t} quota-weighted tokens"),
+            (code, _) => code.to_string(),
+        }
+    }
+
+    /// What to do about it.
+    pub fn how(&self, lang: crate::i18n::Lang) -> &'static str {
+        match self.code {
+            "late_cancel" => lang.pick(
+                "Nói rõ yêu cầu hoặc chốt kế hoạch trước khi để model chạy lâu; dừng sớm khi thấy lệch hướng.",
+                "State the request or agree on a plan before letting the model run long; stop early when it drifts.",
+            ),
+            "big_context" => lang.pick(
+                "Mỗi lượt gửi lại toàn bộ context. Dùng /compact hoặc mở phiên mới khi chuyển sang việc khác.",
+                "Every turn sends the whole context again. Use /compact, or start a new session when you switch tasks.",
+            ),
+            "split_session" => lang.pick(
+                "Chia việc lớn thành nhiều phiên ngắn; tràn context làm model quên phần đầu và phải đọc lại.",
+                "Split big work into shorter sessions; an overflow makes the model forget the start and read it again.",
+            ),
+            _ => "",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Effect {
     pub turns: u64,

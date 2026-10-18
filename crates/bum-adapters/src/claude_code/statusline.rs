@@ -1,19 +1,34 @@
 //! Set up the statusline to capture the quota % (spec section 7.1).
-//! Does not modify the user's script: only changes `statusLine.command` in `~/.claude/settings.json`
-//! to `"<bum>" statusline --tee | { <old command>; }`. Always backs up first and can be undone.
+//! Does not modify the user's script: only changes `statusLine.command` in `~/.claude/settings.json`,
+//! to `"<bum>" statusline --tee | { <old command>; }` (record the numbers, show the old line as it was)
+//! or `"<bum>" statusline --around '<old command>'` (show Bumeter's part after the old line). Always
+//! backs up first and can be undone.
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context};
 use serde_json::{json, Value};
 
 const TEE: &str = "\" statusline --tee | ";
+/// Matches both `"<path>" statusline --around '…'` and a hand-written `bum statusline --around '…'`.
+const AROUND: &str = " statusline --around ";
+
+/// What the hook does next to a status line the user already has.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Mode {
+    /// Record the quota numbers; the user's line is shown unchanged.
+    Record,
+    /// Record them and show Bumeter's part (limits, context) after the user's line.
+    Show,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Status {
     NotConfigured,
     Custom { command: String },
-    Hooked { command: String },
+    /// `show`: Bumeter's part is on screen (the `--around` hook, or Bumeter's own line).
+    Hooked { command: String, show: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -46,11 +61,39 @@ struct Backup {
 
 /// Recognize a statusline command written by Bumeter, whatever the `bum` path is.
 fn is_hook(cmd: &str) -> bool {
-    cmd.contains(TEE) || cmd.ends_with("\" statusline") || cmd.contains("bum statusline")
+    cmd.contains(TEE) || cmd.contains(AROUND) || cmd.ends_with("\" statusline") || cmd.contains("bum statusline")
 }
 
-/// The original command inside a `"<bum>" statusline --tee | { <original>; }` hook.
+/// Quote for `sh` as one word: `'…'`, with each `'` written as `'\''`.
+fn sh_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+/// The inverse of `sh_quote` (single-quoted runs and backslash escapes, which is all it writes).
+fn sh_unquote(word: &str) -> Option<String> {
+    let mut out = String::new();
+    let mut chars = word.trim().chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\'' => loop {
+                match chars.next()? {
+                    '\'' => break,
+                    c => out.push(c),
+                }
+            },
+            '\\' => out.push(chars.next()?),
+            _ => return None,
+        }
+    }
+    Some(out)
+}
+
+/// The original command inside a hook: `"<bum>" statusline --tee | { <original>; }` or
+/// `"<bum>" statusline --around '<original>'`.
 fn unwrap_hook(cmd: &str) -> Option<String> {
+    if let Some(i) = cmd.find(AROUND) {
+        return sh_unquote(&cmd[i + AROUND.len()..]);
+    }
     let inner = &cmd[cmd.find(TEE)? + TEE.len()..];
     let inner = inner.strip_prefix("{ ").and_then(|s| s.strip_suffix("; }"))
         .or_else(|| inner.strip_prefix("( ").and_then(|s| s.strip_suffix(" )")))
@@ -87,7 +130,10 @@ impl StatuslineSetup {
     }
 
     /// Group the original command so `|` does not change the meaning of commands containing `;` / `&&`.
-    fn wrap(&self, original: &str) -> String {
+    fn wrap(&self, original: &str, mode: Mode) -> String {
+        if mode == Mode::Show {
+            return format!("{} --around {}", self.marker(), sh_quote(original));
+        }
         if cfg!(windows) {
             format!("{} --tee | ( {original} )", self.marker())
         } else {
@@ -126,12 +172,20 @@ impl StatuslineSetup {
         let command = self.read_settings()?.and_then(|(_, v)| v["statusLine"]["command"].as_str().map(str::to_string));
         Ok(match command {
             None => Status::NotConfigured,
-            Some(c) if is_hook(&c) => Status::Hooked { command: c },
+            Some(c) if is_hook(&c) => {
+                let show = c.contains(AROUND) || !(c.contains(TEE) || c.contains(" statusline --tee"));
+                Status::Hooked { command: c, show }
+            }
             Some(c) => Status::Custom { command: c },
         })
     }
 
+    /// `plan_for(Mode::Record)`: the behaviour before `Mode` existed.
     pub fn plan(&self) -> anyhow::Result<Plan> {
+        self.plan_for(Mode::Record)
+    }
+
+    pub fn plan_for(&self, mode: Mode) -> anyhow::Result<Plan> {
         let bum = Path::new(&self.bum_bin);
         if !bum.is_absolute() || !bum.is_file() {
             bail!("no bum program found at '{}'; build/install bum first", self.bum_bin);
@@ -141,24 +195,26 @@ impl StatuslineSetup {
             format!("Will change statusLine.command in {}:\n  before: {before}\n  after:  {after}\nThe current statusline still displays as before. The original file is backed up.", path.display())
         };
         Ok(match self.status()? {
-            Status::Hooked { command } if command.starts_with(&self.marker()) => {
-                Plan { description: "Limit tracking is already enabled; no change needed.".into(), new_command: None }
-            }
-            Status::Hooked { command } => {
-                // The bum path changed: rebuild from the original command instead of wrapping again.
+            Status::Hooked { command, .. } => {
+                // Rebuild from the original command (never wrap a hook again): this handles a changed
+                // bum path and a switch between recording and showing alike.
                 let original = match self.read_backup()? {
                     Some(b) => b.previous_status_line.as_ref().and_then(|p| p["command"].as_str()).map(str::to_string),
                     None => unwrap_hook(&command),
                 };
-                let new = original.as_deref().map(|o| self.wrap(o)).unwrap_or_else(|| self.marker());
-                Plan { description: describe(&command, &new), new_command: Some(new) }
+                let new = original.as_deref().map(|o| self.wrap(o, mode)).unwrap_or_else(|| self.marker());
+                if new == command {
+                    Plan { description: "Limit tracking is already enabled; no change needed.".into(), new_command: None }
+                } else {
+                    Plan { description: describe(&command, &new), new_command: Some(new) }
+                }
             }
             Status::NotConfigured => {
                 let cmd = self.marker();
                 Plan { description: format!("Will add statusLine to {}:\n  {cmd}\nThe original file is backed up and can be removed again.", path.display()), new_command: Some(cmd) }
             }
             Status::Custom { command } => {
-                let new = self.wrap(&command);
+                let new = self.wrap(&command, mode);
                 Plan { description: describe(&command, &new), new_command: Some(new) }
             }
         })

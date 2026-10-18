@@ -96,6 +96,25 @@ jobs:
           prerelease: false
           updaterJsonPreferNsis: true
 
+      # The NSIS hooks (`app/src-tauri/windows/hooks.nsh`) edit the user's PATH; this runs the real
+      # installer silently and checks both directions, since nothing else on CI executes them.
+      - name: Windows installer puts bum on PATH
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $userPath = { (Get-Item 'HKCU:\Environment').GetValue('Path', '', 'DoNotExpandEnvironmentNames') -split ';' | Where-Object { $_ } }
+          $setup = Get-ChildItem "target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/S' -Wait
+          $dir = & $userPath | Where-Object { Test-Path (Join-Path $_ 'bum.exe') } | Select-Object -First 1
+          if (-not $dir) { throw "bum.exe is not on the user PATH after install: $(& $userPath -join ';')" }
+          & (Join-Path $dir 'bum.exe') --help
+          if ($LASTEXITCODE -ne 0) { throw "bum --help failed" }
+          Start-Process (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
+          # The uninstaller copies itself to a temp file and returns at once; give it time to finish.
+          for ($i = 0; $i -lt 30 -and ((& $userPath) -contains $dir); $i++) { Start-Sleep -Seconds 1 }
+          if ((& $userPath) -contains $dir) { throw "uninstall left $dir on the user PATH" }
+          Write-Host "PATH entry added on install and removed on uninstall: $dir"
+
       - name: Collect installers
         run: |
           mkdir -p dist

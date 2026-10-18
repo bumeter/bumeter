@@ -91,3 +91,69 @@ fn on_user(v: &Value, content: &Value, turns: &mut Vec<TranscriptTurn>) {
         });
     }
 }
+
+/// Bytes read from the end of a transcript to find the latest call: enough for many calls, cheap for a
+/// status line that runs after every message.
+const TAIL_BYTES: u64 = 512 * 1024;
+
+/// The context the session is carrying now: `input + cache writes + cache reads` of the latest main-chain
+/// call. None when the tail holds no call, or when the latest event is a compaction (the next call will
+/// tell the new size; showing the old one would say "/compact" right after compacting).
+pub fn current_context(path: &Path) -> Option<u64> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut f = std::fs::File::open(path).ok()?;
+    let len = f.metadata().ok()?.len();
+    f.seek(SeekFrom::Start(len.saturating_sub(TAIL_BYTES))).ok()?;
+    let mut bytes = Vec::new();
+    f.read_to_end(&mut bytes).ok()?;
+    for line in String::from_utf8_lossy(&bytes).lines().rev() {
+        let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
+        if v["isSidechain"].as_bool() == Some(true) {
+            continue;
+        }
+        if v["isCompactSummary"].as_bool() == Some(true) {
+            return None;
+        }
+        let u = &v["message"]["usage"];
+        if v["type"].as_str() == Some("assistant") && u.is_object() {
+            let n = |k: &str| u[k].as_u64().unwrap_or(0);
+            return Some(n("input_tokens") + n("cache_creation_input_tokens") + n("cache_read_input_tokens"));
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod context_tests {
+    use super::current_context;
+
+    fn file(lines: &[&str]) -> tempfile::NamedTempFile {
+        let f = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(f.path(), lines.join("\n")).unwrap();
+        f
+    }
+
+    const CALL_1: &str = r#"{"type":"assistant","message":{"usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":1000,"output_tokens":5}}}"#;
+    const CALL_2: &str = r#"{"type":"assistant","message":{"usage":{"input_tokens":20,"cache_creation_input_tokens":200,"cache_read_input_tokens":300000,"output_tokens":5}}}"#;
+    const SUB: &str = r#"{"type":"assistant","isSidechain":true,"message":{"usage":{"input_tokens":1,"cache_read_input_tokens":5}}}"#;
+    const USER: &str = r#"{"type":"user","message":{"content":"next question"}}"#;
+    const COMPACT: &str = r#"{"type":"user","isCompactSummary":true,"message":{"content":"summary"}}"#;
+
+    #[test]
+    fn the_latest_main_chain_call_wins() {
+        let f = file(&[CALL_1, CALL_2, SUB, USER, "not json"]);
+        assert_eq!(current_context(f.path()), Some(300_220));
+    }
+
+    #[test]
+    fn right_after_a_compaction_the_size_is_unknown() {
+        assert_eq!(current_context(file(&[CALL_2, COMPACT]).path()), None);
+        assert_eq!(current_context(file(&[CALL_2, COMPACT, CALL_1]).path()), Some(1110));
+    }
+
+    #[test]
+    fn no_call_or_no_file_is_none() {
+        assert_eq!(current_context(file(&[USER]).path()), None);
+        assert_eq!(current_context(std::path::Path::new("/nonexistent/x.jsonl")), None);
+    }
+}

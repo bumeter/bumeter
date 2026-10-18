@@ -226,6 +226,8 @@ export const en: Record<keyof typeof vi, string> = {
   'set.none': 'Off. Claude Code has no statusline yet.',
   'set.enable': 'Turn on limit tracking',
   'set.undo': 'Remove',
+  'set.slShow': 'Show limits and context on the Claude Code status line',
+  'set.hookedShow': '● On · limits and context show on the Claude Code status line',
   'set.undoConfirm': 'Remove limit tracking and restore settings.json to how it was?',
   'set.savedStatusline': 'Saved. Takes effect the next time Claude Code updates its statusline.',
   'set.thresholds': 'Thresholds',

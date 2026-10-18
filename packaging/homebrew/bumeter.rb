@@ -18,6 +18,9 @@ cask "bumeter" do
   homepage "https://bumeter.cc"
 
   app "Bumeter.app"
+  # The command line tool ships inside the app (Tauri sidecar); link it into Homebrew's bin, as the
+  # .deb puts it in /usr/bin.
+  binary "#{appdir}/Bumeter.app/Contents/MacOS/bum"
 
   zap trash: [
     "~/Library/Application Support/bumeter",
@@ -29,7 +32,8 @@ cask "bumeter" do
 
   caveat <<~EOS
     Bumeter is not signed with an Apple Developer ID, so macOS quarantines the
-    download. To open it the first time: right-click the app → Open, or run
+    download, including the `bum` command inside it. To open it the first time:
+    right-click the app → Open, or run (this also unblocks `bum` in a terminal)
       xattr -dr com.apple.quarantine "/Applications/Bumeter.app"
   EOS
 end

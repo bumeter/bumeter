@@ -103,6 +103,42 @@ const RULES: &[Rule] = &[
     ] },
 ];
 
+/// `remote_exec` is about code from the network: a pipe into a shell only counts when the line fetches
+/// something. Without this, a Markdown table cell (`| Node module`) or a local `cat x | sh` would be "high".
+const DOWNLOADERS: &[&str] = &[
+    "curl", "wget", "iwr ", "irm ", "invoke-webrequest", "invoke-restmethod", "net.webclient", "downloadstring", "http://", "https://",
+];
+
+/// Words that turn a dangerous pattern into a warning about it: "never run …", "… will destroy the workspace".
+const WARNING_CUES: &[&str] = &[
+    "never", "don't", "do not", "must not", "should not", "avoid", "will destroy", "would destroy", "destroys", "dangerous",
+    "warning", "beware", "careful",
+];
+
+/// Rules about wording rather than commands: there, a quoted phrase is being cited, not said.
+const PROSE_KINDS: &[&str] = &["injection", "concealment"];
+
+/// `needle` as a whole word in `hay`, so "whenever" does not count as "never".
+fn has_word(hay: &str, needle: &str) -> bool {
+    hay.match_indices(needle).any(|(i, _)| {
+        let before = hay[..i].chars().next_back().is_none_or(|c| !c.is_alphanumeric());
+        let after = hay[i + needle.len()..].chars().next().is_none_or(|c| !c.is_alphanumeric());
+        before && after
+    })
+}
+
+/// The line names the pattern to warn against it rather than to ask for it: a warning word outside the
+/// match, or, for prose rules, the phrase is quoted. A malicious skill can dress a line up the same way,
+/// so this only lowers a finding to `warn`; it is still reported with the line it matched.
+fn mentioned_as_warning(lower: &str, needle: &str, kind: &str) -> bool {
+    let rest = lower.replacen(needle, " ", 1);
+    if WARNING_CUES.iter().any(|c| has_word(&rest, c)) {
+        return true;
+    }
+    PROSE_KINDS.contains(&kind)
+        && lower.match_indices(needle).any(|(i, _)| lower[..i].chars().next_back().is_some_and(|c| matches!(c, '"' | '\'' | '`' | '“' | '‘' | '«')))
+}
+
 /// Files that hold credentials. Reading one is fine; reading one *and* sending something out is not.
 const SECRET_PATHS: &[&str] = &[
     ".env", "id_rsa", "id_ed25519", ".aws/credentials", ".ssh/", ".npmrc", ".netrc", ".git-credentials",
@@ -209,8 +245,16 @@ pub fn scan_body(body: &str, skill: &str, tool: &str, path: &Path) -> Vec<Findin
         let lower = raw.to_lowercase();
 
         for r in RULES {
+            if r.kind == "remote_exec" && !DOWNLOADERS.iter().any(|d| lower.contains(d)) {
+                continue;
+            }
             if let Some(n) = r.needles.iter().find(|n| lower.contains(**n)) {
-                push(r.kind, r.severity, line, format!("{n} · {}", snippet(raw)), r.why, &mut out);
+                let (severity, why) = if r.severity == Severity::High && mentioned_as_warning(&lower, n, r.kind) {
+                    (Severity::Warn, "names a dangerous pattern, apparently to warn against it: check that the line really is a warning")
+                } else {
+                    (r.severity, r.why)
+                };
+                push(r.kind, severity, line, format!("{n} · {}", snippet(raw)), why, &mut out);
             }
         }
         if let Some((c, name)) = INVISIBLE.iter().find(|(c, _)| raw.contains(*c)) {

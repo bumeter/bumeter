@@ -1,7 +1,7 @@
 //! Commands for the Settings screen: read/write config, enable/remove limit tracking via statusline (spec section 7.1).
 use serde_json::{json, Value};
 use tauri::State;
-use bum_adapters::claude_code::statusline::StatuslineSetup;
+use bum_adapters::claude_code::statusline::{Mode, StatuslineSetup};
 use bum_core::config::Config;
 
 use crate::state::AppState;
@@ -18,6 +18,11 @@ pub fn bum_bin() -> String {
         .filter(|p| p.exists())
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|| name.to_string())
+}
+
+/// `params.mode`: `"show"` puts Bumeter's part on the status line, `"record"` (the default) only records the numbers.
+fn mode(params: &Option<Value>) -> Mode {
+    params.as_ref().and_then(|p| serde_json::from_value(p["mode"].clone()).ok()).unwrap_or(Mode::Record)
 }
 
 pub fn setup(state: &AppState) -> StatuslineSetup {
@@ -41,10 +46,10 @@ pub fn settings(app: tauri::AppHandle, state: State<'_, AppState>, action: Strin
             }))
         }
         "statusline_plan" => {
-            let plan = s.plan().map_err(err)?;
+            let plan = s.plan_for(mode(&params)).map_err(err)?;
             Ok(json!({ "description": plan.description, "noop": plan.is_noop() }))
         }
-        "statusline_apply" => s.plan().and_then(|p| s.apply(&p)).map(|_| json!(true)).map_err(err),
+        "statusline_apply" => s.plan_for(mode(&params)).and_then(|p| s.apply(&p)).map(|_| json!(true)).map_err(err),
         "statusline_undo" => s.undo().map(|_| json!(true)).map_err(err),
         "save_config" => {
             let cfg: Config = serde_json::from_value(params.unwrap_or_default()["config"].clone()).map_err(|e| e.to_string())?;
