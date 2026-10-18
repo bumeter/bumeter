@@ -70,7 +70,8 @@ export async function mountConversations(el: HTMLElement, detailEl?: HTMLElement
   let titles = new Map<string, string>();
   let loadSeq = 0;
   let limit = PAGE;
-  let range: number | null = null;
+  // Arriving with a range already in the filter (e.g. from the Overview): show it on the chip.
+  let range: number | null = RANGES.find((r) => r.days != null && rangeFrom(r.days) === state.filter.from)?.days ?? null;
   let projects: string[] = [];
   let models: ModelStat[] = [];
   let drawer: { close(): void; el: HTMLElement } | null = null;

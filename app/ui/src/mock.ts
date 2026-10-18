@@ -103,7 +103,8 @@ export const transport = {
       }
       case 'prompt_detail': return detail(params.key);
       case 'sidebar_counts': return { prompts: 595, skills: 16, projects: 23, anomalous: 59, big_context: 41, interrupted: 21, starred: 3, by_tool: { claude_code: 380, kiro: 215 } };
-      case 'effectiveness': return { turns: 595, sessions: 23, total_tokens: 41_200_000, interrupted_turns: 21, rework_turns: 34, waste_turns: 48, wasted_tokens: 3_140_000, waste_pct: 7.6, compactions: 12, worst_projects: [{ project: 'bumeter', wasted: 1_240_000 }] };
+      case 'effectiveness': return { turns: 595, sessions: 23, weighted: 9_800_000, interrupted_turns: 21, interrupted_weighted: 640_000, big_context_turns: 41, big_context_weighted: 2_300_000, compactions: 12,
+        advice: [{ code: 'big_context', confidence: 'likely', count: 41, weighted: 2_300_000, session_id: null }, { code: 'split_session', confidence: 'likely', count: 3, weighted: 1_100_000, session_id: 's1' }, { code: 'late_cancel', confidence: 'sure', count: 6, weighted: 410_000, session_id: null }] };
       case 'today_summary': return { prompts: 45, usage: u(38_000_000, 0, 600_000), total: 38_620_966, cost_usd: 27.27, unpriced_models: [] };
       case 'limit_state': return { five_hour: { used_percentage: 78, resets_at: Date.now() / 1000 + 5400 }, seven_day: { used_percentage: 41, resets_at: Date.now() / 1000 + 86400 * 3 }, updated_at: Date.now() / 1000 - 12, stale: false, blocked: null, forecast_five_hour: { rate_per_hour: 18, hits_at: Date.now() / 1000 + 3600, resets_at: Date.now() / 1000 + 5400, at_risk: true }, forecast_seven_day: null };
       case 'latest_anomaly_ts': return new Date(Date.now() - 25 * 60_000).toISOString();

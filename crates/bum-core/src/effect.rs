@@ -1,171 +1,133 @@
-//! "Did the tokens produce a result?" — post-hoc analysis of the local history.
+//! "Where did the quota go without a result?" — post-hoc analysis of the local history.
 //!
-//! Everything here is a *behavioural proxy*, computed from rows that are already in the local
-//! database: a turn the user interrupted, or a turn the user immediately corrected, is very
-//! likely work that had to be redone. No model is called (so this costs no tokens), no semantic
-//! judgement is made, and nothing leaves the machine.
+//! Only signals the history records as facts are used: a turn the user interrupted (Esc), a turn
+//! that started with a very large context, and context overflows (compactions). Guessing from the
+//! wording of the next message ("no, …", "sửa lại …") was tried and dropped: on real history most
+//! matches were new requests, not corrections. No model is called, so this costs no tokens, and
+//! nothing leaves the machine.
+//!
+//! Token amounts are `Usage::quota_weight()`, not raw sums: raw sums are almost all cache reads,
+//! which weigh little against a rate limit.
 use std::collections::HashMap;
 
+use chrono::DateTime;
 use serde::Serialize;
 
 use crate::store::queries::PromptListItem;
 
-/// A turn is treated as "corrected" when the *next* turn in the same session opens with one of
-/// these (lowercased, English + Vietnamese). Kept deliberately short to limit false positives:
-/// a bare "no" is *not* enough, "no," is.
-const CORRECTIONS: &[&str] = &[
-    "no,",
-    "no.",
-    "nope",
-    "wrong",
-    "not right",
-    "that's not",
-    "thats not",
-    "doesn't work",
-    "does not work",
-    "still",
-    "again",
-    "undo",
-    "revert",
-    "broken",
-    "try again",
-    "fix it",
-    "fix this",
-    "sai",
-    "không đúng",
-    "khong dung",
-    "không phải",
-    "khong phai",
-    "sửa lại",
-    "sua lai",
-    "làm lại",
-    "lam lai",
-    "vẫn lỗi",
-    "van loi",
-    "chưa đúng",
-    "chua dung",
-    "thử lại",
-    "thu lai",
-    "hỏng",
-    "không chạy",
-    "khong chay",
-    "lỗi rồi",
-    "đâu có",
-    "không được",
-    "khong duoc",
-];
+/// An interrupted turn counts as a *late* cancel when the model had already been working this long.
+pub const LATE_CANCEL_SECS: i64 = 120;
+/// A session that overflowed its context this many times in the range is worth splitting.
+pub const SPLIT_AFTER_COMPACTIONS: u64 = 2;
 
-/// Only the beginning of a follow-up is inspected: a correction is short and comes first, so a
-/// long prompt that merely mentions "again" somewhere in the middle is not counted.
-const CORRECTION_PREFIX_CHARS: usize = 80;
-
-/// Word-boundary containment, so "sai" does not match "saigon" and "still" does not match
-/// "stillness". `hay` is already lowercased.
-fn contains_word(hay: &[char], needle: &[char]) -> bool {
-    if needle.is_empty() || needle.len() > hay.len() {
-        return false;
-    }
-    let before_ok = |i: usize| i == 0 || !hay[i - 1].is_alphanumeric();
-    let after_ok = |j: usize| j == hay.len() || !hay[j].is_alphanumeric();
-    for i in 0..=hay.len() - needle.len() {
-        let j = i + needle.len();
-        if &hay[i..j] == needle && before_ok(i) && after_ok(j) {
-            return true;
-        }
-    }
-    false
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Confidence {
+    /// The tokens were spent: the number is a fact from the log.
+    Sure,
+    /// The tokens were spent, but whether acting on the advice saves them is an estimate.
+    Likely,
 }
 
-pub fn looks_like_correction(text: &str) -> bool {
-    let head: String = text.chars().take(CORRECTION_PREFIX_CHARS).collect::<String>().to_lowercase();
-    let hay: Vec<char> = head.chars().collect();
-    CORRECTIONS.iter().any(|n| head.contains(n) && contains_word(&hay, &n.chars().collect::<Vec<char>>()))
-}
-
+/// One piece of advice. The UI turns `code` into a sentence; the numbers are its parameters.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct ProjectWaste {
-    pub project: String,
-    pub wasted: u64,
+pub struct Advice {
+    /// `late_cancel` | `big_context` | `split_session`
+    pub code: &'static str,
+    pub confidence: Confidence,
+    /// Turns (`late_cancel`, `big_context`) or sessions (`split_session`).
+    pub count: u64,
+    /// Quota-weighted tokens of those turns.
+    pub weighted: u64,
+    /// For `split_session`: the session that overflowed most, so the UI can open it.
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Effect {
     pub turns: u64,
     pub sessions: u64,
-    pub total_tokens: u64,
+    /// Quota-weighted tokens of every turn in the range.
+    pub weighted: u64,
     /// Turns the user cut off (Esc).
     pub interrupted_turns: u64,
-    /// Turns the user immediately corrected with the next message.
-    pub rework_turns: u64,
-    /// Interrupted or corrected (union, each turn counted once).
-    pub waste_turns: u64,
-    /// Tokens spent on `waste_turns`.
-    pub wasted_tokens: u64,
-    /// `wasted_tokens / total_tokens` in percent, one decimal.
-    pub waste_pct: f64,
+    pub interrupted_weighted: u64,
+    /// Turns that started with more context than `context_threshold`.
+    pub big_context_turns: u64,
+    pub big_context_weighted: u64,
     /// Context overflows (`/compact` and auto-compaction).
     pub compactions: u64,
-    /// Up to three projects with the most wasted tokens.
-    pub worst_projects: Vec<ProjectWaste>,
+    /// Most weighted first. Empty when there is nothing worth saying.
+    pub advice: Vec<Advice>,
 }
 
-pub fn summarize(items: &[PromptListItem], compactions: u64) -> Effect {
-    // Group by session: "the next turn" only means something inside one conversation.
-    let mut by_session: HashMap<&str, Vec<&PromptListItem>> = HashMap::new();
+/// Seconds between the question and the last model call of the turn, when both are known.
+fn run_secs(it: &PromptListItem) -> Option<i64> {
+    let start = DateTime::parse_from_rfc3339(&it.stats.ts).ok()?;
+    let end = DateTime::parse_from_rfc3339(it.stats.last_call_ts.as_deref()?).ok()?;
+    Some((end - start).num_seconds())
+}
+
+/// `compactions` = (session id, overflows in the range) for the same tool and range as `items`.
+pub fn summarize(items: &[PromptListItem], compactions: &[(String, u64)], context_threshold: u64) -> Effect {
+    let mut weighted = 0u64;
+    let mut interrupted = (0u64, 0u64);
+    let mut late = (0u64, 0u64);
+    let mut big = (0u64, 0u64);
+    let mut by_session: HashMap<&str, u64> = HashMap::new();
+
     for it in items {
-        by_session.entry(it.stats.session_id.as_str()).or_default().push(it);
-    }
-
-    let mut total_tokens = 0u64;
-    let mut interrupted_turns = 0u64;
-    let mut rework_turns = 0u64;
-    let mut waste_turns = 0u64;
-    let mut wasted_tokens = 0u64;
-    let mut by_project: HashMap<String, u64> = HashMap::new();
-
-    for list in by_session.values_mut() {
-        list.sort_by(|a, b| a.stats.ts.cmp(&b.stats.ts));
-        for (i, it) in list.iter().enumerate() {
-            let tokens = it.stats.usage.total();
-            let interrupted = it.stats.interrupted;
-            // The last turn of a session is never "corrected": there is no follow-up yet.
-            let corrected = list.get(i + 1).is_some_and(|next| looks_like_correction(&next.stats.text));
-            total_tokens += tokens;
-            if interrupted {
-                interrupted_turns += 1;
+        let w = it.stats.usage.quota_weight();
+        weighted += w;
+        *by_session.entry(it.stats.session_id.as_str()).or_default() += w;
+        if it.stats.interrupted {
+            interrupted = (interrupted.0 + 1, interrupted.1 + w);
+            if run_secs(it).is_some_and(|s| s >= LATE_CANCEL_SECS) {
+                late = (late.0 + 1, late.1 + w);
             }
-            if corrected {
-                rework_turns += 1;
-            }
-            if interrupted || corrected {
-                waste_turns += 1;
-                wasted_tokens += tokens;
-                if !it.stats.project.is_empty() {
-                    *by_project.entry(it.stats.project.clone()).or_default() += tokens;
-                }
-            }
+        }
+        if it.stats.context_at_start > context_threshold {
+            big = (big.0 + 1, big.1 + w);
         }
     }
 
-    let mut worst_projects: Vec<ProjectWaste> =
-        by_project.into_iter().map(|(project, wasted)| ProjectWaste { project, wasted }).collect();
-    // Deterministic order (and stable tests): most wasted first, ties by name.
-    worst_projects.sort_by(|a, b| b.wasted.cmp(&a.wasted).then_with(|| a.project.cmp(&b.project)));
-    worst_projects.truncate(3);
+    // Sessions that overflowed again and again; the worst one (most overflows, then most weight,
+    // then id for a stable answer) is the one to open.
+    let mut split: Vec<(&str, u64, u64)> = compactions
+        .iter()
+        .filter(|(_, n)| *n >= SPLIT_AFTER_COMPACTIONS)
+        .map(|(sid, n)| (sid.as_str(), *n, by_session.get(sid.as_str()).copied().unwrap_or(0)))
+        .collect();
+    split.sort_by(|a, b| b.1.cmp(&a.1).then(b.2.cmp(&a.2)).then(a.0.cmp(b.0)));
 
-    let waste_pct = if total_tokens == 0 { 0.0 } else { (wasted_tokens as f64 / total_tokens as f64 * 1000.0).round() / 10.0 };
+    let mut advice = Vec::new();
+    if late.0 > 0 {
+        advice.push(Advice { code: "late_cancel", confidence: Confidence::Sure, count: late.0, weighted: late.1, session_id: None });
+    }
+    if big.0 > 0 {
+        advice.push(Advice { code: "big_context", confidence: Confidence::Likely, count: big.0, weighted: big.1, session_id: None });
+    }
+    if let Some(worst) = split.first() {
+        advice.push(Advice {
+            code: "split_session",
+            confidence: Confidence::Likely,
+            count: split.len() as u64,
+            weighted: split.iter().map(|s| s.2).sum(),
+            session_id: Some(worst.0.to_string()),
+        });
+    }
+    advice.sort_by(|a, b| b.weighted.cmp(&a.weighted).then(a.code.cmp(b.code)));
 
     Effect {
         turns: items.len() as u64,
         sessions: by_session.len() as u64,
-        total_tokens,
-        interrupted_turns,
-        rework_turns,
-        waste_turns,
-        wasted_tokens,
-        waste_pct,
-        compactions,
-        worst_projects,
+        weighted,
+        interrupted_turns: interrupted.0,
+        interrupted_weighted: interrupted.1,
+        big_context_turns: big.0,
+        big_context_weighted: big.1,
+        compactions: compactions.iter().map(|(_, n)| n).sum(),
+        advice,
     }
 }
 
@@ -175,7 +137,9 @@ mod tests {
     use crate::model::Usage;
     use crate::store::queries::{PromptListItem, PromptStats};
 
-    fn turn(session: &str, ts: &str, text: &str, tokens: u64, interrupted: bool, project: &str) -> PromptListItem {
+    const THRESHOLD: u64 = 300_000;
+
+    fn turn(session: &str, ts: &str, last: Option<&str>, usage: Usage, interrupted: bool, context_at_start: u64) -> PromptListItem {
         PromptListItem {
             stats: PromptStats {
                 key: format!("{session}-{ts}"),
@@ -183,91 +147,90 @@ mod tests {
                 credits: 0.0,
                 models: vec!["claude".into()],
                 session_id: session.into(),
-                project: project.into(),
+                project: "p".into(),
                 ts: ts.into(),
-                text: text.into(),
+                text: "x".into(),
                 interrupted,
-                usage: Usage { input: tokens, ..Default::default() },
+                usage,
                 api_calls: 1,
-                context_at_start: 0,
-                last_call_ts: None,
+                context_at_start,
+                last_call_ts: last.map(String::from),
             },
             starred: false,
         }
     }
 
+    fn input(n: u64) -> Usage {
+        Usage { input: n, ..Default::default() }
+    }
+
     #[test]
-    fn correction_needs_a_word_boundary() {
-        // Real corrections, both languages.
-        assert!(looks_like_correction("no, that's not it"));
-        assert!(looks_like_correction("Still broken"));
-        assert!(looks_like_correction("Sai rồi, làm lại đi"));
-        assert!(looks_like_correction("vẫn lỗi như cũ"));
-        assert!(looks_like_correction("please undo that"));
-        // Not corrections: substrings inside other words, or a "no" without a comma.
-        assert!(!looks_like_correction("Node is fine now"));
-        assert!(!looks_like_correction("no need for that"));
-        assert!(!looks_like_correction("add a test for stillness"));
-        assert!(!looks_like_correction("the saigon map needs an update"));
-        // Only the head of the message counts.
-        assert!(!looks_like_correction(&format!("{} still", "x".repeat(90))));
+    fn quota_weight_discounts_cache_reads_and_weighs_output() {
+        let u = Usage { input: 100, cache_write_5m: 100, cache_write_1h: 100, cache_read: 1000, output: 10, reasoning: 10 };
+        assert_eq!(u.quota_weight(), 100 + 125 + 200 + 100 + 100);
+        // A turn that is 98% cache reads by raw count is not 98% of the quota.
+        let reread = Usage { cache_read: 980_000, input: 20_000, ..Default::default() };
+        assert_eq!(reread.quota_weight(), 98_000 + 20_000);
     }
 
     #[test]
     fn empty_history_is_all_zeros() {
-        let e = summarize(&[], 0);
-        assert_eq!(e.turns, 0);
-        assert_eq!(e.sessions, 0);
-        assert_eq!(e.wasted_tokens, 0);
-        assert_eq!(e.waste_pct, 0.0);
-        assert!(e.worst_projects.is_empty());
+        let e = summarize(&[], &[], THRESHOLD);
+        assert_eq!((e.turns, e.sessions, e.weighted, e.compactions), (0, 0, 0, 0));
+        assert!(e.advice.is_empty());
     }
 
     #[test]
-    fn counts_interrupts_and_corrections_without_double_counting() {
+    fn only_long_runs_are_late_cancels() {
         let items = vec![
-            // Session a, in file order (newest first) on purpose: summarize must sort by ts.
-            turn("a", "2026-10-10T03:00:00.000Z", "try again please", 300, false, "proj"),
-            turn("a", "2026-10-10T02:00:00.000Z", "write the parser", 200, false, "proj"),
-            turn("a", "2026-10-10T01:00:00.000Z", "make the tests pass", 100, true, "proj"),
-            // Session b: a single turn, so it can never be "corrected".
-            turn("b", "2026-10-10T04:00:00.000Z", "still one more thing", 50, false, "other"),
-            // Session c: the work was cut off *and* the user immediately corrected it -> one turn,
-            // counted once in the union.
-            turn("c", "2026-10-10T05:30:00.000Z", "no, that's wrong", 40, false, "proj"),
-            turn("c", "2026-10-10T05:00:00.000Z", "write a helper", 10, true, "proj"),
+            // Cut off after 5 minutes: late.
+            turn("a", "2026-10-10T01:00:00.000Z", Some("2026-10-10T01:05:00.000Z"), input(1000), true, 0),
+            // Cut off after 30 s: a quick redirect, counted as interrupted but not as late.
+            turn("a", "2026-10-10T02:00:00.000Z", Some("2026-10-10T02:00:30.000Z"), input(100), true, 0),
+            // No model call recorded: duration unknown, not late.
+            turn("b", "2026-10-10T03:00:00.000Z", None, input(10), true, 0),
+            turn("b", "2026-10-10T04:00:00.000Z", Some("2026-10-10T04:09:00.000Z"), input(5), false, 0),
         ];
-        let e = summarize(&items, 7);
-        assert_eq!(e.turns, 6);
-        assert_eq!(e.sessions, 3);
-        assert_eq!(e.total_tokens, 700);
-        assert_eq!(e.interrupted_turns, 2); // a@01:00, c@05:00
-        assert_eq!(e.rework_turns, 2); // a@02:00 (next: "try again"), c@05:00 (next: "no, ...")
-        assert_eq!(e.waste_turns, 3); // a@01:00, a@02:00, c@05:00
-        assert_eq!(e.wasted_tokens, 100 + 200 + 10);
-        assert_eq!(e.waste_pct, 44.3);
-        assert_eq!(e.compactions, 7);
-        assert_eq!(e.worst_projects, vec![ProjectWaste { project: "proj".into(), wasted: 310 }]);
+        let e = summarize(&items, &[], THRESHOLD);
+        assert_eq!((e.turns, e.sessions, e.weighted), (4, 2, 1115));
+        assert_eq!((e.interrupted_turns, e.interrupted_weighted), (3, 1110));
+        assert_eq!(e.advice, vec![Advice { code: "late_cancel", confidence: Confidence::Sure, count: 1, weighted: 1000, session_id: None }]);
     }
 
     #[test]
-    fn last_turn_of_a_session_is_never_rework() {
-        let items = vec![turn("a", "2026-10-10T01:00:00.000Z", "do it", 100, false, "p")];
-        let e = summarize(&items, 0);
-        assert_eq!(e.rework_turns, 0);
-        assert_eq!(e.waste_turns, 0);
+    fn big_context_turns_use_the_configured_threshold() {
+        let items = vec![
+            turn("a", "2026-10-10T01:00:00.000Z", None, input(700), false, THRESHOLD + 1),
+            turn("a", "2026-10-10T02:00:00.000Z", None, input(50), false, THRESHOLD),
+        ];
+        let e = summarize(&items, &[], THRESHOLD);
+        assert_eq!((e.big_context_turns, e.big_context_weighted), (1, 700));
+        assert_eq!(e.advice[0].code, "big_context");
+        assert_eq!(e.advice[0].confidence, Confidence::Likely);
     }
 
     #[test]
-    fn worst_projects_are_sorted_and_capped() {
-        let mut items = Vec::new();
-        // Four projects, each with one interrupted turn; the wasted total decides the order.
-        for (i, (project, tokens)) in [("d", 10), ("c", 40), ("b", 30), ("a", 20)].iter().enumerate() {
-            let ts = format!("2026-10-10T0{i}:00:00.000Z");
-            items.push(turn("s", &ts, "x", *tokens, true, project));
-        }
-        let e = summarize(&items, 0);
-        let names: Vec<&str> = e.worst_projects.iter().map(|p| p.project.as_str()).collect();
-        assert_eq!(names, vec!["c", "b", "a"]);
+    fn repeated_overflows_point_at_the_worst_session() {
+        let items = vec![
+            turn("a", "2026-10-10T01:00:00.000Z", None, input(400), false, 0),
+            turn("b", "2026-10-10T02:00:00.000Z", None, input(300), false, 0),
+            turn("c", "2026-10-10T03:00:00.000Z", None, input(9000), false, 0),
+        ];
+        // c overflowed once: below the bar. b overflowed most, so it is the one to open.
+        let compactions = vec![("a".to_string(), 2), ("b".to_string(), 3), ("c".to_string(), 1)];
+        let e = summarize(&items, &compactions, THRESHOLD);
+        assert_eq!(e.compactions, 6);
+        assert_eq!(e.advice, vec![Advice { code: "split_session", confidence: Confidence::Likely, count: 2, weighted: 700, session_id: Some("b".into()) }]);
+    }
+
+    #[test]
+    fn advice_is_ordered_by_weight() {
+        let items = vec![
+            turn("a", "2026-10-10T01:00:00.000Z", Some("2026-10-10T01:10:00.000Z"), input(100), true, 0),
+            turn("a", "2026-10-10T02:00:00.000Z", None, input(5000), false, THRESHOLD + 1),
+        ];
+        let e = summarize(&items, &[], THRESHOLD);
+        let codes: Vec<&str> = e.advice.iter().map(|a| a.code).collect();
+        assert_eq!(codes, vec!["big_context", "late_cancel"]);
     }
 }

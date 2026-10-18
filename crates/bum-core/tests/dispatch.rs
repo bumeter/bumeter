@@ -57,3 +57,33 @@ fn dispatch_latest_anomaly_ts_matches_store() {
     assert_eq!(dispatch(&ctx, "latest_anomaly_ts", &json!({}), now).unwrap(), json!("2026-09-11T06:00:00.000Z"));
     assert_eq!(dispatch(&ctx, "latest_anomaly_ts", &json!({"tool": "kiro"}), now).unwrap(), json!(null));
 }
+
+#[test]
+fn dispatch_effectiveness_covers_the_ui_range_and_points_at_the_session_to_split() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = Paths::new(dir.path());
+    let mut s = Store::open(&paths.db()).unwrap();
+    let mut events = main_events();
+    // A second overflow in the same session: now it is worth splitting.
+    events.push(bum_core::model::RawEvent::Compacted { session_id: "s1".into(), ts: "2026-09-11T04:50:00.000Z".into() });
+    s.ingest_batch(&offset(MAIN), &events, 0).unwrap();
+    let (pricing, cfg) = (Pricing::default_table(), Config::default());
+    let ctx = HandlerCtx { store: &s, pricing: &pricing, cfg: &cfg, paths: &paths };
+    let now = "2026-09-12T00:00:00Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap();
+
+    // `from` is local midnight from the UI, with its offset: 07:00+07:00 is 00:00Z.
+    let e = dispatch(&ctx, "effectiveness", &json!({"from": "2026-09-11T07:00:00+07:00"}), now).unwrap();
+    assert_eq!(e["turns"], 2);
+    assert_eq!(e["interrupted_turns"], 1);
+    assert_eq!(e["compactions"], 2);
+    let split = e["advice"].as_array().unwrap().iter().find(|a| a["code"] == "split_session").unwrap();
+    assert_eq!(split["session_id"], "s1");
+    assert_eq!(split["confidence"], "likely");
+
+    // A range that starts after the history, and another tool, are both empty.
+    let later = dispatch(&ctx, "effectiveness", &json!({"from": "2026-09-11T05:00:00Z"}), now).unwrap();
+    assert_eq!((later["turns"].as_u64(), later["compactions"].as_u64()), (Some(0), Some(0)));
+    let kiro = dispatch(&ctx, "effectiveness", &json!({"from": "2026-09-11T00:00:00Z", "tool": "kiro"}), now).unwrap();
+    assert_eq!(kiro["turns"], 0);
+    assert!(dispatch(&ctx, "effectiveness", &json!({"from": "yesterday"}), now).is_err());
+}

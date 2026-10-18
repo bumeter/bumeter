@@ -188,14 +188,15 @@ impl Store {
         rows.collect()
     }
 
-    /// Context overflows in `[from, to)`, optionally limited to one AI tool.
-    pub fn compaction_count_between(&self, from: &str, to: &str, tool: Option<&str>) -> rusqlite::Result<u64> {
-        self.conn().query_row(
-            "SELECT COUNT(*) FROM compactions c LEFT JOIN sessions s ON s.id = c.session_id
-             WHERE c.ts >= ?1 AND c.ts < ?2 AND (?3 IS NULL OR s.tool = ?3)",
-            params![from, to, tool],
-            |r| u64_at(r, 0),
-        )
+    /// Context overflows in `[from, to)` per session, optionally limited to one AI tool.
+    pub fn compactions_by_session_between(&self, from: &str, to: &str, tool: Option<&str>) -> rusqlite::Result<Vec<(String, u64)>> {
+        let mut st = self.conn().prepare(
+            "SELECT c.session_id, COUNT(*) FROM compactions c LEFT JOIN sessions s ON s.id = c.session_id
+             WHERE c.ts >= ?1 AND c.ts < ?2 AND (?3 IS NULL OR s.tool = ?3)
+             GROUP BY c.session_id ORDER BY c.session_id",
+        )?;
+        let rows = st.query_map(params![from, to, tool], |r| Ok((r.get(0)?, u64_at(r, 1)?)))?;
+        rows.collect()
     }
 }
 

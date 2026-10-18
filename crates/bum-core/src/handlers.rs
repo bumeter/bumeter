@@ -103,13 +103,13 @@ pub fn limit_state(ctx: &HandlerCtx, now: chrono::DateTime<chrono::Utc>) -> rusq
     Ok(crate::limits::state(file, ctx.store.latest_rate_limit()?, now).with_forecast(&samples, now))
 }
 
-/// "Did the tokens produce a result?" over `[from, to)`: turns the user interrupted, turns the
-/// user immediately corrected, and context overflows. Behavioural proxies computed from the local
-/// history — no model calls (see `crate::effect`).
-pub fn effectiveness(store: &Store, tool: Option<&str>, from: &str, to: &str) -> rusqlite::Result<crate::effect::Effect> {
+/// "Where did the quota go without a result?" over `[from, to)`: interrupted turns, turns that
+/// started with a very large context, and context overflows, with advice. Computed from the local
+/// history only — no model calls (see `crate::effect`).
+pub fn effectiveness(store: &Store, cfg: &crate::config::Config, tool: Option<&str>, from: &str, to: &str) -> rusqlite::Result<crate::effect::Effect> {
     let items = store.prompt_items_for(None, None, Some(from), Some(to), tool)?;
-    let compactions = store.compaction_count_between(from, to, tool)?;
-    Ok(crate::effect::summarize(&items, compactions))
+    let compactions = store.compactions_by_session_between(from, to, tool)?;
+    Ok(crate::effect::summarize(&items, &compactions, cfg.context_threshold))
 }
 
 pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now: chrono::DateTime<chrono::Utc>) -> Result<serde_json::Value, String> {
@@ -161,10 +161,15 @@ pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now:
         "latest_anomaly_ts" => to_value(ctx.store.latest_anomaly_ts(params["tool"].as_str()).map(|t| serde_json::json!(t))),
         "skill_stats" => to_value(skill_stats(ctx.store).map(|c| serde_json::to_value(c).unwrap_or_default())),
         "effectiveness" => {
-            let days = params["days"].as_u64().unwrap_or(30).clamp(1, 365) as i64;
-            let to = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-            let from = (now - chrono::Duration::days(days)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-            to_value(effectiveness(ctx.store, params["tool"].as_str(), &from, &to).map(|e| serde_json::to_value(e).unwrap_or_default()))
+            // `from` is the start of the UI's range (local midnight, as RFC3339), so the panel covers
+            // the same calendar days as the rest of the Overview; `days` is the fallback for callers
+            // without one.
+            let fmt = |t: chrono::DateTime<chrono::Utc>| t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            let from = match params["from"].as_str() {
+                Some(s) => fmt(chrono::DateTime::parse_from_rfc3339(s).map_err(|e| format!("bad 'from': {e}"))?.with_timezone(&chrono::Utc)),
+                None => fmt(now - chrono::Duration::days(params["days"].as_u64().unwrap_or(30).clamp(1, 365) as i64)),
+            };
+            to_value(effectiveness(ctx.store, ctx.cfg, params["tool"].as_str(), &from, &fmt(now)).map(|e| serde_json::to_value(e).unwrap_or_default()))
         }
         "set_note" => {
             let key = params["key"].as_str().ok_or("missing 'key'")?;

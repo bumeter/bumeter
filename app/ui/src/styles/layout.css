@@ -410,18 +410,22 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .overview .ov-quota .quota-none { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink2); }
 .overview .ov-quota .quota-none .sub { color: var(--ink3); flex: 1; min-width: 200px; }
 
-/* Effectiveness: same skeleton as the quota panel, behavioural proxies only (no model calls). */
+/* Effectiveness: facts from the log, quota-weighted, then advice with a jump to the turns (no model calls). */
 .overview .ov-effect { margin-top: 12px; }
-.overview .ov-effect .eff-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 0 6px; }
-.overview .ov-effect .eff-pct { font-size: 22px; font-weight: 700; color: var(--ink); }
-.overview .ov-effect .eff-head .sub { color: var(--ink3); }
-.overview .ov-effect .eff-row { display: grid; grid-template-columns: 1fr 56px; gap: 10px; align-items: center; padding: 6px 0; border-bottom: var(--hair) solid var(--separator); font: 12.5px var(--font); color: var(--ink); }
-.overview .ov-effect .eff-row:last-of-type { border-bottom: 0; }
+.overview .ov-effect .eff-row { display: grid; grid-template-columns: 1fr 48px 72px; gap: 10px; align-items: center; padding: 6px 0; border-bottom: var(--hair) solid var(--separator); font: 12.5px var(--font); color: var(--ink); }
 .overview .ov-effect .eff-row .name { color: var(--ink2); }
 .overview .ov-effect .eff-row .num { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-.overview .ov-effect .eff-worst { margin-top: 8px; font-size: 12.5px; color: var(--ink3); }
-.overview .ov-effect .eff-actions { margin-top: 10px; }
-.overview .ov-effect .eff-note { margin: 10px 0 0; color: var(--ink3); font-size: 12px; line-height: 1.45; }
+.overview .ov-effect .eff-row .num.w { font-weight: 400; color: var(--ink3); }
+.overview .ov-effect .eff-tips { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.overview .ov-effect .eff-tip { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; }
+.overview .ov-effect .eff-tip-title { font: 600 12.5px var(--font); color: var(--ink); }
+.overview .ov-effect .eff-tip .sub { margin-top: 2px; color: var(--ink3); font-size: 12px; line-height: 1.45; }
+.overview .ov-effect .eff-conf { padding: 1px 7px; border-radius: 999px; font: 600 11px var(--font); white-space: nowrap; }
+.overview .ov-effect .eff-conf.sure { color: var(--accent); background: var(--accent-tint); }
+.overview .ov-effect .eff-conf.likely { color: var(--ink2); background: color-mix(in srgb, var(--ink3) 14%, transparent); }
+.overview .ov-effect .eff-ok { margin: 10px 0 0; color: var(--ink3); font-size: 12.5px; }
+.overview .ov-effect .eff-note { margin: 12px 0 0; color: var(--ink3); font-size: 12px; line-height: 1.45; }
+@media (max-width: 699px) { .overview .ov-effect .eff-tip { grid-template-columns: auto 1fr; } .overview .ov-effect .eff-tip .btn { grid-column: 2; justify-self: start; } }
 .overview .panel .section-title { margin-top: 0; }
 .overview .panel svg.days { margin: 8px 0 0; }
 .overview .bum-tips .section-title { margin-bottom: 14px; }

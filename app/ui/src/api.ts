@@ -91,20 +91,28 @@ export interface Source { info: SourceInfo; root: string; found: boolean; sessio
 export type TranscriptItem = { kind: 'text'; text: string } | { kind: 'tool'; id: string; name: string; input: string; output: string | null; error: boolean };
 export interface TranscriptTurn { key: string; ts: string; question: string; items: TranscriptItem[]; interrupted: boolean }
 
-/** Effectiveness over a window: turns the user cancelled or immediately corrected, and context overflows. */
-export interface ProjectWaste { project: string; wasted: number }
+/** Effectiveness over a range: facts from the log (cancelled turns, very large contexts, overflows), quota-weighted, with advice. */
+export interface Advice {
+  code: 'late_cancel' | 'big_context' | 'split_session';
+  /** `sure`: the tokens were spent. `likely`: acting on the advice probably saves them. */
+  confidence: 'sure' | 'likely';
+  /** Turns, or sessions for `split_session`. */
+  count: number;
+  /** Quota-weighted tokens (cache reads count 0.1×, output 5×), not money. */
+  weighted: number;
+  session_id: string | null;
+}
 
 export interface Effect {
   turns: number;
   sessions: number;
-  total_tokens: number;
+  weighted: number;
   interrupted_turns: number;
-  rework_turns: number;
-  waste_turns: number;
-  wasted_tokens: number;
-  waste_pct: number;
+  interrupted_weighted: number;
+  big_context_turns: number;
+  big_context_weighted: number;
   compactions: number;
-  worst_projects: ProjectWaste[];
+  advice: Advice[];
 }
 
 type Transport = {
@@ -152,7 +160,7 @@ export const api = {
   sidebarCounts: () => call<SidebarCounts>('sidebar_counts'),
   todaySummary: () => call<TodaySummary>('today_summary'),
   limitState: () => call<LimitState>('limit_state'),
-  effectiveness: (days: number, tool?: string) => call<Effect>('effectiveness', { days, tool }),
+  effectiveness: (from: string, tool?: string) => call<Effect>('effectiveness', { from, tool }),
   setNote: (key: string, starred: boolean, note: string) => call<boolean>('set_note', { key, starred, note }),
   settings: () => call<SettingsInfo>('settings:get'),
   statuslinePlan: () => call<{ description: string; noop: boolean }>('settings:statusline_plan'),

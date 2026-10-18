@@ -28,9 +28,13 @@ const handlers = () => ({
 });
 
 const EFFECT = {
-  turns: 40, sessions: 6, total_tokens: 1_000_000, interrupted_turns: 12, rework_turns: 8,
-  waste_turns: 15, wasted_tokens: 250_000, waste_pct: 25, compactions: 3,
-  worst_projects: [{ project: 'TICKET-101', wasted: 200_000 }],
+  turns: 40, sessions: 6, weighted: 1_000_000, interrupted_turns: 12, interrupted_weighted: 90_000,
+  big_context_turns: 8, big_context_weighted: 400_000, compactions: 3,
+  advice: [
+    { code: 'big_context', confidence: 'likely', count: 8, weighted: 400_000, session_id: null },
+    { code: 'split_session', confidence: 'likely', count: 2, weighted: 250_000, session_id: 'sess-9' },
+    { code: 'late_cancel', confidence: 'sure', count: 3, weighted: 60_000, session_id: null },
+  ],
 };
 
 const skillReport = { rows: [
@@ -276,28 +280,58 @@ describe('Overview quota panel', () => {
     expect(el.querySelector('.ov-quota')!.textContent).toContain('hạn mức credit tháng');
   });
 
-  it('effectiveness: the wasted share, the behavioural rows, and a jump to the cancelled turns', async () => {
+  it('effectiveness: quota-weighted facts, advice with a confidence label, each opening its turns', async () => {
     const f = fake(handlers());
     await mountOverview(el);
     const panel = el.querySelector('.ov-effect')!;
-    expect(panel.querySelector('.eff-pct')?.textContent).toBe('25.0%');
-    expect(panel.textContent).toContain('250K trên 1.0M token');
-    expect([...panel.querySelectorAll('.eff-row .num')].map((n) => n.textContent)).toEqual(['12', '8', '3']);
-    expect(panel.textContent).toContain('TICKET-101 (200K)');
-    // The numbers are labelled as proxies, not as a quality score.
-    expect(panel.textContent).toContain('không phải đánh giá chất lượng');
-    // Changing the range refetches for that range only.
+    expect([...panel.querySelectorAll('.eff-row')].map((r) => [...r.querySelectorAll('.num')].map((n) => n.textContent)))
+      .toEqual([['12', '≈ 90K'], ['8', '≈ 400K'], ['3', '']]);
+    // Advice in the backend's order, with what to do and how sure it is.
+    const tips = [...panel.querySelectorAll('.eff-tip')];
+    expect(tips.map((x) => x.getAttribute('data-code'))).toEqual(['big_context', 'split_session', 'late_cancel']);
+    expect(tips[0].textContent).toContain('8 lượt bắt đầu với context rất lớn');
+    expect(tips[0].textContent).toContain('/compact');
+    expect(tips[0].querySelector('.eff-conf')?.textContent).toBe('Có thể');
+    expect(tips[2].querySelector('.eff-conf')?.textContent).toBe('Chắc chắn');
+    // No guessed "corrections", no raw-token waste share, and it says it is not a quality score.
+    expect(panel.textContent).not.toContain('sửa lại');
+    expect(panel.textContent).toContain('không chấm chất lượng');
+    // The range is sent as local midnight, the same days as the rest of the Overview.
+    const from = f.calls.find((c) => c.method === 'effectiveness')!.params.from as string;
+    const d = new Date(from);
+    expect([d.getHours(), d.getMinutes()]).toEqual([0, 0]);
+    expect(Math.round((Date.now() - d.getTime()) / 86_400_000)).toBeGreaterThanOrEqual(29);
+    // Each button opens its turns on the Conversations screen, inside that range.
+    (tips[0].querySelector('button') as HTMLButtonElement).click();
+    expect(state.view).toBe('conversations');
+    expect(state.filter).toMatchObject({ quick: 'big_context', from });
+  });
+
+  it('effectiveness: the session to split opens that conversation; changing the range refetches', async () => {
+    const f = fake(handlers());
+    await mountOverview(el);
+    (el.querySelector('.eff-tip[data-code="split_session"] button') as HTMLButtonElement).click();
+    expect(state.view).toBe('conversations');
+    expect(state.conversation).toBe('sess-9');
+    update({ view: 'overview', conversation: null });
+    await mountOverview(el);
+    const before = f.calls.filter((c) => c.method === 'effectiveness').length;
     (el.querySelector('[data-range="1"]') as HTMLButtonElement).click();
     await flush(); await flush();
-    expect(f.calls.filter((c) => c.method === 'effectiveness').some((c) => c.params.days === 1)).toBe(true);
-    // The button opens the turns that were cut off, on the Conversations screen.
-    (panel.querySelector('button') as HTMLButtonElement).click();
-    expect(state.view).toBe('conversations');
-    expect(state.filter.quick).toBe('interrupted');
+    const last = f.calls.filter((c) => c.method === 'effectiveness');
+    expect(last.length).toBeGreaterThan(before);
+    expect(new Date(last[last.length - 1].params.from as string).toDateString()).toBe(new Date().toDateString());
+  });
+
+  it('effectiveness: nothing to advise says so', async () => {
+    fake({ ...handlers(), effectiveness: () => ({ ...EFFECT, advice: [] }) });
+    await mountOverview(el);
+    expect(el.querySelector('.ov-effect .eff-tips')).toBeNull();
+    expect(el.querySelector('.ov-effect')!.textContent).toContain('Không có gì đáng lo');
   });
 
   it('effectiveness: an empty range says so instead of showing zeros', async () => {
-    fake({ ...handlers(), effectiveness: () => ({ ...EFFECT, turns: 0, waste_pct: 0, wasted_tokens: 0, worst_projects: [] }) });
+    fake({ ...handlers(), effectiveness: () => ({ ...EFFECT, turns: 0, advice: [] }) });
     await mountOverview(el);
     const panel = el.querySelector('.ov-effect')!;
     expect(panel.getAttribute('data-empty')).toBe('1');

@@ -1,6 +1,6 @@
 // Overview: 3 cards (Tokens + Bum, Turns, Conversations), tokens per day, "Bum suggests", projects and models. Scoped to the selected tool.
 import { api } from '../api';
-import type { DayStat, Effect, Forecast, LimitState, ModelStat, ProjectStat, SidebarCounts, SkillReport, ToolQuota, Window } from '../api';
+import type { Advice, DayStat, Effect, Forecast, LimitState, ModelStat, ProjectStat, SidebarCounts, SkillReport, ToolQuota, Window } from '../api';
 import { bum } from '../components/bum';
 import { bumMood, EMPTY_BUM_INFO, loadBumInfo } from '../components/bum-data';
 import type { BumInfo } from '../components/bum-data';
@@ -8,6 +8,7 @@ import { emptyState, insightRow } from '../components/ui';
 import { compact, h, svg } from '../dom';
 import { fmtAgo, fmtCountdown, fmtCredits, fmtDayMonth, fmtTime, fmtTokens } from '../fmt';
 import { t } from '../i18n';
+import type { Key } from '../i18n';
 import { state, subscribe, update } from '../state';
 import { allSources, modelTag, toolDef } from '../tools';
 import { toolTabs } from '../components/toolTabs';
@@ -17,8 +18,17 @@ const H = 160;
 const TOP_PROJECTS = 8;
 const RANGES = [1, 7, 30, 90];
 
+/** Effectiveness advice: the sentence (with `{n}` and `{tokens}`), what to do about it, and the button. */
+const ADVICE: Record<Advice['code'], { title: Key; how: Key; act: Key }> = {
+  late_cancel: { title: 'ov.effLateCancel', how: 'ov.effLateCancelHow', act: 'ov.effSeeInterrupted' },
+  big_context: { title: 'ov.effBigContext', how: 'ov.effBigContextHow', act: 'ov.effSeeTurns' },
+  split_session: { title: 'ov.effSplit', how: 'ov.effSplitHow', act: 'ov.effOpenSession' },
+};
+
 const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const daysAgo = (today: Date, n: number) => { const d = new Date(today.getFullYear(), today.getMonth(), today.getDate()); d.setDate(d.getDate() - n); return dayKey(d); };
+/** Local midnight that starts a range of `range` calendar days (today included), as RFC3339 — the days the rest of the Overview counts. */
+const rangeStart = (range: number) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (range - 1)); return d.toISOString(); };
 
 /** Compare total tokens for the `range` days ending today against the previous `range` days (by local date). */
 export function comparePeriods(days: DayStat[], range: number, today: Date): { current: number; previous: number; pct: number | null } {
@@ -168,27 +178,38 @@ export async function mountOverview(el: HTMLElement) {
   };
 
   /**
-   * Effectiveness: did the tokens produce a result? Behavioural proxies only — a turn the user cut
-   * off, a turn the user immediately corrected, a context overflow. No model is called, so this
-   * costs no tokens, and it says nothing about the *quality* of an answer.
+   * Effectiveness: where did the quota go without a result? Only facts from the log — turns the user
+   * cut off, turns that started with a very large context, context overflows — weighted by what they
+   * cost against the limit (`quota_weight`), each with a piece of advice and a jump to the turns. No
+   * model is called, so this costs no tokens, and it says nothing about the *quality* of an answer.
    */
   const effectPanel = (): HTMLElement => {
-    const head = h('div', { class: 'section-title' }, h('span', {}, t('ov.effect')), h('span', {}, t('ov.effectRange', { n: range })));
+    const label = range === 1 ? t('range.today') : range === 7 ? t('range.7d') : t('range.nd', { n: range });
+    const head = h('div', { class: 'section-title' }, h('span', {}, t('ov.effect')), h('span', {}, label));
     if (!effect || effect.turns === 0) {
       return h('div', { class: 'panel ov-effect', 'data-empty': '1' }, head, h('div', { class: 'empty' }, t('ov.effectNone')));
     }
-    const row = (label: string, n: number) => h('div', { class: 'eff-row' }, h('span', { class: 'name' }, label), h('span', { class: 'num' }, String(n)));
-    const worst = effect.worst_projects[0];
+    const from = rangeStart(range);
+    const row = (name: string, n: number, weighted: number | null) => h('div', { class: 'eff-row' },
+      h('span', { class: 'name' }, name),
+      h('span', { class: 'num' }, String(n)),
+      h('span', { class: 'num w' }, weighted == null ? '' : `≈ ${fmtTokens(weighted)}`));
+    const open: Record<Advice['code'], (a: Advice) => void> = {
+      late_cancel: () => go({ quick: 'interrupted', from }),
+      big_context: () => go({ quick: 'big_context', from }),
+      split_session: (a) => update({ view: 'conversations', filter: { tool: state.scope }, conversation: a.session_id, turn: null }),
+    };
+    const tip = (a: Advice) => h('div', { class: 'eff-tip', 'data-code': a.code },
+      h('span', { class: `eff-conf ${a.confidence}` }, t(a.confidence === 'sure' ? 'ov.effSure' : 'ov.effLikely')),
+      h('div', { class: 'eff-tip-body' },
+        h('div', { class: 'eff-tip-title' }, t(ADVICE[a.code].title, { n: a.count, tokens: fmtTokens(a.weighted) })),
+        h('div', { class: 'sub' }, t(ADVICE[a.code].how))),
+      h('button', { class: 'btn', type: 'button', onclick: (() => open[a.code](a)) as EventListener }, t(ADVICE[a.code].act)));
     return h('div', { class: 'panel ov-effect' }, head,
-      h('div', { class: 'eff-head' },
-        h('span', { class: 'eff-pct num' }, `${effect.waste_pct.toFixed(1)}%`),
-        h('span', { class: 'sub' }, t('ov.effectHead', { wasted: fmtTokens(effect.wasted_tokens), total: fmtTokens(effect.total_tokens) }))),
-      row(t('ov.effectInterrupted'), effect.interrupted_turns),
-      row(t('ov.effectRework'), effect.rework_turns),
-      row(t('ov.effectCompactions'), effect.compactions),
-      worst ? h('div', { class: 'eff-worst' }, t('ov.effectWorst', { project: worst.project, tokens: fmtTokens(worst.wasted) })) : null,
-      h('div', { class: 'eff-actions' },
-        h('button', { class: 'btn', type: 'button', onclick: (() => go({ quick: 'interrupted' })) as EventListener }, t('ov.effectSeeInterrupted'))),
+      row(t('ov.effectInterrupted'), effect.interrupted_turns, effect.interrupted_weighted),
+      row(t('ov.effectBigContext'), effect.big_context_turns, effect.big_context_weighted),
+      row(t('ov.effectCompactions'), effect.compactions, null),
+      effect.advice.length ? h('div', { class: 'eff-tips' }, ...effect.advice.map(tip)) : h('p', { class: 'sub eff-ok' }, t('ov.effectAllGood')),
       h('p', { class: 'sub eff-note' }, t('ov.effectNote')));
   };
 
@@ -274,7 +295,7 @@ export async function mountOverview(el: HTMLElement) {
   /** Only the effectiveness panel changes with the range, so it is refreshed without a full reload. */
   const loadEffect = async () => {
     const my = ++effSeq;
-    const e = await api.effectiveness(range, state.scope ?? undefined).catch(() => null);
+    const e = await api.effectiveness(rangeStart(range), state.scope ?? undefined).catch(() => null);
     if (my !== effSeq) return;
     effect = e;
     render();
@@ -287,7 +308,7 @@ export async function mountOverview(el: HTMLElement) {
       api.dayStats(tool), api.projectStats(tool), api.modelStats(), api.sidebarCounts(),
       api.skills(false).catch(() => null), api.limitState().catch(() => null), loadBumInfo(tool),
       api.settings().then((s) => s.tool_quotas ?? null).catch(() => null),
-      api.effectiveness(range, tool).catch(() => null),
+      api.effectiveness(rangeStart(range), tool).catch(() => null),
     ]);
     if (my !== seq) return;
     days = d; projects = p; models = m.filter((x) => !tool || x.tool === tool); counts = c; report = rep; limits = lim; info = bi; quotas = q; effect = eff;

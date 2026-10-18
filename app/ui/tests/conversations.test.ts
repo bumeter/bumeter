@@ -134,6 +134,14 @@ describe('Conversations screen', () => {
     expect(last.from).toBeTruthy();
   });
 
+  it('arriving with a range in the filter shows it on the range chip', async () => {
+    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - 6);
+    fake(handlers());
+    update({ filter: { quick: 'interrupted', from: d.toISOString() } });
+    await mountConversations(el);
+    expect(chipByLabel('Khoảng thời gian').textContent).toContain('7 ngày');
+  });
+
   it('search box waits for typing to finish before searching', async () => {
     vi.useFakeTimers();
     const f = fake(handlers());

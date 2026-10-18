@@ -28,6 +28,19 @@ impl Usage {
         self.context() + self.output + self.reasoning
     }
 
+    /// What these tokens weigh against a rate limit, in "input token" units. Every Claude model is
+    /// priced with the same ratios (cache write 1.25× / 2×, cache read 0.1×, output 5×) and the limits
+    /// are very likely weighted the same way, so this ranks what burns the quota far better than
+    /// `total()`, where cache reads are almost everything. A relative unit, not money.
+    pub fn quota_weight(&self) -> u64 {
+        let w = self.input as u128 * 100
+            + self.cache_write_5m as u128 * 125
+            + self.cache_write_1h as u128 * 200
+            + self.cache_read as u128 * 10
+            + (self.output + self.reasoning) as u128 * 500;
+        (w / 100) as u64
+    }
+
     pub fn add(&mut self, other: &Usage) {
         self.input += other.input;
         self.cache_write_5m += other.cache_write_5m;
