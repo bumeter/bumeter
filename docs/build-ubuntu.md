@@ -12,7 +12,7 @@ cd app && ./ui/node_modules/.bin/tauri build --bundles deb appimage
 
 Result:
 
-- `target/release/bundle/deb/Bumeter_1.0.5_amd64.deb` (about 9.5MB). Install with `sudo apt install ./Bumeter_1.0.5_amd64.deb`. After installing, `bumeter` and `bum` are in `/usr/bin`, with an entry in the applications menu.
-- `target/release/bundle/appimage/Bumeter_1.0.5_amd64.AppImage` (about 86MB, libraries included). Run directly, no installation needed.
+- `target/release/bundle/deb/Bumeter_1.0.6_amd64.deb` (about 9.5MB). Install with `sudo apt install ./Bumeter_1.0.6_amd64.deb`. After installing, `bumeter` and `bum` are in `/usr/bin`, with an entry in the applications menu.
+- `target/release/bundle/appimage/Bumeter_1.0.6_amd64.AppImage` (about 86MB, libraries included). Run directly, no installation needed.
 
 The source icon is at `app/src-tauri/icons/design/a-bars.svg`. To regenerate the icon set, run: `./ui/node_modules/.bin/tauri icon src-tauri/icons/source.png -o src-tauri/icons`.

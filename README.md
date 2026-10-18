@@ -55,7 +55,7 @@ Bumeter needs a desktop with WebKitGTK 4.1, i.e. **Ubuntu 24.04 or newer** (or a
 **Debian/Ubuntu package**
 
 ```bash
-sudo apt install ./Bumeter_1.0.5_amd64.deb
+sudo apt install ./Bumeter_1.0.6_amd64.deb
 ```
 
 This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin`.
@@ -63,8 +63,8 @@ This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin
 **AppImage** (no install, libraries included)
 
 ```bash
-chmod +x Bumeter_1.0.5_amd64.AppImage
-./Bumeter_1.0.5_amd64.AppImage
+chmod +x Bumeter_1.0.6_amd64.AppImage
+./Bumeter_1.0.6_amd64.AppImage
 ```
 
 **Snap** — the `bumeter` snap is waiting for the Snap Store's classic-confinement review.
@@ -149,7 +149,7 @@ Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --no
 - `.github/workflows/ci.yml` runs the Rust tests on Linux, macOS and Windows, plus the UI tests, on every push and pull request.
 - `.github/workflows/release.yml` builds the installers with `tauri-action`: `.deb` + `.AppImage` (Ubuntu 22.04+),
   `.dmg` (Apple Silicon and Intel), `.exe` (NSIS) + `.msi` (Windows). Run it from the Actions tab to get the files as
-  artifacts, or push a tag (`git tag v1.0.5 && git push origin v1.0.5`) to get a published GitHub Release with the
+  artifacts, or push a tag (`git tag v1.0.6 && git push origin v1.0.6`) to get a published GitHub Release with the
   files attached. The macOS and Windows builds are not code-signed yet, so Gatekeeper and SmartScreen will warn on
   first launch.
 - Auto-update goes through the same GitHub Release (Settings → Updates, plus a "Check for updates" tray item).

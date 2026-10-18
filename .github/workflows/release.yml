@@ -1,6 +1,6 @@
 # Build installers for Linux, macOS, Windows.
 # - Run manually (workflow_dispatch) or push to main: the installers appear under the run's Artifacts.
-# - Push a v* tag (e.g. v1.0.5): creates a published GitHub Release with the installers attached,
+# - Push a v* tag (e.g. v1.0.6): creates a published GitHub Release with the installers attached,
 #   plus the `latest.json` + `.sig` files the in-app updater reads (Settings → Updates).
 #
 # The bundles are built by tauri-action so it can generate `latest.json` for us (updater on,
