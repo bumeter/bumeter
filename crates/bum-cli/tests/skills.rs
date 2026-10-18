@@ -146,7 +146,9 @@ fn audit_reports_findings_and_fails_only_on_high() {
     assert_eq!(f["kind"], "injection");
     assert_eq!(f["skill"], "evil");
     assert_eq!(f["line"], 5);
-    assert!(f["path"].as_str().unwrap().ends_with(".claude/skills/evil/SKILL.md"));
+    // Normalize separators first: on Windows the serialized path uses `\`.
+    let path = f["path"].as_str().unwrap().replace('\\', "/");
+    assert!(path.ends_with(".claude/skills/evil/SKILL.md"), "{path}");
     assert!(out.stderr.contains("high-risk"));
     assert_eq!(out.stderr.lines().count(), 1, "stdout stays JSON: {}", out.stderr);
 
