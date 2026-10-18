@@ -16,6 +16,8 @@ struct Fake {
     batches: Batches,
     seen: Arc<Mutex<Vec<Option<i64>>>>,
     fail: bool,
+    /// How long each scan takes (a big database).
+    delay: std::time::Duration,
 }
 
 impl DbSource for Fake {
@@ -30,6 +32,7 @@ impl DbSource for Fake {
     }
     fn scan(&mut self, watermark: Option<i64>) -> anyhow::Result<(Vec<RawEvent>, i64)> {
         self.seen.lock().unwrap().push(watermark);
+        std::thread::sleep(self.delay);
         if self.fail {
             anyhow::bail!("locked");
         }
@@ -60,7 +63,7 @@ fn setup(fail: bool) -> Setup {
     std::fs::write(&db, b"x").unwrap();
     let batches = Arc::new(Mutex::new(Vec::new()));
     let seen = Arc::new(Mutex::new(Vec::new()));
-    let fake = Fake { path: db.clone(), batches: batches.clone(), seen: seen.clone(), fail };
+    let fake = Fake { path: db.clone(), batches: batches.clone(), seen: seen.clone(), fail, delay: std::time::Duration::ZERO };
     // No throttling here; `scans_are_throttled_while_the_db_keeps_changing` covers it.
     let engine = Engine::new(Store::open_in_memory().unwrap(), vec![]).with_db_sources(vec![Box::new(fake)]).with_db_min_interval(std::time::Duration::ZERO);
     Setup { _dir: dir, db, engine, batches, seen }
@@ -149,6 +152,18 @@ fn scans_are_throttled_while_the_db_keeps_changing() {
 }
 
 #[test]
+fn a_slow_scan_does_not_use_up_the_interval() {
+    // A scan that takes longer than the interval (a big database) must still hold the next one back:
+    // the interval runs from the end of a scan, or a database that keeps changing is read back to back.
+    let mut s = setup(false);
+    let fake = Fake { path: s.db.clone(), batches: s.batches.clone(), seen: s.seen.clone(), fail: false, delay: std::time::Duration::from_millis(300) };
+    s.engine = Engine::new(Store::open_in_memory().unwrap(), vec![]).with_db_sources(vec![Box::new(fake)]).with_db_min_interval(std::time::Duration::from_millis(200));
+    s.engine.ingest_path(&s.db).unwrap();
+    s.engine.ingest_path(&wal(&s.db)).unwrap();
+    assert_eq!(s.seen.lock().unwrap().len(), 1, "the change right after a slow scan is deferred");
+}
+
+#[test]
 fn the_watermark_is_reset_when_the_db_path_changes() {
     let dir = tempfile::tempdir().unwrap();
     let store = dir.path().join("bumeter.db");
@@ -158,7 +173,7 @@ fn the_watermark_is_reset_when_the_db_path_changes() {
     let run = |path: &Path, events: Vec<RawEvent>| {
         let batches: Batches = Arc::new(Mutex::new(vec![(events, 5000)]));
         let seen = Arc::new(Mutex::new(Vec::new()));
-        let fake = Fake { path: path.to_path_buf(), batches, seen: seen.clone(), fail: false };
+        let fake = Fake { path: path.to_path_buf(), batches, seen: seen.clone(), fail: false, delay: std::time::Duration::ZERO };
         let mut e = Engine::new(Store::open(&store).unwrap(), vec![]).with_db_sources(vec![Box::new(fake)]);
         e.full_scan().unwrap();
         let v = seen.lock().unwrap().clone();

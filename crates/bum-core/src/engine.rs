@@ -199,7 +199,14 @@ impl Engine {
     /// Database source: read rows changed since the saved watermark. The watermark is stored in `file_offsets`
     /// (key `db:<id>`) in the same transaction as the rows; the file itself is never compared or purged.
     fn ingest_db(&mut self, i: usize) -> anyhow::Result<IngestReport> {
+        let r = self.read_db(i);
+        // The throttle interval runs from the end of a scan: timed from the start, a scan slower than the
+        // interval (a big database) would use it all up, and a database that keeps changing would be read back to back.
         self.db_last[i] = Some(Instant::now());
+        r
+    }
+
+    fn read_db(&mut self, i: usize) -> anyhow::Result<IngestReport> {
         let db = self.db_sources[i].db_path();
         if !db.exists() {
             self.db_pending[i] = false;
