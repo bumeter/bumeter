@@ -96,6 +96,16 @@ pub fn skills(state: State<'_, AppState>, pending: State<'_, PendingPlans>, acti
             let kiro = bum_skills::catalog::scan_personal_for(&kiro_dir(), "kiro").len();
             Ok(json!({ "claude_code": claude, "kiro": kiro, "total": claude + kiro }))
         }
+        "audit" => {
+            // Read-only scan of every SKILL.md it can find, across both tools: a skill that reaches for
+            // credentials is worth knowing about whichever tool loads it. Findings carry their tool, so
+            // the screen can mark the rows it is showing.
+            let mut entries = scan_personal(&StatuslineSetup::default_claude_dir());
+            entries.extend(bum_skills::catalog::scan_personal_for(&kiro_dir(), "kiro"));
+            let (plugins, _) = scan_plugins(&ClaudeCli::system());
+            entries.extend(plugins);
+            Ok(serde_json::to_value(bum_skills::audit::audit(&entries)).unwrap_or_default())
+        }
         "log" => m.log().map(|l| serde_json::to_value(l).unwrap_or_default()).map_err(err),
         other => Err(format!("no such action '{other}'")),
     }

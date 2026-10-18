@@ -173,3 +173,108 @@ describe('Overview', () => {
     expect(state.filter.project).toBe('TICKET-203');
   });
 });
+
+describe('Overview quota panel', () => {
+  const limitState = (now: number, extra: Record<string, unknown> = {}) => ({
+    five_hour: { used_percentage: 78, resets_at: now + 5400 },
+    seven_day: { used_percentage: 41, resets_at: now + 3 * 86400 },
+    updated_at: now - 12, stale: false, blocked: null,
+    forecast_five_hour: { rate_per_hour: 18, hits_at: now + 3600, resets_at: now + 5400, at_risk: true },
+    forecast_seven_day: null,
+    ...extra,
+  });
+  const kiroQuota = { used: 3.4, limit: 10, resets_on: '2026-11-01', plan: 'Pro', fetched_at: 0 };
+
+  it('each window: fill colour, percentage, reset time and countdown; at-risk gets an "out at" chip', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    fake({ ...handlers(), limit_state: () => limitState(now), settings_get: () => ({ tool_quotas: { kiro: kiroQuota } }) });
+    await mountOverview(el);
+
+    const five = el.querySelector('[data-window="5h"]')!;
+    expect(five.querySelector('.num')?.textContent).toBe('78%');
+    expect(five.querySelector('.sub')?.textContent).toMatch(/^reset \d\d:\d\d · còn 1h30$/);
+    expect((five.querySelector('.meter span') as HTMLElement).style.background).toBe('var(--acc)');
+    expect(five.querySelector('.tag.warn')?.textContent).toMatch(/^hết ~\d\d:\d\d$/);
+
+    const week = el.querySelector('[data-window="7d"]')!;
+    expect(week.querySelector('.num')?.textContent).toBe('41%');
+    expect((week.querySelector('.meter span') as HTMLElement).style.background).toBe('var(--grn)');
+    expect(week.querySelector('.tag')).toBeNull();
+  });
+
+  it('a full window turns red', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    fake({ ...handlers(), limit_state: () => limitState(now, { five_hour: { used_percentage: 96, resets_at: now + 600 }, forecast_five_hour: null }) });
+    await mountOverview(el);
+    const five = el.querySelector('[data-window="5h"]')!;
+    expect(five.querySelector('.num')?.textContent).toBe('96%');
+    expect((five.querySelector('.meter span') as HTMLElement).style.background).toBe('var(--red)');
+  });
+
+  it('Kiro credits are their own row, with the plan and reset day', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    fake({ ...handlers(), limit_state: () => limitState(now), settings_get: () => ({ tool_quotas: { kiro: kiroQuota } }) });
+    await mountOverview(el);
+    const credits = el.querySelector('[data-window="credits"]')!;
+    expect(credits.querySelector('.name')?.textContent).toBe('Kiro');
+    expect(credits.querySelector('.num')?.textContent).toBe('34%');
+    expect(credits.querySelector('.sub')?.textContent).toBe('3.4/10 credit · Pro · reset 01/11');
+  });
+
+  it('blocked banner names the window and when it resets', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    fake({ ...handlers(), limit_state: () => limitState(now, { blocked: { limit_type: 'five_hour', resets_at: now + 1200 } }) });
+    await mountOverview(el);
+    expect(el.querySelector('.quota-blocked')?.textContent).toMatch(/^Hết lượt \(5 giờ\) · reset \d\d:\d\d$/);
+  });
+
+  it('stale data says so instead of "updated … ago"', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    fake({ ...handlers(), limit_state: () => limitState(now, { stale: true }) });
+    await mountOverview(el);
+    const title = el.querySelector('.ov-quota .section-title')!.textContent!;
+    expect(title).toContain('số liệu cũ');
+    expect(title).not.toContain('cập nhật');
+  });
+
+  it('by tool scope: Claude windows only for Claude Code, credits only for Kiro', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    fake({ ...handlers(), limit_state: () => limitState(now), settings_get: () => ({ tool_quotas: { kiro: kiroQuota } }) });
+    update({ scope: 'kiro' });
+    await mountOverview(el);
+    expect(el.querySelector('[data-window="5h"]')).toBeNull();
+    expect(el.querySelector('[data-window="7d"]')).toBeNull();
+    expect(el.querySelector('[data-window="credits"]')).not.toBeNull();
+    update({ scope: 'claude_code' });
+    await flush(); await flush();
+    expect(el.querySelector('[data-window="5h"]')).not.toBeNull();
+    expect(el.querySelector('[data-window="credits"]')).toBeNull();
+  });
+
+  it('no data at all: a hint and a button that opens Settings', async () => {
+    fake(handlers()); // no limit_state, no settings_get → both calls fail, the screen still renders
+    await mountOverview(el);
+    const panel = el.querySelector('.ov-quota')!;
+    expect(panel.getAttribute('data-empty')).toBe('1');
+    expect(panel.textContent).toContain('Chưa có dữ liệu hạn mức');
+    expect(panel.textContent).toContain('Bật statusline');
+    (panel.querySelector('button') as HTMLButtonElement).click();
+    expect(state.view).toBe('settings');
+  });
+
+  it('the empty hint points at the setting that actually applies', async () => {
+    fake(handlers());
+    update({ scope: 'kiro' });
+    await mountOverview(el);
+    expect(el.querySelector('.ov-quota')!.textContent).toContain('hạn mức credit tháng');
+  });
+
+  it('a live limits-changed event repaints the panel without a reload', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const f = fake({ ...handlers(), limit_state: () => limitState(now) });
+    await mountOverview(el);
+    expect(el.querySelector('[data-window="5h"] .num')?.textContent).toBe('78%');
+    f.emit('limits-changed', limitState(now, { five_hour: { used_percentage: 12, resets_at: now + 600 } }));
+    expect(el.querySelector('[data-window="5h"] .num')?.textContent).toBe('12%');
+  });
+});

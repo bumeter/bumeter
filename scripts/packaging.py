@@ -1,0 +1,288 @@
+#!/usr/bin/env python3
+"""Generate the Homebrew cask and the winget manifests from a GitHub release.
+
+The release assets are the only source of truth: this downloads them once, hashes
+them, and writes
+
+    packaging/homebrew/bumeter.rb                     → Casks/bumeter.rb in the tap
+    packaging/winget/Bumeter.Bumeter*.yaml            → manifests/b/Bumeter/Bumeter/<version>/ in microsoft/winget-pkgs
+
+    ./scripts/packaging.py                     # latest release
+    ./scripts/packaging.py --version v1.0.5    # a specific tag
+    ./scripts/packaging.py --check             # verify what is committed (CI), write nothing
+    ./scripts/packaging.py --installer msi --product-code '{GUID}'   # WinGet from the MSI instead
+
+Nothing is uploaded, and no token is needed (a token only raises the 60 req/h
+unauthenticated rate limit). Downloads are cached in the system temp directory, so
+re-running is free. See docs/packaging.md for how to publish the results.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.request
+
+API = "https://api.github.com"
+DEFAULT_REPO = os.environ.get("BUMETER_REPO", "chieund/bumeter")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PACKAGING = os.path.join(ROOT, "packaging")
+HOME = "https://bumeter.cc"
+REPO_URL = f"https://github.com/{DEFAULT_REPO}"
+
+# microsoft/winget-pkgs asks new submissions to conform to the current schema and marks 1.6.0
+# deprecated, so 1.12.0 is what their PR template points at.
+MANIFEST_VERSION = "1.12.0"
+
+
+def schema_header(kind: str) -> str:
+    """The `yaml-language-server` line the winget-pkgs checklist asks for on every file."""
+    return f"# yaml-language-server: $schema=https://aka.ms/winget-manifest.{kind}.{MANIFEST_VERSION}.schema.json"
+
+
+def bundle_identity() -> tuple[str, str]:
+    """What the Windows installers write into "Apps & features" (name, publisher).
+
+    WinGet matches an already-installed app on these two, so the manifest has to say what the
+    installer really writes. Tauri takes the publisher from `bundle.publisher`, and when that is
+    unset it falls back to the second element of the identifier (`dev.bumeter.app` → `bumeter`) —
+    which is the `Manufacturer` of the released .msi, so this follows Tauri instead of guessing.
+    """
+    with open(os.path.join(ROOT, "app/src-tauri/tauri.conf.json"), encoding="utf-8") as f:
+        conf = json.load(f)
+    publisher = conf.get("bundle", {}).get("publisher") or conf["identifier"].split(".")[1]
+    return conf["productName"], publisher
+
+
+
+def log(msg: str) -> None:
+    print(msg, file=sys.stderr)
+
+
+def get_json(url: str) -> dict | list:
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "bumeter-packaging"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+
+
+def release(repo: str, tag: str | None) -> dict:
+    url = f"{API}/repos/{repo}/releases/" + (f"tags/{tag}" if tag else "latest")
+    try:
+        return get_json(url)  # type: ignore[return-value]
+    except urllib.error.HTTPError as e:
+        sys.exit(f"could not read {url}: {e.code} {e.reason}")
+
+
+def asset(release_json: dict, name_contains: str) -> dict:
+    for a in release_json.get("assets", []):
+        if name_contains in a["name"]:
+            return a
+    sys.exit(f"release {release_json.get('tag_name')} has no asset matching {name_contains!r}")
+
+
+def sha256(url: str, expected_size: int, cache_dir: str) -> str:
+    """Download once (cached by name+size) and hash; no partial file is ever hashed."""
+    name = os.path.join(cache_dir, os.path.basename(url))
+    if os.path.exists(name) and os.path.getsize(name) == expected_size:
+        log(f"  cached  {os.path.basename(name)}")
+    else:
+        log(f"  download {os.path.basename(name)} ({expected_size / 1e6:.1f} MB)")
+        tmp = name + ".part"
+        with urllib.request.urlopen(url, timeout=300) as r, open(tmp, "wb") as f:
+            while chunk := r.read(1 << 20):
+                f.write(chunk)
+        if os.path.getsize(tmp) != expected_size:
+            sys.exit(f"{name}: got {os.path.getsize(tmp)} bytes, expected {expected_size}")
+        os.replace(tmp, name)
+    h = hashlib.sha256()
+    with open(name, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def cargo_license() -> str:
+    """The workspace license, so a relicensing does not leave the manifests behind."""
+    path = os.path.join(ROOT, "Cargo.toml")
+    for line in open(path, encoding="utf-8"):
+        m = re.match(r'\s*license\s*=\s*"([^"]+)"', line)
+        if m:
+            return m.group(1)
+    sys.exit("no license in Cargo.toml")
+
+
+def cask(version: str, arm: str, intel: str) -> str:
+    # `{{version}}` is Ruby interpolation in the template; the version line is Python's.
+    return f'''# This file is generated by scripts/packaging.py — edit that, not this.
+cask "bumeter" do
+  version "{version}"
+
+  on_arm do
+    sha256 "{arm}"
+    url "{REPO_URL}/releases/download/v#{{version}}/Bumeter_#{{version}}_aarch64.dmg",
+        verified: "github.com/{DEFAULT_REPO}/"
+  end
+  on_intel do
+    sha256 "{intel}"
+    url "{REPO_URL}/releases/download/v#{{version}}/Bumeter_#{{version}}_x64.dmg",
+        verified: "github.com/{DEFAULT_REPO}/"
+  end
+
+  name "Bumeter"
+  desc "See where your AI coding tokens go, per conversation, turn and skill"
+  homepage "{HOME}"
+
+  app "Bumeter.app"
+
+  zap trash: [
+    "~/Library/Application Support/bumeter",
+    "~/Library/Caches/dev.bumeter.app",
+    "~/Library/Preferences/dev.bumeter.app.plist",
+    "~/Library/Saved Application State/dev.bumeter.app.savedState",
+    "~/Library/WebKit/dev.bumeter.app",
+  ]
+
+  caveat <<~EOS
+    Bumeter is not signed with an Apple Developer ID, so macOS quarantines the
+    download. To open it the first time: right-click the app → Open, or run
+      xattr -dr com.apple.quarantine "/Applications/Bumeter.app"
+  EOS
+end
+'''
+
+
+def winget_version(version: str) -> str:
+    return f"""{schema_header("version")}
+# This file is generated by scripts/packaging.py — edit that, not this.
+PackageIdentifier: Bumeter.Bumeter
+PackageVersion: {version}
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: {MANIFEST_VERSION}
+"""
+
+
+def winget_installer(version: str, url: str, digest: str, installer: str, product_code: str | None) -> str:
+    name, publisher = bundle_identity()
+    if installer == "msi":
+        # A WiX package knows its own identity, and WinGet uses it to detect the install.
+        head = f"InstallerType: wix\nInstallers:\n  - Architecture: x64\n    ProductCode: '{product_code}'"
+    else:
+        # The NSIS installer Tauri builds installs into the user's profile: no admin prompt.
+        head = "InstallerType: nullsoft\nScope: user\nInstallers:\n  - Architecture: x64"
+    return f"""{schema_header("installer")}
+# This file is generated by scripts/packaging.py — edit that, not this.
+PackageIdentifier: Bumeter.Bumeter
+PackageVersion: {version}
+InstallerLocale: en-US
+{head}
+    InstallerUrl: {url}
+    InstallerSha256: {digest.upper()}
+InstallModes:
+  - interactive
+  - silent
+UpgradeBehavior: install
+# What the installer writes into "Apps & features": without this, WinGet cannot tell the package
+# from an app it did not install, so `winget list`/`upgrade` miss it.
+AppsAndFeaturesEntries:
+  - DisplayName: {name}
+    Publisher: {publisher}
+ManifestType: installer
+ManifestVersion: {MANIFEST_VERSION}
+"""
+
+
+def winget_locale(version: str, release_json: dict) -> str:
+    tag = release_json["tag_name"]
+    return f"""{schema_header("defaultLocale")}
+# This file is generated by scripts/packaging.py — edit that, not this.
+PackageIdentifier: Bumeter.Bumeter
+PackageVersion: {version}
+PackageLocale: en-US
+Publisher: chieund
+PublisherUrl: https://github.com/chieund
+PublisherSupportUrl: {REPO_URL}/issues
+PackageName: Bumeter
+PackageUrl: {HOME}
+License: {cargo_license()}
+LicenseUrl: {REPO_URL}/blob/main/LICENSE
+ShortDescription: See where your AI coding tokens go, per conversation, turn and skill
+Description: >-
+  Bumeter reads the local logs of AI coding assistants (Claude Code, Kiro and OpenCode) and shows
+  which conversations and turns spent the most tokens, which skills load into every session, and how
+  much of your 5-hour, 7-day and monthly quota is left. It keeps a tray icon with the quota as a bar,
+  and warns before you run out. Everything stays on your machine: no account, no telemetry, nothing
+  uploaded.
+Moniker: bumeter
+Tags:
+  - ai
+  - claude-code
+  - developer-tools
+  - kiro
+  - tokens
+ReleaseNotesUrl: {REPO_URL}/releases/tag/{tag}
+ManifestType: defaultLocale
+ManifestVersion: {MANIFEST_VERSION}
+"""
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description="Write the Homebrew cask and winget manifests for a release.")
+    p.add_argument("--version", help="release tag, e.g. v1.0.5 (default: the latest release)")
+    p.add_argument("--repo", default=DEFAULT_REPO)
+    p.add_argument("--installer", choices=("exe", "msi"), default="exe", help="which Windows installer WinGet should use (default: exe)")
+    p.add_argument("--product-code", help="MSI ProductCode, required with --installer msi (print it with `msiinfo export <msi> Property`)")
+    p.add_argument("--check", action="store_true", help="compare the committed files with a fresh run; write nothing")
+    p.add_argument("--cache-dir", default=os.path.join(tempfile.gettempdir(), "bumeter-packaging"))
+    args = p.parse_args()
+
+    rel = release(args.repo, args.version)
+    version = rel["tag_name"].lstrip("v")
+    if args.installer == "msi" and not args.product_code:
+        sys.exit("--installer msi needs --product-code")
+    os.makedirs(args.cache_dir, exist_ok=True)
+    log(f"release {rel['tag_name']} published {rel.get('published_at', '?')[:10]}")
+
+    def sha(pattern: str) -> str:
+        a = asset(rel, pattern)
+        return sha256(a["browser_download_url"], a["size"], args.cache_dir)
+
+    win = asset(rel, "x64-setup.exe" if args.installer == "exe" else "x64_en-US.msi")
+    files = {
+        os.path.join(PACKAGING, "homebrew", "bumeter.rb"): cask(version, sha(f"_{version}_aarch64.dmg"), sha(f"_{version}_x64.dmg")),
+        os.path.join(PACKAGING, "winget", "Bumeter.Bumeter.yaml"): winget_version(version),
+        os.path.join(PACKAGING, "winget", "Bumeter.Bumeter.installer.yaml"): winget_installer(
+            version, win["browser_download_url"], sha256(win["browser_download_url"], win["size"], args.cache_dir), args.installer, args.product_code
+        ),
+        os.path.join(PACKAGING, "winget", "Bumeter.Bumeter.locale.en-US.yaml"): winget_locale(version, rel),
+    }
+
+    drift = 0
+    for path, text in files.items():
+        old = open(path, encoding="utf-8").read() if os.path.exists(path) else None
+        if args.check:
+            if old != text:
+                log(f"out of date: {os.path.relpath(path, ROOT)}")
+                drift += 1
+        elif old != text:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, "w", encoding="utf-8", newline="\n").write(text)
+            log(f"wrote {os.path.relpath(path, ROOT)}")
+        else:
+            log(f"unchanged {os.path.relpath(path, ROOT)}")
+    if args.check:
+        log("up to date" if not drift else f"{drift} file(s) out of date — run scripts/packaging.py")
+        return 1 if drift else 0
+    log(f"done at {time.strftime('%H:%M:%S')}: {version} ({len(files)} files)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,12 +1,12 @@
 // Overview: 3 cards (Tokens + Bum, Turns, Conversations), tokens per day, "Bum suggests", projects and models. Scoped to the selected tool.
 import { api } from '../api';
-import type { DayStat, LimitState, ModelStat, ProjectStat, SidebarCounts, SkillReport } from '../api';
+import type { DayStat, Forecast, LimitState, ModelStat, ProjectStat, SidebarCounts, SkillReport, ToolQuota, Window } from '../api';
 import { bum } from '../components/bum';
 import { bumMood, EMPTY_BUM_INFO, loadBumInfo } from '../components/bum-data';
 import type { BumInfo } from '../components/bum-data';
 import { emptyState, insightRow } from '../components/ui';
 import { compact, h, svg } from '../dom';
-import { fmtCredits, fmtTokens } from '../fmt';
+import { fmtAgo, fmtCountdown, fmtCredits, fmtDayMonth, fmtTime, fmtTokens } from '../fmt';
 import { t } from '../i18n';
 import { state, subscribe, update } from '../state';
 import { allSources, modelTag, toolDef } from '../tools';
@@ -65,6 +65,12 @@ function dayChart(days: DayStat[], onPick: (d: DayStat) => void): SVGElement {
 const meterEl = (v: number, max: number, color: string) =>
   h('span', { class: 'meter' }, h('span', { style: `width:${((v / Math.max(max, 1)) * 100).toFixed(1)}%;background:${color}` }));
 
+/** Epoch seconds → the local clock time, as `fmtTime` expects an ISO string. */
+const at = (secs: number) => new Date(secs * 1000).toISOString();
+
+/** Quota bar colour: green, orange from 70%, red from 90% (the thresholds users are warned at). */
+export const quotaColor = (pct: number) => (pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--acc)' : 'var(--grn)');
+
 let cleanup: (() => void) | null = null;
 
 export async function mountOverview(el: HTMLElement) {
@@ -76,6 +82,8 @@ export async function mountOverview(el: HTMLElement) {
   let counts: SidebarCounts | null = null;
   let report: SkillReport | null = null;
   let limits: LimitState | null = null;
+  /** Limits the tools report themselves (Kiro's credits), the same file Settings shows. */
+  let quotas: Record<string, ToolQuota> | null = null;
   let info: BumInfo = EMPTY_BUM_INFO;
   /** Number of conversations with turns in the selected range, per tool. */
   let convCounts: Record<string, number> = {};
@@ -101,6 +109,60 @@ export async function mountOverview(el: HTMLElement) {
       out.push(insightRow({ severity: 'muted', icon: 'folder', title: t('ov.insightProject', { project: top.project, pct: Math.round((top.tokens / total) * 100) }), body: t('ov.insightProjectBody', { tokens: fmtTokens(top.tokens), n: top.prompts }), action: t('ov.actProject'), onAction: () => go({ project: top.project }) }));
     }
     return out.slice(0, 3);
+  };
+
+  /**
+   * Quota panel: what the tray and the statusline already say, in the window — how full each window is,
+   * when it resets, and whether the current pace runs out first. Kiro's credits come from its own report.
+   */
+  const quotaPanel = (): HTMLElement => {
+    const now = Math.floor(Date.now() / 1000);
+    const scope = state.scope;
+    const rows: HTMLElement[] = [];
+
+    const windowRow = (key: string, label: string, w: Window, f: Forecast | null | undefined): HTMLElement => {
+      const pct = Math.max(0, Math.min(100, w.used_percentage));
+      return h('div', { class: 'quota-row', 'data-window': key },
+        h('span', { class: 'name' }, label),
+        meterEl(pct, 100, quotaColor(pct)),
+        h('span', { class: 'num' }, `${Math.round(pct)}%`),
+        h('span', { class: 'sub' }, `${t('ov.quotaResetAt', { time: fmtTime(at(w.resets_at)) })} · ${fmtCountdown(w.resets_at - now)}`),
+        f?.at_risk && f.hits_at != null ? h('span', { class: 'tag warn' }, t('ov.quotaOut', { time: fmtTime(at(f.hits_at)) })) : null);
+    };
+
+    if ((!scope || scope === 'claude_code') && limits) {
+      if (limits.blocked) {
+        const window = limits.blocked.limit_type === 'five_hour' ? t('ov.quota5h')
+          : limits.blocked.limit_type === 'seven_day' ? t('ov.quota7d') : limits.blocked.limit_type;
+        rows.push(h('div', { class: 'quota-blocked' }, t('ov.quotaBlocked', { window, time: fmtTime(at(limits.blocked.resets_at)) })));
+      }
+      if (limits.five_hour) rows.push(windowRow('5h', t('ov.quota5h'), limits.five_hour, limits.forecast_five_hour));
+      if (limits.seven_day) rows.push(windowRow('7d', t('ov.quota7d'), limits.seven_day, limits.forecast_seven_day));
+    }
+
+    const credits = quotas?.kiro;
+    if ((!scope || scope === 'kiro') && credits && credits.limit > 0) {
+      const label = allSources().find((s) => s.info.id === 'kiro')?.info.label ?? 'Kiro';
+      const pct = Math.min(100, (credits.used / credits.limit) * 100);
+      rows.push(h('div', { class: 'quota-row credits', 'data-window': 'credits' },
+        h('span', { class: 'name' }, label),
+        meterEl(credits.used, credits.limit, quotaColor(pct)),
+        h('span', { class: 'num' }, `${Math.round(pct)}%`),
+        h('span', { class: 'sub' }, t('ov.quotaCredits', { used: String(credits.used), limit: String(credits.limit), plan: credits.plan, date: fmtDayMonth(credits.resets_on) })),
+        null));
+    }
+
+    const right = limits?.stale ? t('ov.quotaStale')
+      : limits?.updated_at ? t('ov.quotaUpdated', { ago: fmtAgo(limits.updated_at, now) }) : '';
+    // The hint has to point at the right setting: Claude's windows come from the statusline, Kiro's credits are user-entered.
+    const hint = scope === 'kiro' ? t('ov.quotaNoneHintKiro') : t('ov.quotaNoneHint');
+    return h('div', { class: 'panel ov-quota', 'data-empty': rows.length ? null : '1' },
+      h('div', { class: 'section-title' }, h('span', {}, t('ov.quota')), h('span', {}, right)),
+      ...(rows.length ? rows
+        : [h('div', { class: 'quota-none' },
+            h('span', {}, t('ov.quotaNone')),
+            h('span', { class: 'sub' }, hint),
+            h('button', { class: 'btn', type: 'button', onclick: () => update({ view: 'settings' }) }, t('ov.quotaNoneAction')))]));
   };
 
   const render = () => {
@@ -137,6 +199,7 @@ export async function mountOverview(el: HTMLElement) {
           h('div', { class: 'panel ov-card', 'data-card': 'convs' },
             h('div', { class: 'ov-card-body' }, h('div', { class: 'lbl' }, t('nav.conversations')), h('div', { class: 'big num' }, String(convs)),
               state.scope ? null : h('div', { class: 'sub' }, sources.filter((s) => (convCounts[s.info.id] ?? 0) > 0).map((s) => `${s.info.label} ${convCounts[s.info.id]}`).join(' · '))))),
+        quotaPanel(),
         h('div', { class: 'ov-mid' },
           h('div', { class: 'panel' },
             h('div', { class: 'section-title' }, h('span', {}, t('ov.byDay')), h('span', {}, t('ov.byDayHint'))),
@@ -183,18 +246,21 @@ export async function mountOverview(el: HTMLElement) {
   const load = async () => {
     const my = ++seq;
     const tool = state.scope;
-    const [d, p, m, c, rep, lim, bi] = await Promise.all([
+    const [d, p, m, c, rep, lim, bi, q] = await Promise.all([
       api.dayStats(tool), api.projectStats(tool), api.modelStats(), api.sidebarCounts(),
       api.skills(false).catch(() => null), api.limitState().catch(() => null), loadBumInfo(tool),
+      api.settings().then((s) => s.tool_quotas ?? null).catch(() => null),
     ]);
     if (my !== seq) return;
-    days = d; projects = p; models = m.filter((x) => !tool || x.tool === tool); counts = c; report = rep; limits = lim; info = bi;
+    days = d; projects = p; models = m.filter((x) => !tool || x.tool === tool); counts = c; report = rep; limits = lim; info = bi; quotas = q;
     render();
     await loadConvs();
   };
 
   const unsub = subscribe((_s, changed) => { if (changed.includes('scope')) void load(); });
   const offData = await api.onDataChanged(() => void load());
-  cleanup = () => { seq = Number.MAX_SAFE_INTEGER; convSeq = Number.MAX_SAFE_INTEGER; unsub(); offData(); };
+  // The host pushes a new LimitState whenever the statusline JSON changes: repaint the quota panel without a full reload.
+  const offLimits = await api.onLimitsChanged((l) => { limits = l; render(); });
+  cleanup = () => { seq = Number.MAX_SAFE_INTEGER; convSeq = Number.MAX_SAFE_INTEGER; unsub(); offData(); offLimits(); };
   await load();
 }

@@ -134,6 +134,28 @@ fn plugin_ops_go_through_the_cli_and_undo_runs_the_inverse() {
     ]);
 }
 
+/// ETXTBSY: while another process holds the stub open for writing, the kernel refuses to run it
+/// ("Text file busy"). It is transient, so `ClaudeCli` retries instead of failing the operation —
+/// this is what used to make this binary flaky on CI.
+#[test]
+fn cli_survives_the_stub_still_being_written() {
+    let e = env();
+    let stub = e.root.join("claude").to_string_lossy().to_string();
+    let holding = e.root.join("holding").to_string_lossy().to_string();
+    // `$0` is the stub: open it for writing, say so by creating $1, keep the handle a moment longer.
+    let mut holder = std::process::Command::new("sh")
+        .args(["-c", "exec 3>>\"$0\"; : > \"$1\"; sleep 0.1", stub.as_str(), holding.as_str()])
+        .spawn()
+        .unwrap();
+    for _ in 0..100 {
+        if Path::new(&holding).exists() { break; }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    e.m.apply(&e.m.plan(&req("plugin_disable", &["superpowers@claude-plugins-official"])).unwrap()).unwrap();
+    let _ = holder.wait();
+    assert!(std::fs::read_to_string(e.root.join("calls.log")).unwrap().contains("plugin disable superpowers@claude-plugins-official"));
+}
+
 #[test]
 fn journal_lists_operations_newest_first() {
     let e = env();

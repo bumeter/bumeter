@@ -1,0 +1,6 @@
+# A CRLF shebang breaks `./script.py` on Linux and macOS even though the file in the repository is
+# LF: with `core.autocrlf=true` the working tree is converted on checkout. Scripts stay LF everywhere.
+.gitattributes text eol=lf
+*.py  text eol=lf
+*.sh  text eol=lf
+*.rb  text eol=lf

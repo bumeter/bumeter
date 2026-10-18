@@ -37,7 +37,9 @@ Everything is read from your own machine. Nothing is uploaded.
   (project, time range, model, costly, large context, interrupted, starred) and the full list of turns.
 - **Context analysis** for a session: what fills the context window, when it was compacted, which tool calls were large.
 - **Skills**: always-on token cost and real usage of every skill; install (also from
-  [skills.sh](https://skills.sh)), disable, change size or remove, all with undo.
+  [skills.sh](https://skills.sh)), disable, change size or remove, all with undo — and a read-only scan
+  (“Check safety” on the Skills screen, or `bum skills audit`) that flags a `SKILL.md` whose
+  instructions try to hijack the model, reach your credentials, or hide what it does.
 - **Per-tool tabs** on every screen, so adding Codex, Cursor or OpenCode later is one more tab, not a redesign.
 - **Notifications** when a quota passes your thresholds (70% / 90% by default) or a turn costs far more than usual.
 - **Light and dark themes**, Vietnamese and English.
@@ -68,6 +70,22 @@ chmod +x Bumeter_1.0.5_amd64.AppImage
 **Snap** — the `bumeter` snap is waiting for the Snap Store's classic-confinement review.
 Once it is published: `sudo snap install bumeter --classic`.
 
+**macOS** (Homebrew)
+
+```bash
+brew install --cask chieund/tap/bumeter
+```
+
+The cask lives in [chieund/homebrew-tap](https://github.com/chieund/homebrew-tap). Bumeter is not
+signed with an Apple Developer ID, so macOS quarantines it: open it once with right-click → Open (the
+cask prints this when it installs). That is also why it is not in `homebrew/cask`, which requires
+notarized applications. The `.dmg` on [Releases](https://github.com/chieund/bumeter/releases) works
+the same way.
+
+**Windows** — the `.msi` and `.exe` are on Releases. The WinGet manifests are generated from those
+files (`scripts/packaging.py`) and `scripts/winget-pr.sh` turns them into a `winget-pkgs` pull
+request; the package is not in WinGet yet.
+
 ## How it gets the numbers
 
 | Source | What Bumeter reads |
@@ -88,9 +106,26 @@ bum statusline   used by the Claude Code status line hook
 bum scan         read the logs into the database without the app
 bum daemon       run the background host without a window
 bum session      context breakdown of one session
-bum skills       always-on cost and usage of each skill
 bum audit        compare Bumeter's token totals with an independent count
 ```
+
+`bum skills` works on what Claude Code (or `--tool kiro`) loads, from a terminal or from an agent:
+
+```
+bum skills list                always-on cost and usage of each skill
+bum skills disable <name>      plan to move a skill out of the way (--yes applies it)
+bum skills enable <name>       plan to move it back
+bum skills undo <id>           put the files of one journal entry back
+bum skills log                 what was changed, newest first
+bum skills audit               look for hijacked instructions, credentials and duplicates in SKILL.md
+```
+
+`disable` and `enable` always print the plan first: without `--yes` nothing moves and the exit code is
+non-zero, so a typo cannot silently change what your next session loads. `--json` puts the plan, the
+journal entry or the report on stdout for scripts, and `bum skills audit` exits non-zero when it finds
+something high-risk (an agent that reads your files, a credential next to a way to send it out, or
+instructions that tell the model to hide something from you). The scan is a heuristic over the text:
+every finding shows the line it matched, so read that line before acting on it.
 
 ## Build from source
 
