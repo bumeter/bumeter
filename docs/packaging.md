@@ -48,8 +48,12 @@ cd ../homebrew-tap && git commit -am "bumeter 1.0.6" && git push
 `brew upgrade --cask bumeter` picks it up from there. There is no `livecheck` block on purpose: the
 version and the SHA256 come from the release, so the command above is the bump.
 
+The cask's `binary` stanza links the `bum` command line tool, which ships inside the app as a Tauri
+sidecar (`Bumeter.app/Contents/MacOS/bum`), into Homebrew's `bin` — the macOS counterpart of
+`/usr/bin/bum` in the `.deb`. Homebrew removes the link on uninstall.
+
 Because the app is quarantined by macOS on first launch, the cask carries a caveat saying to
-right-click → Open (or to clear the quarantine flag). That is the honest version of "it installs
+right-click → Open (or to clear the quarantine flag, which also unblocks `bum` in a terminal). That is the honest version of "it installs
 without the Gatekeeper dialog".
 
 ## WinGet
@@ -103,6 +107,15 @@ falls back to the second element of the identifier (`dev.bumeter.app` → `bumet
 values, so `scripts/packaging.py` reads them out of `tauri.conf.json`; setting `bundle.publisher`
 before the next release keeps the manifest and the installer in step.
 
+
+`bum` on `PATH`: a nullsoft installer cannot get a command alias from its manifest, so the installer
+does it itself. `app/src-tauri/windows/hooks.nsh` (wired in through `bundle.windows.nsis.installerHooks`)
+adds the install directory to the user `PATH` after install and removes it after uninstall, through
+PowerShell so a long `PATH` is not cut at NSIS's 1024-character limit and `%VARIABLES%` stay unexpanded.
+The release workflow runs the real installer and uninstaller silently on the Windows runner and checks
+both directions. The manifest lists `Commands: [bum]` for `winget search --command bum`; submit WinGet
+from the first release that has the hook (1.0.7), since 1.0.6's installer does not touch `PATH`. The
+`.msi` does not add `bum` to `PATH`.
 ## Release checklist
 
 1. Bump `version` in `Cargo.toml` and `app/src-tauri/tauri.conf.json`, commit, tag `v1.0.6`, push the tag.

@@ -1,19 +1,44 @@
 //! Set up the statusline to capture the quota % (spec section 7.1).
-//! Does not modify the user's script: only changes `statusLine.command` in `~/.claude/settings.json`
-//! to `"<bum>" statusline --tee | { <old command>; }`. Always backs up first and can be undone.
+//! Does not modify the user's script: only changes `statusLine.command` in `~/.claude/settings.json`,
+//! to `{ "<bum>" statusline --tee 2>/dev/null || cat; } | { <old command>; }` (record the numbers, show
+//! the old line as it was; `"<bum>" statusline --tee | ( <old command> )` on Windows)
+//! or `"<bum>" statusline --around '<old command>'` (show Bumeter's part after the old line). Always
+//! backs up first and can be undone.
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context};
 use serde_json::{json, Value};
 
-const TEE: &str = "\" statusline --tee | ";
+/// Matches both `"<path>" statusline --tee | …` and a hand-written `bum statusline --tee | …`.
+const TEE: &str = " statusline --tee | ";
+/// The `--tee` form written on Unix: when `bum` is gone (Bumeter uninstalled without Remove), `cat`
+/// still hands the input to the user's command, so their line keeps working.
+const TEE_SAFE: &str = " statusline --tee 2>/dev/null || cat; } | ";
+/// Matches both `"<path>" statusline --around '…'` and a hand-written `bum statusline --around '…'`.
+const AROUND: &str = " statusline --around ";
+
+/// Whether `Mode::Show` works here. Its hook runs the user's command through `sh`, and Windows has
+/// no `sh` by default (Claude Code may also run the hook under `cmd.exe`, which does not read `'…'`):
+/// there, `Show` falls back to `Record`.
+pub const SHOW_SUPPORTED: bool = cfg!(not(windows));
+
+/// What the hook does next to a status line the user already has.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Mode {
+    /// Record the quota numbers; the user's line is shown unchanged.
+    Record,
+    /// Record them and show Bumeter's part (limits, context) after the user's line.
+    Show,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Status {
     NotConfigured,
     Custom { command: String },
-    Hooked { command: String },
+    /// `show`: Bumeter's part is on screen (the `--around` hook, or Bumeter's own line).
+    Hooked { command: String, show: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -46,16 +71,70 @@ struct Backup {
 
 /// Recognize a statusline command written by Bumeter, whatever the `bum` path is.
 fn is_hook(cmd: &str) -> bool {
-    cmd.contains(TEE) || cmd.ends_with("\" statusline") || cmd.contains("bum statusline")
+    cmd.contains(TEE) || cmd.contains(TEE_SAFE) || cmd.contains(AROUND) || cmd.ends_with("\" statusline") || cmd.contains("bum statusline")
 }
 
-/// The original command inside a `"<bum>" statusline --tee | { <original>; }` hook.
-fn unwrap_hook(cmd: &str) -> Option<String> {
-    let inner = &cmd[cmd.find(TEE)? + TEE.len()..];
-    let inner = inner.strip_prefix("{ ").and_then(|s| s.strip_suffix("; }"))
-        .or_else(|| inner.strip_prefix("( ").and_then(|s| s.strip_suffix(" )")))
-        .unwrap_or(inner);
-    Some(inner.to_string())
+/// Quote for `sh` as one word: `'…'`, with each `'` written as `'\''`.
+fn sh_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+/// One `sh` word back to its value: what `sh_quote` writes, plus the `"…"` and bare words of a
+/// hand-written hook. None for anything the shell would expand or split (`$`, `` ` ``, spaces, `;`…).
+fn sh_unquote(word: &str) -> Option<String> {
+    let mut out = String::new();
+    let mut chars = word.trim().chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\'' => loop {
+                match chars.next()? {
+                    '\'' => break,
+                    c => out.push(c),
+                }
+            },
+            '"' => loop {
+                match chars.next()? {
+                    '"' => break,
+                    '$' | '`' => return None,
+                    '\\' => match chars.next()? {
+                        c @ ('$' | '`' | '"' | '\\') => out.push(c),
+                        '\n' => {}
+                        c => {
+                            out.push('\\');
+                            out.push(c);
+                        }
+                    },
+                    c => out.push(c),
+                }
+            },
+            '\\' => out.push(chars.next()?),
+            c if c.is_whitespace() || "$`;&|<>()*?[]{}#~!".contains(c) => return None,
+            c => out.push(c),
+        }
+    }
+    Some(out)
+}
+
+/// What runs inside a hook: `Ok(Some(original))` for `"<bum>" statusline --tee | { <original>; }`
+/// and `"<bum>" statusline --around '<original>'`, `Ok(None)` for Bumeter's own line, and `Err` for
+/// any other use of `bum statusline` (piped into `jq`, `--quiet`, an unreadable `--around`), which
+/// cannot be rebuilt without losing part of it.
+fn unwrap_hook(cmd: &str) -> Result<Option<String>, ()> {
+    if let Some(i) = cmd.find(AROUND) {
+        return sh_unquote(&cmd[i + AROUND.len()..]).map(Some).ok_or(());
+    }
+    if let Some((i, len)) = cmd.find(TEE_SAFE).map(|i| (i, TEE_SAFE.len())).or_else(|| cmd.find(TEE).map(|i| (i, TEE.len()))) {
+        let inner = &cmd[i + len..];
+        let inner = inner.strip_prefix("{ ").and_then(|s| s.strip_suffix("; }"))
+            .or_else(|| inner.strip_prefix("( ").and_then(|s| s.strip_suffix(" )")))
+            .unwrap_or(inner);
+        return Ok(Some(inner.to_string()));
+    }
+    if cmd.trim_end().ends_with(" statusline") {
+        Ok(None)
+    } else {
+        Err(())
+    }
 }
 
 pub struct StatuslineSetup {
@@ -87,11 +166,14 @@ impl StatuslineSetup {
     }
 
     /// Group the original command so `|` does not change the meaning of commands containing `;` / `&&`.
-    fn wrap(&self, original: &str) -> String {
+    fn wrap(&self, original: &str, mode: Mode) -> String {
+        if mode == Mode::Show && SHOW_SUPPORTED {
+            return format!("{} --around {}", self.marker(), sh_quote(original));
+        }
         if cfg!(windows) {
             format!("{} --tee | ( {original} )", self.marker())
         } else {
-            format!("{} --tee | {{ {original}; }}", self.marker())
+            format!("{{ {} --tee 2>/dev/null || cat; }} | {{ {original}; }}", self.marker())
         }
     }
 
@@ -126,12 +208,20 @@ impl StatuslineSetup {
         let command = self.read_settings()?.and_then(|(_, v)| v["statusLine"]["command"].as_str().map(str::to_string));
         Ok(match command {
             None => Status::NotConfigured,
-            Some(c) if is_hook(&c) => Status::Hooked { command: c },
+            Some(c) if is_hook(&c) => {
+                let show = c.contains(AROUND) || !(c.contains(TEE) || c.contains(" statusline --tee"));
+                Status::Hooked { command: c, show }
+            }
             Some(c) => Status::Custom { command: c },
         })
     }
 
+    /// `plan_for(Mode::Record)`: the behaviour before `Mode` existed.
     pub fn plan(&self) -> anyhow::Result<Plan> {
+        self.plan_for(Mode::Record)
+    }
+
+    pub fn plan_for(&self, mode: Mode) -> anyhow::Result<Plan> {
         let bum = Path::new(&self.bum_bin);
         if !bum.is_absolute() || !bum.is_file() {
             bail!("no bum program found at '{}'; build/install bum first", self.bum_bin);
@@ -141,24 +231,32 @@ impl StatuslineSetup {
             format!("Will change statusLine.command in {}:\n  before: {before}\n  after:  {after}\nThe current statusline still displays as before. The original file is backed up.", path.display())
         };
         Ok(match self.status()? {
-            Status::Hooked { command } if command.starts_with(&self.marker()) => {
-                Plan { description: "Limit tracking is already enabled; no change needed.".into(), new_command: None }
-            }
-            Status::Hooked { command } => {
-                // The bum path changed: rebuild from the original command instead of wrapping again.
-                let original = match self.read_backup()? {
-                    Some(b) => b.previous_status_line.as_ref().and_then(|p| p["command"].as_str()).map(str::to_string),
-                    None => unwrap_hook(&command),
+            Status::Hooked { command, .. } => {
+                // Rebuild from the original command (never wrap a hook again): this handles a changed
+                // bum path and a switch between recording and showing alike. The command inside the
+                // current hook comes first, so edits the user made to it after enabling are kept. A hook
+                // we cannot read back is only replaced when it is exactly what we wrote (the backup then
+                // knows the original); otherwise rebuilding it would drop part of the user's command.
+                let original = match unwrap_hook(&command) {
+                    Ok(o) => o,
+                    Err(()) => match self.read_backup()?.filter(|b| b.written_command == command) {
+                        Some(b) => b.previous_status_line.as_ref().and_then(|p| p["command"].as_str()).map(str::to_string),
+                        None => bail!("statusLine.command in {} runs bum in a form Bumeter cannot rebuild without losing part of it:\n  {command}\nChange it by hand, or remove it and enable again.", path.display()),
+                    },
                 };
-                let new = original.as_deref().map(|o| self.wrap(o)).unwrap_or_else(|| self.marker());
-                Plan { description: describe(&command, &new), new_command: Some(new) }
+                let new = original.as_deref().map(|o| self.wrap(o, mode)).unwrap_or_else(|| self.marker());
+                if new == command {
+                    Plan { description: "Limit tracking is already enabled; no change needed.".into(), new_command: None }
+                } else {
+                    Plan { description: describe(&command, &new), new_command: Some(new) }
+                }
             }
             Status::NotConfigured => {
                 let cmd = self.marker();
                 Plan { description: format!("Will add statusLine to {}:\n  {cmd}\nThe original file is backed up and can be removed again.", path.display()), new_command: Some(cmd) }
             }
             Status::Custom { command } => {
-                let new = self.wrap(&command);
+                let new = self.wrap(&command, mode);
                 Plan { description: describe(&command, &new), new_command: Some(new) }
             }
         })
@@ -186,7 +284,14 @@ impl StatuslineSetup {
         };
         write_atomic(&self.backup_path(), serde_json::to_string_pretty(&backup)?.as_bytes())?;
 
-        v["statusLine"] = json!({ "type": "command", "command": cmd });
+        // Only the command changes: other statusLine fields (`padding`…) stay as they are.
+        match v.get_mut("statusLine").and_then(Value::as_object_mut) {
+            Some(sl) => {
+                sl.insert("type".into(), json!("command"));
+                sl.insert("command".into(), json!(cmd));
+            }
+            None => v["statusLine"] = json!({ "type": "command", "command": cmd }),
+        }
         std::fs::create_dir_all(&self.claude_dir)?;
         write_json(&path, &v)
     }
@@ -200,9 +305,23 @@ impl StatuslineSetup {
                 if v["statusLine"]["command"].as_str() != Some(b.written_command.as_str()) {
                     bail!("statusLine was edited after enabling; not undoing automatically to avoid losing your changes");
                 }
-                match b.previous_status_line.as_ref().unwrap_or(&Value::Null) {
+                let prev = b.previous_status_line.clone().unwrap_or(Value::Null);
+                // The command inside the hook wins over the backup's: switching modes keeps an edit
+                // the user made to it, so it may be newer. The other fields stay as they are now.
+                let restored = match unwrap_hook(&b.written_command) {
+                    Ok(Some(inner)) => {
+                        let mut sl = v["statusLine"].clone();
+                        sl["command"] = json!(inner);
+                        if let Some(t) = prev.get("type") {
+                            sl["type"] = t.clone();
+                        }
+                        sl
+                    }
+                    _ => prev,
+                };
+                match restored {
                     Value::Null => { v.as_object_mut().map(|o| o.remove("statusLine")); }
-                    prev => v["statusLine"] = prev.clone(),
+                    sl => v["statusLine"] = sl,
                 }
                 let original: Option<Value> = b.existed.then(|| serde_json::from_str(&b.content).ok()).flatten();
                 if original.as_ref() == Some(&v) {

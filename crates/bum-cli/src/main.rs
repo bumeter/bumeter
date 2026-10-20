@@ -1,6 +1,7 @@
-//! The `bum` command: statusline, audit, scan, daemon, status, skills.
+//! The `bum` command: statusline, audit, scan, daemon, status, report, skills.
 mod audit;
 mod daemon;
+mod report;
 mod statusline;
 
 use std::path::PathBuf;
@@ -35,6 +36,9 @@ enum Cmd {
         /// Write the file, then pass the input JSON through to stdout unchanged, so it can be chained into an existing statusline.
         #[arg(long, conflicts_with = "quiet")]
         tee: bool,
+        /// Run this status line command with the same input and show Bumeter's part after its output.
+        #[arg(long, value_name = "COMMAND", conflicts_with_all = ["quiet", "tee"])]
+        around: Option<String>,
     },
     /// Compare the app's total token count against an independent count.
     Audit,
@@ -44,6 +48,18 @@ enum Cmd {
     Daemon,
     /// View today's summary from the running host.
     Status,
+    /// What burned the quota and what to do about it: the Overview, in a terminal. Works without the app.
+    Report {
+        /// Calendar days to cover, today included.
+        #[arg(long, default_value_t = 7, value_parser = clap::value_parser!(u32).range(1..=365))]
+        days: u32,
+        /// Only one tool: `claude_code`, `kiro` or `opencode`.
+        #[arg(long)]
+        tool: Option<String>,
+        /// Print JSON instead of text (for agents and scripts).
+        #[arg(long)]
+        json: bool,
+    },
     /// Analyze the context composition of a session (read-only).
     Session { session_id: String },
     /// Skills: list, enable/disable, undo, log.
@@ -93,14 +109,15 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     let paths = Paths::resolve();
     let result: anyhow::Result<bool> = match cli.cmd {
-        Cmd::Statusline { quiet, tee } => {
-            statusline::run(quiet, tee);
+        Cmd::Statusline { quiet, tee, around } => {
+            statusline::run(quiet, tee, around);
             Ok(true)
         }
         Cmd::Audit => audit::run(&claude_root(&config(&paths))),
         Cmd::Scan => scan(&paths),
         Cmd::Daemon => daemon::run(paths.clone(), config(&paths)).map(|_| true),
         Cmd::Status => status(&paths),
+        Cmd::Report { days, tool, json } => report(&paths, days, tool.as_deref(), json),
         Cmd::Skills { cmd, tool, json } => skills(&paths, &tool, json, cmd),
         Cmd::Session { session_id } => session(&paths, &session_id),
     };
@@ -114,16 +131,22 @@ fn main() -> ExitCode {
     }
 }
 
+/// Every log source the host reads, over the DB. The caller holds the host lock.
+fn engine(paths: &Paths) -> anyhow::Result<Engine> {
+    let cfg = config(paths);
+    let root = claude_root(&cfg);
+    let kiro = bum_service::host::kiro_root(&cfg);
+    let opencode = bum_service::host::opencode_db(&cfg);
+    Ok(Engine::new(Store::open(&paths.db())?, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro))])
+        .with_db_sources(vec![Box::new(bum_adapters::opencode::OpenCode::new(opencode))]))
+}
+
 fn scan(paths: &Paths) -> anyhow::Result<bool> {
     paths.ensure()?;
     let Some(_lock) = HostLock::try_acquire(&paths.lock())? else {
         anyhow::bail!("host is running and has already scanned; bum scan is not needed");
     };
-    let root = claude_root(&config(paths));
-    let kiro = bum_service::host::kiro_root(&config(paths));
-    let opencode = bum_service::host::opencode_db(&config(paths));
-    let mut engine = Engine::new(Store::open(&paths.db())?, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro))])
-        .with_db_sources(vec![Box::new(bum_adapters::opencode::OpenCode::new(opencode))]);
+    let mut engine = engine(paths)?;
     let started = std::time::Instant::now();
     let r = engine.full_scan()?;
     eprintln!("scanned in {:?}", started.elapsed());
@@ -133,18 +156,49 @@ fn scan(paths: &Paths) -> anyhow::Result<bool> {
 
 fn status(paths: &Paths) -> anyhow::Result<bool> {
     let today = bum_service::client::call(paths, "today_summary", Value::Null)
-        .map_err(|_| anyhow::anyhow!("could not connect to host (run the app or `bum daemon` first)"))?;
+        .map_err(|_| anyhow::anyhow!("could not connect to host (run the app or `bum daemon` first, or use `bum report`, which works without it)"))?;
     let lang = config(paths).language;
     let tokens = bum_core::insight::fmt_tokens(today["total"].as_u64().unwrap_or(0));
     println!("{}: {} {}, {tokens} token", lang.pick("Hôm nay", "Today"), today["prompts"], lang.pick("lượt", "turns"));
     // Like statusline: % quota from limits.json (the host is running, so the file is always up to date).
     let mut st = bum_core::limits::state(bum_core::limits::read(&paths.limits()), None, chrono::Utc::now().timestamp());
-    if let Some(f) = statusline::host_forecasts(paths) {
+    if let Some(f) = statusline::host_forecasts(paths, bum_service::client::DEFAULT_TIMEOUT) {
         (st.forecast_five_hour, st.forecast_seven_day) = f;
     }
     println!("{}: {}", lang.pick("Giới hạn", "Limits"), bum_core::limits::render_line(&st, None, lang));
     for line in tool_lines(paths, &st, chrono::Utc::now()) {
         println!("{line}");
+    }
+    Ok(true)
+}
+
+/// `bum report`: bring the DB up to date when no host is running (a running host keeps it current
+/// and holds the lock), then print the report.
+fn report(paths: &Paths, days: u32, tool: Option<&str>, json: bool) -> anyhow::Result<bool> {
+    let cfg = config(paths);
+    let roots = bum_service::host::roots(&cfg);
+    let sources: Vec<bum_core::source::SourceInfo> = bum_adapters::registry(&roots).into_iter().map(|(i, _)| i).collect();
+    if let Some(t) = tool {
+        if !sources.iter().any(|s| s.id == t) {
+            let ids: Vec<&str> = sources.iter().map(|s| s.id.as_str()).collect();
+            anyhow::bail!("unknown tool '{t}' (one of: {})", ids.join(", "));
+        }
+    }
+    paths.ensure()?;
+    if let Some(_lock) = HostLock::try_acquire(&paths.lock())? {
+        eprintln!("{}", cfg.language.pick("bum: đang đọc log (app không chạy)…", "bum: reading the logs (the app is not running)…"));
+        engine(paths)?.full_scan()?;
+    }
+    let store = Store::open_readonly(&paths.db())?;
+    let pricing = bum_core::pricing::Pricing::default_table();
+    let ctx = bum_core::handlers::HandlerCtx { store: &store, pricing: &pricing, cfg: &cfg, paths };
+    let now = chrono::Utc::now();
+    let from = report::range_start(days, now.with_timezone(&chrono::Local));
+    let r = report::build(&ctx, &sources, days, tool, &from, now)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&r)?);
+    } else {
+        print!("{}", report::render(&r, &tool_lines(paths, &r.limits, now), cfg.language));
     }
     Ok(true)
 }

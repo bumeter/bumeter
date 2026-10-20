@@ -383,7 +383,7 @@ dependencies = [
 
 [[package]]
 name = "bum-adapters"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "bum-core",
@@ -397,7 +397,7 @@ dependencies = [
 
 [[package]]
 name = "bum-cli"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "bum-adapters",
@@ -407,13 +407,14 @@ dependencies = [
  "chrono",
  "clap",
  "dirs",
+ "serde",
  "serde_json",
  "tempfile",
 ]
 
 [[package]]
 name = "bum-core"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "chrono",
@@ -429,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "bum-service"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "bum-adapters",
@@ -445,7 +446,7 @@ dependencies = [
 
 [[package]]
 name = "bum-skills"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "chrono",
@@ -457,7 +458,7 @@ dependencies = [
 
 [[package]]
 name = "bumeter"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "bum-adapters",
