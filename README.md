@@ -55,7 +55,7 @@ Bumeter needs a desktop with WebKitGTK 4.1, i.e. **Ubuntu 24.04 or newer** (or a
 **Debian/Ubuntu package**
 
 ```bash
-sudo apt install ./Bumeter_1.0.6_amd64.deb
+sudo apt install ./Bumeter_1.0.7_amd64.deb
 ```
 
 This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin`.
@@ -63,8 +63,8 @@ This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin
 **AppImage** (no install, libraries included)
 
 ```bash
-chmod +x Bumeter_1.0.6_amd64.AppImage
-./Bumeter_1.0.6_amd64.AppImage
+chmod +x Bumeter_1.0.7_amd64.AppImage
+./Bumeter_1.0.7_amd64.AppImage
 ```
 
 **Snap** — the `bumeter` snap is waiting for the Snap Store's classic-confinement review.
@@ -92,7 +92,7 @@ request; the package is not in WinGet yet.
 
 | Source | What Bumeter reads |
 |---|---|
-| Claude Code | Session logs in `~/.claude/projects/**` (tokens, turns, tools, skills). The 5-hour and 7-day quota comes from Claude Code's status line: Bumeter wraps your existing status line command in `~/.claude/settings.json` (with a backup and an undo button in Settings): `bum statusline --around '<your command>'` shows your line followed by the quota and current context, or `bum statusline --tee | { <your command>; }` only records the numbers and leaves your line as it was. Windows always uses the second form. |
+| Claude Code | Session logs in `~/.claude/projects/**` (tokens, turns, tools, skills). The 5-hour and 7-day quota comes from Claude Code's status line: Bumeter wraps your existing status line command in `~/.claude/settings.json` (with a backup and an undo button in Settings): `bum statusline --around '<your command>'` shows your line followed by the quota and current context, or `{ bum statusline --tee 2>/dev/null \|\| cat; } \| { <your command>; }` only records the numbers and leaves your line as it was (and keeps working if `bum` is removed). Settings shows the quota on your line by default; Windows always uses the second form. **Before uninstalling Bumeter, click Remove under Limit tracking in Settings**, or your status line keeps calling the removed `bum`. |
 | Kiro | Session files in `~/.kiro/sessions/cli/**`. Kiro does not log tokens, so context is estimated from each turn's context percentage, and cost is in credits. The monthly credit limit comes from `kiro-cli chat --no-interactive /usage`, run only when `kiro-cli` is installed and `kiro-cli whoami` says you are logged in. You can also type the limit in Settings. |
 | OpenCode (beta) | Its SQLite database `~/.local/share/opencode/opencode.db` (OpenCode 2.x), opened **read-only** and read incrementally. Real token counts per model call, including reasoning tokens. OpenCode also reports a USD cost per call; Bumeter stores it but shows tokens only for now. No quota and no conversation transcript yet. |
 
@@ -163,7 +163,7 @@ Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --no
 - `.github/workflows/ci.yml` runs the Rust tests on Linux, macOS and Windows, plus the UI tests, on every push and pull request.
 - `.github/workflows/release.yml` builds the installers with `tauri-action`: `.deb` + `.AppImage` (Ubuntu 22.04+),
   `.dmg` (Apple Silicon and Intel), `.exe` (NSIS) + `.msi` (Windows). Run it from the Actions tab to get the files as
-  artifacts, or push a tag (`git tag v1.0.6 && git push origin v1.0.6`) to get a published GitHub Release with the
+  artifacts, or push a tag (`git tag v1.0.7 && git push origin v1.0.7`) to get a published GitHub Release with the
   files attached. The macOS and Windows builds are not code-signed yet, so Gatekeeper and SmartScreen will warn on
   first launch.
 - Auto-update goes through the same GitHub Release (Settings → Updates, plus a "Check for updates" tray item).

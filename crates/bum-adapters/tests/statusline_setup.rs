@@ -70,7 +70,7 @@ fn existing_command_is_grouped_and_wrapped_exactly_once() {
     write_settings(dir.path(), r#"{"statusLine":{"type":"command","command":"bash ~/.claude/statusline-command.sh"}}"#);
     s.apply(&s.plan().unwrap()).unwrap();
     let hooked = command(dir.path());
-    assert!(hooked.ends_with("statusline --tee | { bash ~/.claude/statusline-command.sh; }"), "{hooked}");
+    assert!(hooked.ends_with("statusline --tee 2>/dev/null || cat; } | { bash ~/.claude/statusline-command.sh; }"), "{hooked}");
     let again = s.plan().unwrap();
     assert!(again.is_noop());
     s.apply(&again).unwrap();
@@ -211,7 +211,7 @@ fn show_mode_runs_the_original_inside_bum_and_switching_keeps_the_first_backup()
     // Switch to recording only: rebuilt from the original, not wrapped around the --around form.
     s.apply(&s.plan_for(Mode::Record).unwrap()).unwrap();
     let recorded = command(dir.path());
-    assert!(recorded.ends_with("statusline --tee | { printf '%s' \"$(cat)\" | tr a-z A-Z; }"), "{recorded}");
+    assert!(recorded.ends_with("statusline --tee 2>/dev/null || cat; } | { printf '%s' \"$(cat)\" | tr a-z A-Z; }"), "{recorded}");
     assert!(matches!(s.status().unwrap(), Status::Hooked { show: false, .. }));
 
     // And back, then undo: the file is exactly what it was before the first enable.
@@ -268,7 +268,23 @@ fn a_hand_written_tee_hook_keeps_the_users_command() {
     let s = setup(dir.path());
     s.apply(&s.plan_for(Mode::Record).unwrap()).unwrap();
     let cmd = command(dir.path());
-    assert!(cmd.starts_with('"') && cmd.ends_with("statusline --tee | { my-line; }"), "{cmd}");
+    assert!(cmd.contains("bin-a/bum\" statusline --tee") && cmd.ends_with("cat; } | { my-line; }"), "{cmd}");
+}
+
+#[test]
+fn the_recording_hook_still_shows_the_users_line_once_bum_is_gone() {
+    // Bumeter uninstalled without Remove: the user's command must still get its input.
+    let dir = tempfile::tempdir().unwrap();
+    write_settings(dir.path(), r#"{"statusLine":{"type":"command","command":"cd / && cat"}}"#);
+    let s = setup(dir.path());
+    s.apply(&s.plan_for(Mode::Record).unwrap()).unwrap();
+    std::fs::remove_dir_all(dir.path().join("bin-a")).unwrap();
+    assert_eq!(run_sh(&command(dir.path()), "json-input"), "json-input");
+    // And an older hook without the fallback is still recognised and rebuilt into the new form.
+    let bum = fake_bin(dir.path(), "bin-a/bum");
+    write_settings(dir.path(), &json!({"statusLine": {"type": "command", "command": format!("\"{bum}\" statusline --tee | {{ echo hi; }}")}}).to_string());
+    s.apply(&s.plan_for(Mode::Record).unwrap()).unwrap();
+    assert!(command(dir.path()).ends_with("|| cat; } | { echo hi; }"), "{}", command(dir.path()));
 }
 
 #[test]

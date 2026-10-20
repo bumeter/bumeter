@@ -1,6 +1,7 @@
 //! Set up the statusline to capture the quota % (spec section 7.1).
 //! Does not modify the user's script: only changes `statusLine.command` in `~/.claude/settings.json`,
-//! to `"<bum>" statusline --tee | { <old command>; }` (record the numbers, show the old line as it was)
+//! to `{ "<bum>" statusline --tee 2>/dev/null || cat; } | { <old command>; }` (record the numbers, show
+//! the old line as it was; `"<bum>" statusline --tee | ( <old command> )` on Windows)
 //! or `"<bum>" statusline --around '<old command>'` (show Bumeter's part after the old line). Always
 //! backs up first and can be undone.
 use std::path::{Path, PathBuf};
@@ -10,6 +11,9 @@ use serde_json::{json, Value};
 
 /// Matches both `"<path>" statusline --tee | …` and a hand-written `bum statusline --tee | …`.
 const TEE: &str = " statusline --tee | ";
+/// The `--tee` form written on Unix: when `bum` is gone (Bumeter uninstalled without Remove), `cat`
+/// still hands the input to the user's command, so their line keeps working.
+const TEE_SAFE: &str = " statusline --tee 2>/dev/null || cat; } | ";
 /// Matches both `"<path>" statusline --around '…'` and a hand-written `bum statusline --around '…'`.
 const AROUND: &str = " statusline --around ";
 
@@ -67,7 +71,7 @@ struct Backup {
 
 /// Recognize a statusline command written by Bumeter, whatever the `bum` path is.
 fn is_hook(cmd: &str) -> bool {
-    cmd.contains(TEE) || cmd.contains(AROUND) || cmd.ends_with("\" statusline") || cmd.contains("bum statusline")
+    cmd.contains(TEE) || cmd.contains(TEE_SAFE) || cmd.contains(AROUND) || cmd.ends_with("\" statusline") || cmd.contains("bum statusline")
 }
 
 /// Quote for `sh` as one word: `'…'`, with each `'` written as `'\''`.
@@ -119,8 +123,8 @@ fn unwrap_hook(cmd: &str) -> Result<Option<String>, ()> {
     if let Some(i) = cmd.find(AROUND) {
         return sh_unquote(&cmd[i + AROUND.len()..]).map(Some).ok_or(());
     }
-    if let Some(i) = cmd.find(TEE) {
-        let inner = &cmd[i + TEE.len()..];
+    if let Some((i, len)) = cmd.find(TEE_SAFE).map(|i| (i, TEE_SAFE.len())).or_else(|| cmd.find(TEE).map(|i| (i, TEE.len()))) {
+        let inner = &cmd[i + len..];
         let inner = inner.strip_prefix("{ ").and_then(|s| s.strip_suffix("; }"))
             .or_else(|| inner.strip_prefix("( ").and_then(|s| s.strip_suffix(" )")))
             .unwrap_or(inner);
@@ -169,7 +173,7 @@ impl StatuslineSetup {
         if cfg!(windows) {
             format!("{} --tee | ( {original} )", self.marker())
         } else {
-            format!("{} --tee | {{ {original}; }}", self.marker())
+            format!("{{ {} --tee 2>/dev/null || cat; }} | {{ {original}; }}", self.marker())
         }
     }
 

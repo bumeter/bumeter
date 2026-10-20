@@ -227,6 +227,7 @@ export async function mountSettings(el: HTMLElement) {
     limitsHost.replaceChildren(
       text,
       showSwitch,
+      hooked ? h('small', {}, t('set.uninstallHint')) : '',
       h('div', { class: 'actions' },
         hooked
           ? h('button', { class: 'btn', type: 'button', 'data-action': 'statusline-undo', onclick: (() => void ask(Promise.resolve({ description: t('set.undoConfirm') }), api.statuslineUndo)) as EventListener }, t('set.undo'))
