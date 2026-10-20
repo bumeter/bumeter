@@ -196,8 +196,8 @@ pub fn render(r: &Report, tool_lines: &[String], lang: Lang) -> String {
     }
     if r.limits.five_hour.is_none() && r.limits.seven_day.is_none() {
         out.push(format!("           {}", lang.pick(
-            "(chưa có số 5h/7d: bật theo dõi hạn mức trong app, hoặc thêm `bum statusline --tee` vào status line của Claude Code)",
-            "(no 5h/7d numbers yet: turn on quota tracking in the app, or put `bum statusline --tee` in Claude Code's status line)",
+            "(chưa có số 5h/7d: bật theo dõi hạn mức trong app, hoặc dùng `bum statusline` làm status line của Claude Code)",
+            "(no 5h/7d numbers yet: turn on quota tracking in the app, or use `bum statusline` as Claude Code's status line)",
         )));
     }
     out.push(String::new());
@@ -372,7 +372,7 @@ mod tests {
         assert!(en.contains("beta 200K (67%)"), "{en}");
         assert!(en.contains("write tests"), "{en}");
         // No 5h/7d numbers in a fresh data directory: say how to get them.
-        assert!(en.contains("bum statusline --tee"), "{en}");
+        assert!(en.contains("`bum statusline`"), "{en}");
         assert!(en.trim_end().ends_with("an estimate, not money."), "{en}");
         let vi = render(&r, &[], Lang::Vi);
         assert!(vi.contains("token quy đổi") && vi.contains("ước lượng"), "{vi}");

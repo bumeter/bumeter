@@ -8,9 +8,15 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context};
 use serde_json::{json, Value};
 
-const TEE: &str = "\" statusline --tee | ";
+/// Matches both `"<path>" statusline --tee | …` and a hand-written `bum statusline --tee | …`.
+const TEE: &str = " statusline --tee | ";
 /// Matches both `"<path>" statusline --around '…'` and a hand-written `bum statusline --around '…'`.
 const AROUND: &str = " statusline --around ";
+
+/// Whether `Mode::Show` works here. Its hook runs the user's command through `sh`, and Windows has
+/// no `sh` by default (Claude Code may also run the hook under `cmd.exe`, which does not read `'…'`):
+/// there, `Show` falls back to `Record`.
+pub const SHOW_SUPPORTED: bool = cfg!(not(windows));
 
 /// What the hook does next to a status line the user already has.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
@@ -69,7 +75,8 @@ fn sh_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
 
-/// The inverse of `sh_quote` (single-quoted runs and backslash escapes, which is all it writes).
+/// One `sh` word back to its value: what `sh_quote` writes, plus the `"…"` and bare words of a
+/// hand-written hook. None for anything the shell would expand or split (`$`, `` ` ``, spaces, `;`…).
 fn sh_unquote(word: &str) -> Option<String> {
     let mut out = String::new();
     let mut chars = word.trim().chars();
@@ -81,24 +88,49 @@ fn sh_unquote(word: &str) -> Option<String> {
                     c => out.push(c),
                 }
             },
+            '"' => loop {
+                match chars.next()? {
+                    '"' => break,
+                    '$' | '`' => return None,
+                    '\\' => match chars.next()? {
+                        c @ ('$' | '`' | '"' | '\\') => out.push(c),
+                        '\n' => {}
+                        c => {
+                            out.push('\\');
+                            out.push(c);
+                        }
+                    },
+                    c => out.push(c),
+                }
+            },
             '\\' => out.push(chars.next()?),
-            _ => return None,
+            c if c.is_whitespace() || "$`;&|<>()*?[]{}#~!".contains(c) => return None,
+            c => out.push(c),
         }
     }
     Some(out)
 }
 
-/// The original command inside a hook: `"<bum>" statusline --tee | { <original>; }` or
-/// `"<bum>" statusline --around '<original>'`.
-fn unwrap_hook(cmd: &str) -> Option<String> {
+/// What runs inside a hook: `Ok(Some(original))` for `"<bum>" statusline --tee | { <original>; }`
+/// and `"<bum>" statusline --around '<original>'`, `Ok(None)` for Bumeter's own line, and `Err` for
+/// any other use of `bum statusline` (piped into `jq`, `--quiet`, an unreadable `--around`), which
+/// cannot be rebuilt without losing part of it.
+fn unwrap_hook(cmd: &str) -> Result<Option<String>, ()> {
     if let Some(i) = cmd.find(AROUND) {
-        return sh_unquote(&cmd[i + AROUND.len()..]);
+        return sh_unquote(&cmd[i + AROUND.len()..]).map(Some).ok_or(());
     }
-    let inner = &cmd[cmd.find(TEE)? + TEE.len()..];
-    let inner = inner.strip_prefix("{ ").and_then(|s| s.strip_suffix("; }"))
-        .or_else(|| inner.strip_prefix("( ").and_then(|s| s.strip_suffix(" )")))
-        .unwrap_or(inner);
-    Some(inner.to_string())
+    if let Some(i) = cmd.find(TEE) {
+        let inner = &cmd[i + TEE.len()..];
+        let inner = inner.strip_prefix("{ ").and_then(|s| s.strip_suffix("; }"))
+            .or_else(|| inner.strip_prefix("( ").and_then(|s| s.strip_suffix(" )")))
+            .unwrap_or(inner);
+        return Ok(Some(inner.to_string()));
+    }
+    if cmd.trim_end().ends_with(" statusline") {
+        Ok(None)
+    } else {
+        Err(())
+    }
 }
 
 pub struct StatuslineSetup {
@@ -131,7 +163,7 @@ impl StatuslineSetup {
 
     /// Group the original command so `|` does not change the meaning of commands containing `;` / `&&`.
     fn wrap(&self, original: &str, mode: Mode) -> String {
-        if mode == Mode::Show {
+        if mode == Mode::Show && SHOW_SUPPORTED {
             return format!("{} --around {}", self.marker(), sh_quote(original));
         }
         if cfg!(windows) {
@@ -197,10 +229,16 @@ impl StatuslineSetup {
         Ok(match self.status()? {
             Status::Hooked { command, .. } => {
                 // Rebuild from the original command (never wrap a hook again): this handles a changed
-                // bum path and a switch between recording and showing alike.
-                let original = match self.read_backup()? {
-                    Some(b) => b.previous_status_line.as_ref().and_then(|p| p["command"].as_str()).map(str::to_string),
-                    None => unwrap_hook(&command),
+                // bum path and a switch between recording and showing alike. The command inside the
+                // current hook comes first, so edits the user made to it after enabling are kept. A hook
+                // we cannot read back is only replaced when it is exactly what we wrote (the backup then
+                // knows the original); otherwise rebuilding it would drop part of the user's command.
+                let original = match unwrap_hook(&command) {
+                    Ok(o) => o,
+                    Err(()) => match self.read_backup()?.filter(|b| b.written_command == command) {
+                        Some(b) => b.previous_status_line.as_ref().and_then(|p| p["command"].as_str()).map(str::to_string),
+                        None => bail!("statusLine.command in {} runs bum in a form Bumeter cannot rebuild without losing part of it:\n  {command}\nChange it by hand, or remove it and enable again.", path.display()),
+                    },
                 };
                 let new = original.as_deref().map(|o| self.wrap(o, mode)).unwrap_or_else(|| self.marker());
                 if new == command {
@@ -242,7 +280,14 @@ impl StatuslineSetup {
         };
         write_atomic(&self.backup_path(), serde_json::to_string_pretty(&backup)?.as_bytes())?;
 
-        v["statusLine"] = json!({ "type": "command", "command": cmd });
+        // Only the command changes: other statusLine fields (`padding`…) stay as they are.
+        match v.get_mut("statusLine").and_then(Value::as_object_mut) {
+            Some(sl) => {
+                sl.insert("type".into(), json!("command"));
+                sl.insert("command".into(), json!(cmd));
+            }
+            None => v["statusLine"] = json!({ "type": "command", "command": cmd }),
+        }
         std::fs::create_dir_all(&self.claude_dir)?;
         write_json(&path, &v)
     }
@@ -256,9 +301,23 @@ impl StatuslineSetup {
                 if v["statusLine"]["command"].as_str() != Some(b.written_command.as_str()) {
                     bail!("statusLine was edited after enabling; not undoing automatically to avoid losing your changes");
                 }
-                match b.previous_status_line.as_ref().unwrap_or(&Value::Null) {
+                let prev = b.previous_status_line.clone().unwrap_or(Value::Null);
+                // The command inside the hook wins over the backup's: switching modes keeps an edit
+                // the user made to it, so it may be newer. The other fields stay as they are now.
+                let restored = match unwrap_hook(&b.written_command) {
+                    Ok(Some(inner)) => {
+                        let mut sl = v["statusLine"].clone();
+                        sl["command"] = json!(inner);
+                        if let Some(t) = prev.get("type") {
+                            sl["type"] = t.clone();
+                        }
+                        sl
+                    }
+                    _ => prev,
+                };
+                match restored {
                     Value::Null => { v.as_object_mut().map(|o| o.remove("statusLine")); }
-                    prev => v["statusLine"] = prev.clone(),
+                    sl => v["statusLine"] = sl,
                 }
                 let original: Option<Value> = b.existed.then(|| serde_json::from_str(&b.content).ok()).flatten();
                 if original.as_ref() == Some(&v) {

@@ -1,5 +1,5 @@
 import { api } from '../api';
-import type { Config, SettingsInfo } from '../api';
+import type { Config, SettingsInfo, StatuslineMode } from '../api';
 import { h } from '../dom';
 import { fmtDayMonth } from '../fmt';
 import { setLang, t } from '../i18n';
@@ -197,7 +197,7 @@ export async function mountSettings(el: HTMLElement) {
   // Statusline state + confirm box: rendered separately so typing in another field is not lost.
   const limitsHost = h('div', {});
   /** Show Bumeter's part on the user's status line (`--around`), or only record the numbers (`--tee`). */
-  let showOnLine = true;
+  let showOnLine = info.statusline_show !== false;
   const renderLimits = () => {
     const hooked = status.kind === 'hooked';
     const text = status.kind === 'hooked' ? h('div', { class: 'status ok' }, t(status.show ? 'set.hookedShow' : 'set.hooked'))
@@ -211,7 +211,7 @@ export async function mountSettings(el: HTMLElement) {
     // shows Bumeter's own line either way.
     const ownLine = status.kind === 'not_configured' || (status.kind === 'hooked' && !/--around |--tee/.test(status.command));
     const on = status.kind === 'hooked' ? status.show : showOnLine;
-    const showSwitch = ownLine ? '' : h('label', { class: 'toggle' },
+    const showSwitch = ownLine || info.statusline_show === false ? '' : h('label', { class: 'toggle' },
       h('input', {
         type: 'checkbox', name: 'statusline_show', checked: on,
         onchange: ((e: Event) => {

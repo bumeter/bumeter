@@ -1,7 +1,7 @@
 //! Commands for the Settings screen: read/write config, enable/remove limit tracking via statusline (spec section 7.1).
 use serde_json::{json, Value};
 use tauri::State;
-use bum_adapters::claude_code::statusline::{Mode, StatuslineSetup};
+use bum_adapters::claude_code::statusline::{Mode, StatuslineSetup, SHOW_SUPPORTED};
 use bum_core::config::Config;
 
 use crate::state::AppState;
@@ -39,6 +39,7 @@ pub fn settings(app: tauri::AppHandle, state: State<'_, AppState>, action: Strin
             Ok(json!({
                 "config": Config::load(&state.paths.config()),
                 "statusline": s.status().map_err(err)?,
+                "statusline_show": SHOW_SUPPORTED,
                 "data_dir": state.paths.data_dir,
                 "parse_errors": parse_errors,
                 "tool_quotas": bum_core::meter::read_quotas(&state.paths.tool_quotas()),

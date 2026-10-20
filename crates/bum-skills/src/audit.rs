@@ -249,7 +249,9 @@ pub fn scan_body(body: &str, skill: &str, tool: &str, path: &Path) -> Vec<Findin
                 continue;
             }
             if let Some(n) = r.needles.iter().find(|n| lower.contains(**n)) {
-                let (severity, why) = if r.severity == Severity::High && mentioned_as_warning(&lower, n, r.kind) {
+                // Never for `remote_exec`: the line already fetches code and pipes it into a shell, and
+                // "Careful: curl … | sh" is still an instruction to run it.
+                let (severity, why) = if r.severity == Severity::High && r.kind != "remote_exec" && mentioned_as_warning(&lower, n, r.kind) {
                     (Severity::Warn, "names a dangerous pattern, apparently to warn against it: check that the line really is a warning")
                 } else {
                     (r.severity, r.why)

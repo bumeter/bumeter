@@ -39,7 +39,7 @@ export interface ToolQuota { used: number; limit: number; resets_on: string; pla
 export type StatuslineStatus = { kind: 'not_configured' } | { kind: 'custom'; command: string } | { kind: 'hooked'; command: string; show: boolean };
 /** `show`: Bumeter's part on the Claude Code status line; `record`: only record the quota numbers. */
 export type StatuslineMode = 'show' | 'record';
-export interface SettingsInfo { config: Config; statusline: StatuslineStatus; data_dir: string; parse_errors: number; tool_quotas?: Record<string, ToolQuota>; version?: string }
+export interface SettingsInfo { config: Config; statusline: StatuslineStatus; data_dir: string; parse_errors: number; /** False where `show` mode is not offered (Windows). */ statusline_show?: boolean; tool_quotas?: Record<string, ToolQuota>; version?: string }
 /** Result of a "Check for updates": the Rust side reads the `latest.json` on GitHub Releases. */
 export interface UpdateStatus { available: boolean; version: string | null; current: string; notes: string | null }
 

@@ -5,14 +5,17 @@
 ; written back as REG_EXPAND_SZ, so entries like %USERPROFILE%\bin stay as they are. Setting and
 ; clearing a throwaway user variable through .NET broadcasts WM_SETTINGCHANGE, so terminals opened
 ; afterwards see the change without signing out. Both steps are idempotent: the updater runs the
-; installer again over an existing install.
+; installer again over an existing install. The install directory reaches PowerShell through the
+; BUMETER_DIR variable, not pasted into the script: it holds the user name, which may contain a `'`.
 ;
 ; Verified on a Windows runner by the "Windows installer puts bum on PATH" step in release.yml.
 
 !macro NSIS_HOOK_POSTINSTALL
-  nsExec::ExecToLog `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$$d = '$INSTDIR'; $$p = (Get-Item 'HKCU:\Environment').GetValue('Path', '', 'DoNotExpandEnvironmentNames'); $$parts = @($$p -split ';' | Where-Object { $$_ }); if ($$parts -notcontains $$d) { New-ItemProperty -Path 'HKCU:\Environment' -Name Path -Value (($$parts + $$d) -join ';') -PropertyType ExpandString -Force | Out-Null; [Environment]::SetEnvironmentVariable('BUMETER_PATH_REFRESH', '1', 'User'); [Environment]::SetEnvironmentVariable('BUMETER_PATH_REFRESH', $$null, 'User') }"`
+  System::Call 'Kernel32::SetEnvironmentVariable(t "BUMETER_DIR", t "$INSTDIR")i'
+  nsExec::ExecToLog `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$$d = $$env:BUMETER_DIR; $$p = (Get-Item 'HKCU:\Environment').GetValue('Path', '', 'DoNotExpandEnvironmentNames'); $$parts = @($$p -split ';' | Where-Object { $$_ }); if ($$parts -notcontains $$d) { New-ItemProperty -Path 'HKCU:\Environment' -Name Path -Value (($$parts + $$d) -join ';') -PropertyType ExpandString -Force | Out-Null; [Environment]::SetEnvironmentVariable('BUMETER_PATH_REFRESH', '1', 'User'); [Environment]::SetEnvironmentVariable('BUMETER_PATH_REFRESH', $$null, 'User') }"`
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
-  nsExec::ExecToLog `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$$d = '$INSTDIR'; $$p = (Get-Item 'HKCU:\Environment').GetValue('Path', '', 'DoNotExpandEnvironmentNames'); $$parts = @($$p -split ';' | Where-Object { $$_ }); if ($$parts -contains $$d) { New-ItemProperty -Path 'HKCU:\Environment' -Name Path -Value (($$parts | Where-Object { $$_ -ne $$d }) -join ';') -PropertyType ExpandString -Force | Out-Null; [Environment]::SetEnvironmentVariable('BUMETER_PATH_REFRESH', '1', 'User'); [Environment]::SetEnvironmentVariable('BUMETER_PATH_REFRESH', $$null, 'User') }"`
+  System::Call 'Kernel32::SetEnvironmentVariable(t "BUMETER_DIR", t "$INSTDIR")i'
+  nsExec::ExecToLog `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$$d = $$env:BUMETER_DIR; $$p = (Get-Item 'HKCU:\Environment').GetValue('Path', '', 'DoNotExpandEnvironmentNames'); $$parts = @($$p -split ';' | Where-Object { $$_ }); if ($$parts -contains $$d) { New-ItemProperty -Path 'HKCU:\Environment' -Name Path -Value (($$parts | Where-Object { $$_ -ne $$d }) -join ';') -PropertyType ExpandString -Force | Out-Null; [Environment]::SetEnvironmentVariable('BUMETER_PATH_REFRESH', '1', 'User'); [Environment]::SetEnvironmentVariable('BUMETER_PATH_REFRESH', $$null, 'User') }"`
 !macroend

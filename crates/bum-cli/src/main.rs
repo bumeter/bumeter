@@ -162,7 +162,7 @@ fn status(paths: &Paths) -> anyhow::Result<bool> {
     println!("{}: {} {}, {tokens} token", lang.pick("Hôm nay", "Today"), today["prompts"], lang.pick("lượt", "turns"));
     // Like statusline: % quota from limits.json (the host is running, so the file is always up to date).
     let mut st = bum_core::limits::state(bum_core::limits::read(&paths.limits()), None, chrono::Utc::now().timestamp());
-    if let Some(f) = statusline::host_forecasts(paths) {
+    if let Some(f) = statusline::host_forecasts(paths, bum_service::client::DEFAULT_TIMEOUT) {
         (st.forecast_five_hour, st.forecast_seven_day) = f;
     }
     println!("{}: {}", lang.pick("Giới hạn", "Limits"), bum_core::limits::render_line(&st, None, lang));

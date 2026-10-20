@@ -25,7 +25,7 @@ pub fn run(quiet: bool, tee: bool, around: Option<String>) {
         return;
     }
     let mut st = limits::state(limits::read(&paths.limits()), None, now);
-    if let Some(f) = host_forecasts(&paths) {
+    if let Some(f) = host_forecasts(&paths, STATUSLINE_TIMEOUT) {
         (st.forecast_five_hour, st.forecast_seven_day) = f;
     }
     let cfg = bum_core::config::Config::load(&paths.config());
@@ -56,11 +56,17 @@ fn segment(st: &limits::LimitState, ctx: Option<u64>, threshold: u64, lang: bum_
 }
 
 /// The user's own status line run with the same input, for `--around`. None when it fails or prints
-/// nothing: Bumeter's part is then shown alone rather than an error.
+/// nothing: Bumeter's part is then shown alone rather than an error. Run with `bash` as Claude Code
+/// does, so a line written for bash still works where `sh` is dash; `sh` when there is no bash.
 fn original_line(cmd: &str, input: &str) -> Option<String> {
     use std::io::Write;
     use std::process::{Command, Stdio};
-    let mut child = Command::new("sh").arg("-c").arg(cmd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
+    let spawn = |shell: &str| Command::new(shell).arg("-c").arg(cmd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn();
+    let mut child = match spawn("bash") {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => spawn("sh"),
+        r => r,
+    }
+    .ok()?;
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin.write_all(input.as_bytes());
     }
@@ -78,12 +84,16 @@ fn compose(theirs: Option<&str>, ours: &str) -> String {
     }
 }
 
-type Forecasts = (Option<bum_core::forecast::Forecast>, Option<bum_core::forecast::Forecast>);
+/// Claude Code redraws the status line often: a hung host must not hold it up for the full
+/// `DEFAULT_TIMEOUT`. A missed forecast only leaves it out of this one redraw.
+const STATUSLINE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(200);
+
+type Forecasts =(Option<bum_core::forecast::Forecast>, Option<bum_core::forecast::Forecast>);
 
 /// (5-hour, 7-day) forecasts from the running host (they need the reading history in the DB).
-/// None when the host can't be reached; never fails.
-pub fn host_forecasts(paths: &Paths) -> Option<Forecasts> {
-    let v = bum_service::client::call(paths, "limit_state", serde_json::Value::Null).ok()?;
+/// None when the host can't be reached or does not answer within `timeout`; never fails.
+pub fn host_forecasts(paths: &Paths, timeout: std::time::Duration) -> Option<Forecasts> {
+    let v = bum_service::client::call_timeout(paths, "limit_state", serde_json::Value::Null, timeout).ok()?;
     let f = |k: &str| serde_json::from_value(v[k].clone()).ok();
     Some((f("forecast_five_hour"), f("forecast_seven_day")))
 }
@@ -126,5 +136,10 @@ mod tests {
         assert_eq!(original_line("cat", "{\"a\":1}\n").as_deref(), Some("{\"a\":1}"));
         assert_eq!(original_line("exit 3", "x"), None);
         assert_eq!(original_line("true", "x"), None);
+    }
+
+    #[test]
+    fn a_status_line_written_for_bash_still_works() {
+        assert_eq!(original_line("[[ -n x ]] && echo $'ok'", "").as_deref(), Some("ok"));
     }
 }

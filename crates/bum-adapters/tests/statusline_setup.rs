@@ -221,6 +221,23 @@ fn show_mode_runs_the_original_inside_bum_and_switching_keeps_the_first_backup()
 }
 
 #[test]
+fn switching_modes_keeps_an_edit_made_inside_the_hook() {
+    let dir = tempfile::tempdir().unwrap();
+    write_settings(dir.path(), r#"{"statusLine":{"type":"command","command":"echo old"}}"#);
+    let s = setup(dir.path());
+    s.apply(&s.plan_for(Mode::Record).unwrap()).unwrap();
+    // The user changes their command inside the hook afterwards.
+    let edited = command(dir.path()).replace("echo old", "echo new");
+    let mut v = read(&settings(dir.path()));
+    v["statusLine"]["command"] = json!(edited);
+    std::fs::write(settings(dir.path()), v.to_string()).unwrap();
+
+    s.apply(&s.plan_for(Mode::Show).unwrap()).unwrap();
+    let shown = command(dir.path());
+    assert!(shown.ends_with("statusline --around 'echo new'"), "{shown}");
+}
+
+#[test]
 fn a_hand_written_around_hook_is_unwrapped_not_lost() {
     // Set up by hand (no Bumeter backup), with a bare `bum` on PATH.
     let dir = tempfile::tempdir().unwrap();
@@ -241,4 +258,64 @@ fn without_a_statusline_both_modes_show_bums_own_line() {
     assert!(command(dir.path()).ends_with("\" statusline"));
     assert!(matches!(s.status().unwrap(), Status::Hooked { show: true, .. }));
     assert!(s.plan_for(Mode::Show).unwrap().is_noop());
+}
+
+#[test]
+fn a_hand_written_tee_hook_keeps_the_users_command() {
+    // Unquoted `bum`, no Bumeter backup: the command after the pipe must survive re-enabling.
+    let dir = tempfile::tempdir().unwrap();
+    write_settings(dir.path(), r#"{"statusLine":{"type":"command","command":"bum statusline --tee | my-line"}}"#);
+    let s = setup(dir.path());
+    s.apply(&s.plan_for(Mode::Record).unwrap()).unwrap();
+    let cmd = command(dir.path());
+    assert!(cmd.starts_with('"') && cmd.ends_with("statusline --tee | { my-line; }"), "{cmd}");
+}
+
+#[test]
+fn a_double_quoted_around_hook_is_unwrapped() {
+    let dir = tempfile::tempdir().unwrap();
+    write_settings(dir.path(), r#"{"statusLine":{"type":"command","command":"bum statusline --around \"echo \\\"hi\\\"\""}}"#);
+    let s = setup(dir.path());
+    s.apply(&s.plan_for(Mode::Show).unwrap()).unwrap();
+    let cmd = command(dir.path());
+    assert!(cmd.ends_with(r#"statusline --around 'echo "hi"'"#), "{cmd}");
+}
+
+#[test]
+fn a_hook_that_cannot_be_rebuilt_is_refused_not_replaced() {
+    let dir = tempfile::tempdir().unwrap();
+    for hand_written in ["bum statusline | jq -r .x", "bum statusline --around \"$HOME/sl.sh\""] {
+        let content = json!({"statusLine": {"type": "command", "command": hand_written}}).to_string();
+        write_settings(dir.path(), &content);
+        let s = setup(dir.path());
+        assert!(s.plan_for(Mode::Record).is_err(), "{hand_written}");
+        assert_eq!(std::fs::read_to_string(settings(dir.path())).unwrap(), content);
+    }
+}
+
+#[test]
+fn undo_keeps_an_edit_made_inside_the_hook() {
+    let dir = tempfile::tempdir().unwrap();
+    write_settings(dir.path(), r#"{"statusLine":{"type":"command","command":"echo old"}}"#);
+    let s = setup(dir.path());
+    s.apply(&s.plan_for(Mode::Record).unwrap()).unwrap();
+    let mut v = read(&settings(dir.path()));
+    v["statusLine"]["command"] = json!(command(dir.path()).replace("echo old", "echo new"));
+    std::fs::write(settings(dir.path()), v.to_string()).unwrap();
+    s.apply(&s.plan_for(Mode::Show).unwrap()).unwrap();
+
+    s.undo().unwrap();
+    assert_eq!(command(dir.path()), "echo new");
+}
+
+#[test]
+fn other_statusline_fields_are_kept_while_enabled() {
+    let dir = tempfile::tempdir().unwrap();
+    let original = r#"{"statusLine":{"type":"command","command":"bash sl.sh","padding":2}}"#;
+    write_settings(dir.path(), original);
+    let s = setup(dir.path());
+    s.apply(&s.plan_for(Mode::Show).unwrap()).unwrap();
+    assert_eq!(read(&settings(dir.path()))["statusLine"]["padding"], 2);
+    s.undo().unwrap();
+    assert_eq!(std::fs::read_to_string(settings(dir.path())).unwrap(), original);
 }
