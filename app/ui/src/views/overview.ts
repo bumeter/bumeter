@@ -28,6 +28,8 @@ const ADVICE: Record<Advice['code'], { title: Key; how: Key; act: Key }> = {
   startup: { title: 'ov.effStartupTip', how: 'ov.effStartupHow', act: 'ov.effOpenThat' },
   cold_cache: { title: 'ov.effColdTip', how: 'ov.effColdHow', act: 'ov.effOpenThat' },
   blocked: { title: 'ov.effBlockedTip', how: 'ov.effBlockedHow', act: 'ov.effSeeQuota' },
+  repeated_read: { title: 'ov.effReadTip', how: 'ov.effReadHow', act: 'ov.effOpenThat' },
+  tool_retry: { title: 'ov.effRetryTip', how: 'ov.effRetryHow', act: 'ov.effOpenThat' },
   unused_always_on: { title: 'ov.effUnusedTip', how: 'ov.effUnusedHow', act: 'ov.effSeeSkills' },
 };
 /** Advice shown before "See all". */
@@ -214,6 +216,8 @@ export async function mountOverview(el: HTMLElement) {
       resend: openSession,
       startup: openSession,
       cold_cache: openSession,
+      repeated_read: openSession,
+      tool_retry: openSession,
       blocked: () => (document.querySelector('.ov-quota') as HTMLElement | null)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }),
       unused_always_on: () => update({ view: 'skills', skillFilter: 'unused' }),
     };
@@ -240,7 +244,11 @@ export async function mountOverview(el: HTMLElement) {
         ec && ec.resend.sessions ? t('ov.effResendSub', { n: Math.round(ec.resend.median) }) : ''),
       card('cache', t('ov.effCache'), ec?.cache ? t('ov.effCacheRead', { pct: Math.round(ec.cache.read_share * 100) }) : dash,
         ec?.cache ? t('ov.effCacheCold', { n: ec.cache.cold_calls }) : t('ov.effCacheNone')),
-      card('blocked', t('ov.effBlocked'), blocked ? (blocked.count ? t('ov.effBlockedTimes', { n: blocked.count }) : t('ov.effBlockedNever')) : dash, blocked?.count ? blockedSub : (blocked ? '' : blockedSub)));
+      card('blocked', t('ov.effBlocked'), blocked ? (blocked.count ? t('ov.effBlockedTimes', { n: blocked.count }) : t('ov.effBlockedNever')) : dash, blocked?.count ? blockedSub : (blocked ? '' : blockedSub)),
+      // Only once tool results are recorded (Claude Code, from schema v8 on).
+      effect.tools ? card('tools', t('ov.effTools'), effect.tools.calls_with_result ? `${Math.round((effect.tools.errors / effect.tools.calls_with_result) * 1000) / 10}%` : dash,
+        t('ov.effToolsSub', { errors: effect.tools.errors, retries: effect.tools.retries })) : null);
+    if (effect.tools) cards.setAttribute('data-n', '5');
 
     const split = (key: string, name: string, list: Share[], labelOf: (k: string) => string) => {
       const total = list.reduce((n, x) => n + x.weighted, 0);
@@ -269,7 +277,7 @@ export async function mountOverview(el: HTMLElement) {
     const tip = (a: Advice) => h('div', { class: 'eff-tip', 'data-code': a.code },
       h('span', { class: `eff-conf ${a.confidence}` }, t(CONF_KEY[a.confidence])),
       h('div', { class: 'eff-tip-body' },
-        h('div', { class: 'eff-tip-title' }, t(ADVICE[a.code].title, { n: a.count, tokens: fmtTokens(a.weighted) })),
+        h('div', { class: 'eff-tip-title' }, t(ADVICE[a.code].title, { n: a.count, tokens: fmtTokens(a.weighted), target: a.target ?? '' })),
         h('div', { class: 'sub' }, t(ADVICE[a.code].how))),
       h('button', { class: 'btn', type: 'button', onclick: (() => open[a.code](a)) as EventListener }, t(ADVICE[a.code].act)));
     const row = (name: string, n: number, weighted: number | null) => h('div', { class: 'eff-row' },

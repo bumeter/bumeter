@@ -436,6 +436,7 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 @media (max-width: 699px) { .overview .ov-effect .eff-tip { grid-template-columns: auto 1fr; } .overview .ov-effect .eff-tip .btn { grid-column: 2; justify-self: start; } }
 /* Efficiency 2.0: economics cards, where the quota went, "see all". */
 .overview .ov-effect .eff-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.overview .ov-effect .eff-cards[data-n="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .overview .ov-effect .eff-card { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--r-box); background: var(--sunk); min-width: 0; }
 .overview .ov-effect .eff-card .lbl { font: 12px var(--font); color: var(--ink2); }
 .overview .ov-effect .eff-card .big { font: 700 18px var(--font); color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -455,7 +456,8 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .overview .ov-effect .eff-old { margin-top: 4px; }
 .overview .ov-effect .eff-toggle { align-self: flex-start; margin-top: 10px; }
 @media (max-width: 699px) {
-  .overview .ov-effect .eff-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .overview .ov-effect .eff-cards, .overview .ov-effect .eff-cards[data-n="5"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .overview .ov-effect .eff-cards[data-n="5"] .eff-card:last-child { grid-column: span 2; }
   .overview .ov-effect .eff-split-row { grid-template-columns: 1fr; gap: 4px; }
 }
 

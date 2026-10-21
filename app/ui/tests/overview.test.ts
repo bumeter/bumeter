@@ -403,6 +403,20 @@ describe('Overview quota panel', () => {
     expect(state.skillFilter).toBe('unused');
   });
 
+  it('effectiveness 2.0: tool errors get a fifth card, and their advice names the file', async () => {
+    const tools = { repeated: [{ session_id: 'sess-r', target: '/src/a.rs', times: 4, weighted: 30_000 }], repeated_weighted: 30_000, retries: 3, retry_weighted: 9_000, retry_session: 'sess-t', retry_tool: 'Bash', errors: 12, calls_with_result: 400, by_tool_error: [] };
+    fake({ ...handlers(), effectiveness: () => ({ ...ECON, tools, advice: [...ECON.advice, { code: 'repeated_read', confidence: 'likely', count: 1, weighted: 30_000, session_id: 'sess-r', target: '/src/a.rs' }] }) });
+    await mountOverview(el);
+    const panel = el.querySelector('.ov-effect')!;
+    expect(panel.querySelector('.eff-cards')!.getAttribute('data-n')).toBe('5');
+    expect(panel.querySelector('.eff-card[data-card="tools"] .big')!.textContent).toBe('3%');
+    expect(panel.querySelector('.eff-card[data-card="tools"] .sub')!.textContent).toBe('12 lỗi · 3 lần thử lại');
+    const tip = panel.querySelector('.eff-tip[data-code="repeated_read"]')!;
+    expect(tip.textContent).toContain('nhiều nhất là /src/a.rs');
+    (tip.querySelector('button') as HTMLButtonElement).click();
+    expect(state.conversation).toBe('sess-r');
+  });
+
   it('effectiveness: nothing to advise says so', async () => {
     fake({ ...handlers(), effectiveness: () => ({ ...EFFECT, advice: [] }) });
     await mountOverview(el);

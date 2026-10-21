@@ -244,6 +244,17 @@ pub fn render_efficiency(r: &Report, lang: Lang) -> String {
         let start = |k: &str| match k { "small" => "<100K".to_string(), "mid" => "100K–".to_string() + lang.pick("ngưỡng", "threshold"), _ => format!(">{}", lang.pick("ngưỡng", "threshold")) };
         out.push(format!("  {:<22} {}", lang.pick("Lúc bắt đầu lượt", "Turn starts at"), shares(&ec.breakdown.by_start, start)));
     }
+    if let Some(t) = &e.tools {
+        out.push(format!(
+            "  {:<22} {}/{} ({}%) · {} {}",
+            lang.pick("Tool lỗi", "Tool errors"),
+            t.errors,
+            t.calls_with_result,
+            pct(t.errors, t.calls_with_result),
+            t.retries,
+            lang.pick("lần thử lại", "retries"),
+        ));
+    }
     if let Some(b) = e.blocked.as_ref().filter(|b| b.count > 0) {
         let parts: Vec<String> = b.by_type.iter().map(|t| {
             let kind = match t.limit_type.as_str() { "five_hour" => "5h".to_string(), "seven_day" => lang.pick("7 ngày", "7 days").to_string(), k => k.to_string() };
@@ -529,6 +540,9 @@ mod tests {
         assert!(en.contains("1. [at most] 1 always-on skills unused for 30 days (pdf-tools)"), "{en}");
         let vi = render_efficiency(&r, Lang::Vi);
         assert!(vi.contains("Context khởi động") && vi.contains("Hệ số gửi lại"), "{vi}");
+        assert!(!en.contains("Tool errors"), "no tool line without recorded results");
+        r.effect.tools = Some(bum_core::effect::Tools { repeated: vec![], repeated_weighted: 0, retries: 2, retry_weighted: 0, retry_session: None, retry_tool: None, errors: 5, calls_with_result: 50, by_tool_error: vec![] });
+        assert!(render_efficiency(&r, Lang::En).contains("5/50 (10%) · 2 retries"));
         // The plain report is unchanged; with `--efficiency` its short section is left out.
         assert!(!render(&r, &[], Lang::En).contains("Resend factor"));
         assert!(render(&r, &[], Lang::En).contains("Effect   "));

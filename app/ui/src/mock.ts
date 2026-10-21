@@ -112,6 +112,7 @@ export const transport = {
           breakdown: { by_model: [{ key: 'opus', weighted: 8_900_000 }, { key: 'sonnet', weighted: 3_000_000 }, { key: 'kiro:auto', weighted: 700_000 }],
             by_chain: [{ key: 'main', weighted: 10_300_000 }, { key: 'subagent', weighted: 2_300_000 }],
             by_start: [{ key: 'small', weighted: 2_000_000 }, { key: 'mid', weighted: 3_200_000 }, { key: 'large', weighted: 4_600_000 }] } },
+        tools: { repeated: [{ session_id: 's1', target: '/src/services/worker/handler.ts', times: 4, weighted: 64_000 }], repeated_weighted: 64_000, retries: 5, retry_weighted: 210_000, retry_session: 's1', retry_tool: 'Bash', errors: 23, calls_with_result: 1_210, by_tool_error: [{ name: 'Bash', errors: 17, results: 402 }, { name: 'Edit', errors: 6, results: 260 }] },
         blocked: { count: 4, by_type: [{ limit_type: 'five_hour', count: 3, wait_secs: 23_400 }, { limit_type: 'seven_day', count: 1, wait_secs: 104_000 }] } };
       case 'session_economics': return { session_id: params.session_id, calls: 64, startup_ctx: 44_000, max_ctx: 186_000, total_ctx: 4_300_000, resend: 23.1, weighted: 2_900_000, cold: ['r3'],
         by_model: [{ key: 'opus', weighted: 2_500_000 }, { key: 'haiku', weighted: 400_000 }], by_chain: [{ key: 'main', weighted: 2_600_000 }, { key: 'subagent', weighted: 300_000 }] };

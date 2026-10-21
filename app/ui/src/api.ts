@@ -96,7 +96,7 @@ export interface TranscriptTurn { key: string; ts: string; question: string; ite
 /** Effectiveness over a range: facts from the log (cancelled turns, very large contexts, overflows), quota-weighted, with advice. */
 export interface Advice {
   /** `unused_always_on` is added by the UI from the skill report (the backend core does not read skills). */
-  code: 'late_cancel' | 'big_context' | 'split_session' | 'resend' | 'startup' | 'cold_cache' | 'blocked' | 'unused_always_on';
+  code: 'late_cancel' | 'big_context' | 'split_session' | 'resend' | 'startup' | 'cold_cache' | 'blocked' | 'repeated_read' | 'tool_retry' | 'unused_always_on';
   /** `sure`: the tokens were spent. `likely`: acting on the advice probably saves them. `max`: an upper bound. */
   confidence: 'sure' | 'likely' | 'max';
   /** Turns, or sessions for `split_session`. */
@@ -104,6 +104,8 @@ export interface Advice {
   /** Quota-weighted tokens (cache reads count 0.1×, output 5×), not money. */
   weighted: number;
   session_id: string | null;
+  /** `repeated_read`: the file read most; `tool_retry`: the tool retried most. */
+  target?: string | null;
 }
 
 export interface Effect {
@@ -120,6 +122,20 @@ export interface Effect {
   economics: Economics | null;
   /** Rate-limit hits; null for a tool without 5h/7d limits. */
   blocked: Blocked | null;
+  /** Repeated reads and retried tool errors; null when no tool result was recorded. */
+  tools?: ToolSignals | null;
+}
+
+export interface ToolSignals {
+  repeated: { session_id: string; target: string; times: number; weighted: number }[];
+  repeated_weighted: number;
+  retries: number;
+  retry_weighted: number;
+  retry_session: string | null;
+  retry_tool: string | null;
+  errors: number;
+  calls_with_result: number;
+  by_tool_error: { name: string; errors: number; results: number }[];
 }
 
 export interface Share { key: string; weighted: number }
@@ -151,6 +167,7 @@ export interface SessionEconomics {
   cold: string[];
   by_model: Share[];
   by_chain: Share[];
+  tools?: ToolSignals | null;
 }
 
 type Transport = {
