@@ -68,6 +68,12 @@ fn parse_user(
         return;
     }
     let content = &v["message"]["content"];
+    // Results of tool calls: they mark the call they answer (failed or not, and how long).
+    for r in content.as_array().into_iter().flatten().filter(|r| r["type"] == "tool_result") {
+        if let Some(id) = r["tool_use_id"].as_str() {
+            out.push(RawEvent::ToolResult { tool_use_id: id.into(), is_error: r["is_error"].as_bool().unwrap_or(false), chars: result_chars(&r["content"]) });
+        }
+    }
     let text = extract_text(content);
 
     if let Some(cmd) = command_name(&text) {
@@ -120,7 +126,12 @@ fn parse_assistant(v: &Value, session_id: &str, ts: &str, sidechain: bool, ctx: 
     if let Some(items) = msg["content"].as_array() {
         for item in items.iter().filter(|i| i["type"] == "tool_use") {
             let name = item["name"].as_str().unwrap_or_default();
-            tool_uses.push(ToolUse { id: item["id"].as_str().unwrap_or_default().into(), name: name.into(), ..Default::default() });
+            tool_uses.push(ToolUse {
+                id: item["id"].as_str().unwrap_or_default().into(),
+                name: name.into(),
+                target: tool_target(name, &item["input"]),
+                target_hash: Some(input_hash(&item["input"])),
+            });
             if name == "Skill" {
                 if let Some(skill) = item["input"]["skill"].as_str() {
                     push_direct_skill(out, ctx, session_id, ts, skill);
@@ -179,6 +190,68 @@ pub(super) fn extract_text(content: &Value) -> String {
             .collect::<Vec<_>>()
             .join("\n"),
         _ => String::new(),
+    }
+}
+
+/// What a tool call acted on, short enough to store and show: a file path (with `/` separators), a
+/// search pattern, the first two words of a shell command, a skill name. Never a whole command: those
+/// can carry tokens. Same tools as `composition.rs` labels.
+pub fn tool_target(name: &str, input: &Value) -> Option<String> {
+    let field = |k: &str| input[k].as_str().map(str::trim).filter(|v| !v.is_empty());
+    match name {
+        "Read" | "Edit" | "MultiEdit" | "Write" | "NotebookEdit" => field("file_path").or_else(|| field("notebook_path")).map(|p| p.replace('\\', "/")),
+        "Grep" | "Glob" => field("pattern").map(String::from),
+        // Leading `NAME=value` assignments are skipped: they are where secrets go.
+        "Bash" => field("command").map(|c| c.split_whitespace().filter(|w| !w.contains('=')).take(2).collect::<Vec<_>>().join(" ")).filter(|c| !c.is_empty()),
+        "Skill" => field("skill").map(String::from),
+        _ => None,
+    }
+}
+
+/// A stable 64-bit hash (FNV-1a) of a tool input, keys sorted, to tell "the same call again" without
+/// storing the input. Stable across Rust versions and runs, unlike `DefaultHasher`.
+pub fn input_hash(input: &Value) -> i64 {
+    fn canonical(v: &Value, out: &mut String) {
+        match v {
+            Value::Object(m) => {
+                let mut keys: Vec<&String> = m.keys().collect();
+                keys.sort();
+                out.push('{');
+                for k in keys {
+                    out.push_str(&serde_json::to_string(k).unwrap_or_default());
+                    out.push(':');
+                    canonical(&m[k], out);
+                    out.push(',');
+                }
+                out.push('}');
+            }
+            Value::Array(a) => {
+                out.push('[');
+                for x in a {
+                    canonical(x, out);
+                    out.push(',');
+                }
+                out.push(']');
+            }
+            other => out.push_str(&other.to_string()),
+        }
+    }
+    let mut text = String::new();
+    canonical(input, &mut text);
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in text.bytes() {
+        h ^= u64::from(b);
+        h = h.wrapping_mul(0x0100_0000_01b3);
+    }
+    h as i64
+}
+
+/// Characters of a tool result's text: a string, or the `text` parts of a list.
+fn result_chars(content: &Value) -> u64 {
+    match content {
+        Value::String(s) => s.chars().count() as u64,
+        Value::Array(parts) => parts.iter().filter_map(|p| p["text"].as_str()).map(|t| t.chars().count() as u64).sum(),
+        _ => 0,
     }
 }
 

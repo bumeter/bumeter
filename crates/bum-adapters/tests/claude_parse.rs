@@ -93,3 +93,63 @@ fn ai_title_becomes_the_conversation_title() {
     let (ev, _) = parse_file(&src, "-home-u-proj/s1.jsonl");
     assert!(ev.iter().any(|e| matches!(e, RawEvent::Title { session_id, title } if session_id == "s1" && title == "Update progress <task>")));
 }
+
+fn parse_lines(lines: &[String]) -> Vec<RawEvent> {
+    let src = ClaudeCode::new(root());
+    let path = root().join("-home-u-proj/inline.jsonl");
+    let mut ctx = ParseCtx::default();
+    lines.iter().flat_map(|l| src.parse_line(&path, &mut ctx, l).unwrap()).collect()
+}
+
+fn assistant_with_tools(tools: serde_json::Value) -> String {
+    serde_json::json!({
+        "type": "assistant", "sessionId": "s9", "timestamp": "2026-10-10T01:00:00.000Z", "requestId": "req_T",
+        "message": { "id": "m1", "model": "claude-opus-5", "content": tools, "usage": { "input_tokens": 1, "output_tokens": 1 } }
+    }).to_string()
+}
+
+fn tools_of(ev: &[RawEvent]) -> Vec<bum_core::model::ToolUse> {
+    ev.iter().find_map(|e| match e { RawEvent::ApiCall { tool_uses, .. } => Some(tool_uses.clone()), _ => None }).unwrap()
+}
+
+#[test]
+fn tool_targets_are_short_and_never_a_whole_command() {
+    let line = assistant_with_tools(serde_json::json!([
+        { "type": "tool_use", "id": "t1", "name": "Read", "input": { "file_path": "C:\\src\\a.rs" } },
+        { "type": "tool_use", "id": "t2", "name": "Bash", "input": { "command": "API_TOKEN=s3cret cargo test -p bum-core --all" } },
+        { "type": "tool_use", "id": "t3", "name": "Grep", "input": { "pattern": "fn main" } },
+        { "type": "tool_use", "id": "t4", "name": "mcp__x__y", "input": { "q": 1 } },
+    ]));
+    let tools = tools_of(&parse_lines(&[line]));
+    let targets: Vec<Option<&str>> = tools.iter().map(|t| t.target.as_deref()).collect();
+    assert_eq!(targets, vec![Some("C:/src/a.rs"), Some("cargo test"), Some("fn main"), None]);
+    assert!(tools.iter().all(|t| t.target_hash.is_some()));
+}
+
+#[test]
+fn the_input_hash_ignores_key_order_but_not_values() {
+    let a = assistant_with_tools(serde_json::json!([{ "type": "tool_use", "id": "t1", "name": "Bash", "input": { "command": "ls", "timeout": 5 } }]));
+    let b = r#"{"type":"assistant","sessionId":"s9","timestamp":"2026-10-10T01:00:00.000Z","requestId":"req_T","message":{"id":"m1","model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"timeout":5,"command":"ls"}}]}}"#.to_string();
+    let c = assistant_with_tools(serde_json::json!([{ "type": "tool_use", "id": "t1", "name": "Bash", "input": { "command": "ls -la", "timeout": 5 } }]));
+    let h = |l: String| tools_of(&parse_lines(&[l]))[0].target_hash;
+    assert_eq!(h(a.clone()), h(b));
+    assert_ne!(h(a), h(c));
+}
+
+#[test]
+fn tool_results_say_whether_the_call_failed_and_how_long_the_result_was() {
+    let line = serde_json::json!({
+        "type": "user", "sessionId": "s9", "timestamp": "2026-10-10T01:00:05.000Z", "promptId": "p1",
+        "message": { "role": "user", "content": [
+            { "type": "tool_result", "tool_use_id": "t1", "content": "hello" },
+            { "type": "tool_result", "tool_use_id": "t2", "is_error": true, "content": [{ "type": "text", "text": "boom!" }, { "type": "text", "text": "ab" }] },
+        ] }
+    }).to_string();
+    let ev = parse_lines(&[line]);
+    let results: Vec<(&str, bool, u64)> = ev.iter().filter_map(|e| match e {
+        RawEvent::ToolResult { tool_use_id, is_error, chars } => Some((tool_use_id.as_str(), *is_error, *chars)),
+        _ => None,
+    }).collect();
+    assert_eq!(results, vec![("t1", false, 5), ("t2", true, 7)]);
+    assert!(!ev.iter().any(|e| matches!(e, RawEvent::Prompt { .. })), "a tool result is not a question");
+}
