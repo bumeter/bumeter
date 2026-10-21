@@ -8,6 +8,7 @@ import { fmtShortDate, fmtTime, fmtTokens, totalOf } from '../fmt';
 import { t } from '../i18n';
 import type { Key } from '../i18n';
 import { state, subscribe, update } from '../state';
+import { unusedWeight } from '../quota';
 import { glyph, toolDef, toolTag } from '../tools';
 import { toolTabs } from '../components/toolTabs';
 
@@ -115,7 +116,17 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
   let rep: SkillReport = await api.skills(false);
   let selected: string | null = null;
   let view = savedView();
-  const filters: Filters = { status: null, source: null, costly: false };
+  // A link from the Effectiveness panel opens the screen on the unused skills; it applies once.
+  const filters: Filters = { status: state.skillFilter === 'unused' ? 'unused' : null, source: null, costly: false };
+  state.skillFilter = null;
+  // Calls and sessions of the last 30 days, to put a quota-weighted cost on an unused always-on skill.
+  let usage30: { sessions: number; calls: number } | null = null;
+  const since = new Date(); since.setHours(0, 0, 0, 0); since.setDate(since.getDate() - 29);
+  void api.effectiveness(since.toISOString(), 'claude_code').then((e) => {
+    if (disposed || !e.economics) return;
+    usage30 = { sessions: e.sessions, calls: e.economics.calls };
+    showDetail();
+  }).catch(() => undefined);
   let message: { text: string; undo?: SkillJournalEntry; tool?: string } | null = null;
   let disposed = false;
   let drawer: { close(): void; el: HTMLElement } | null = null;
@@ -527,6 +538,8 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
         h('div', { class: 'cell' }, h('small', {}, t('sk.uses')), h('b', { class: 'num' }, t('sk.usesValue', { n: r.uses, p: r.projects }))),
         h('div', { class: 'cell' }, h('small', {}, t('sk.avg')), h('b', { class: 'num' }, r.avg_tokens != null ? fmtTokens(r.avg_tokens) : '—'))),
       e.estimated ? h('div', { class: 'sub hint' }, t('sk.estimated')) : null,
+      isCostly(r) && usage30 ? h('div', { class: 'sub hint', 'data-hint': 'unused-cost' },
+        t('sk.unusedWeighted', { tokens: fmtTokens(unusedWeight(e.always_on_tokens ?? 0, usage30.sessions, usage30.calls)) })) : null,
       h('div', { class: 'actions skill-actions' },
         ...actionsFor(r).map((a) => h('button', { class: `btn${a.primary ? ' primary' : ''}`, 'data-action': a.op,
           onclick: (() => void run({ op: a.op, targets: [a.target], tool: a.tool }, `${a.label}: ${e.name}`)) as EventListener }, a.label))),

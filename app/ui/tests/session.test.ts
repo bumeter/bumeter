@@ -72,6 +72,36 @@ describe('session analysis screen', () => {
   });
 });
 
+describe('session economics', () => {
+  const econ = (cold: string[]) => () => ({ session_id: 's9', calls: 3, startup_ctx: 1010, max_ctx: 30000, total_ctx: 36010, resend: 1.2, weighted: 5000, cold, by_model: [], by_chain: [] });
+
+  it('cards above the chart, and cold-cache calls marked on it', async () => {
+    fake({ session_analysis: analysis, call_detail: detail, session_economics: econ(['r1']) });
+    await mountSession(el, 's9');
+    await flush(); await flush();
+    const big = (k: string) => el.querySelector(`.econ-card[data-card="${k}"] .big`)?.textContent;
+    expect([big('startup'), big('max'), big('resend'), big('weighted')]).toEqual(['1K', '30K', '×1', '5K']);
+    expect(el.querySelectorAll('svg.area .cold-mark').length).toBe(1);
+    expect(el.querySelector('[data-legend="cold"]')!.textContent).toContain('Cache nguội (1)');
+  });
+
+  it('no cold calls, no marks', async () => {
+    fake({ session_analysis: analysis, call_detail: detail, session_economics: econ([]) });
+    await mountSession(el, 's9');
+    await flush(); await flush();
+    expect(el.querySelectorAll('svg.area .cold-mark').length).toBe(0);
+    expect(el.querySelector('[data-legend="cold"]')).toBeNull();
+  });
+
+  it('when the log cannot be analyzed, the cards still show', async () => {
+    fake({ session_analysis: () => { throw new Error('context analysis is not available for this tool yet'); }, session_economics: econ([]) });
+    await mountSession(el, 's9');
+    await flush(); await flush();
+    expect(el.querySelector('.econ-card[data-card="weighted"] .big')?.textContent).toBe('5K');
+    expect(el.textContent).toContain('not available for this tool');
+  });
+});
+
 describe('safety when switching screens', () => {
   it('a late analysis result does not paint over another screen', async () => {
     let resolve!: (v: unknown) => void;

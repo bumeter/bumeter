@@ -12,6 +12,7 @@ import type { Key } from '../i18n';
 import { state, subscribe, update } from '../state';
 import { allSources, modelTag, toolDef } from '../tools';
 import { toolTabs } from '../components/toolTabs';
+import { unusedWeight } from '../quota';
 
 const W = 900;
 const H = 160;
@@ -33,11 +34,6 @@ const ADVICE: Record<Advice['code'], { title: Key; how: Key; act: Key }> = {
 const TIPS_SHOWN = 5;
 const CONF_KEY: Record<Advice['confidence'], Key> = { sure: 'ov.effSure', likely: 'ov.effLikely', max: 'ov.effMax' };
 
-/**
- * Upper bound of what unused always-on skills cost over a range: written to the prompt cache once per
- * session (×1.25), read back on every call (×0.1). Same formula as `bum_skills::report::unused_weight`.
- */
-export const unusedWeight = (alwaysOn: number, sessions: number, calls: number) => Math.floor((alwaysOn * (sessions * 125 + calls * 10)) / 100);
 
 /** Hours, one decimal under 10. */
 const fmtHours = (secs: number) => { const h = secs / 3600; return h < 10 ? `${h.toFixed(1)}h` : `${Math.round(h)}h`; };
