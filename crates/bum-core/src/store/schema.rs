@@ -96,11 +96,12 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             }
         }
         conn.execute_batch("CREATE INDEX IF NOT EXISTS api_call_tools_req ON api_call_tools(request_id);")?;
-        // Fill the new columns for the history too: skew the offsets of Claude Code's files so the engine
-        // deletes their old rows and reads them again, once (as v5 did for Kiro). Notes are keyed by
-        // prompt key, which a re-read gives back unchanged.
+        // Fill the new columns for the history too: make Claude Code's files look replaced, so the engine
+        // deletes their old rows and reads them again from the start, once. (Unlike Kiro's whole-file
+        // reads in v5, a JSONL tail is resumed by file identity and offset, not by size.) Notes are keyed
+        // by prompt key, which a re-read gives back unchanged.
         conn.execute_batch(
-            "UPDATE file_offsets SET size = -1 WHERE path IN (
+            "UPDATE file_offsets SET file_id = 'reread-v8' WHERE path IN (
                SELECT a.source_file FROM api_calls a JOIN sessions s ON s.id = a.session_id WHERE s.tool = 'claude_code');",
         )?;
         conn.pragma_update(None, "user_version", 8)?;

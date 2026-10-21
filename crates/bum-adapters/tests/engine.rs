@@ -120,3 +120,30 @@ fn unreadable_file_does_not_stop_the_scan() {
     assert_eq!(e.store().usage_totals().unwrap().total(), 3549);
     assert_eq!(report.file_errors, 1);
 }
+
+#[test]
+fn the_v8_migration_makes_the_engine_read_claude_code_logs_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("projects");
+    copy_dir(&fixture(), &root);
+    let db = dir.path().join("bumeter.db");
+    let scan = || {
+        let mut e = Engine::new(Store::open(&db).unwrap(), vec![Box::new(ClaudeCode::new(&root))]);
+        e.full_scan().unwrap();
+        e.store().usage_totals().unwrap().total()
+    };
+    assert_eq!(scan(), 3549);
+    // Back to a v7 database: tool calls without the new columns, offsets at the end of each file.
+    rusqlite::Connection::open(&db).unwrap().execute_batch(
+        "DROP INDEX api_call_tools_req;
+         ALTER TABLE api_call_tools DROP COLUMN target; ALTER TABLE api_call_tools DROP COLUMN target_hash;
+         ALTER TABLE api_call_tools DROP COLUMN error; ALTER TABLE api_call_tools DROP COLUMN result_chars;
+         PRAGMA user_version = 7;",
+    ).unwrap();
+    // Opening migrates; the next scan must read the files again and fill the columns, totals unchanged.
+    assert_eq!(scan(), 3549);
+    let c = rusqlite::Connection::open(&db).unwrap();
+    let (targets, results): (i64, i64) = c.query_row("SELECT COUNT(target), COUNT(error) FROM api_call_tools", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert!(targets > 0, "tool targets were not filled: the files were not read again");
+    assert!(results > 0, "tool results were not filled");
+}

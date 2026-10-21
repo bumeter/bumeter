@@ -212,9 +212,9 @@ fn v8_adds_tool_columns_and_rereads_claude_code_files_only() {
     for col in ["target", "target_hash", "error", "result_chars"] {
         assert!(cols.contains(&col.to_string()), "{cols:?}");
     }
-    let size = |p: &str| c.query_row("SELECT size FROM file_offsets WHERE path = ?1", [p], |r| r.get::<_, i64>(0)).unwrap();
-    assert_eq!(size(MAIN), -1, "Claude Code files are read again");
-    assert_eq!(size("/kiro/k1.json"), 100, "other tools are left alone");
+    let id = |p: &str| c.query_row("SELECT file_id FROM file_offsets WHERE path = ?1", [p], |r| r.get::<_, String>(0)).unwrap();
+    assert_eq!(id(MAIN), "reread-v8", "Claude Code files are read again");
+    assert_eq!(id("/kiro/k1.json"), "1:1", "other tools are left alone");
     assert_eq!(s.get_note("p1").unwrap().map(|n| n.note), Some("keep me".to_string()));
 }
 
