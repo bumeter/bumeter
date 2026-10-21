@@ -95,9 +95,10 @@ export interface TranscriptTurn { key: string; ts: string; question: string; ite
 
 /** Effectiveness over a range: facts from the log (cancelled turns, very large contexts, overflows), quota-weighted, with advice. */
 export interface Advice {
-  code: 'late_cancel' | 'big_context' | 'split_session';
-  /** `sure`: the tokens were spent. `likely`: acting on the advice probably saves them. */
-  confidence: 'sure' | 'likely';
+  /** `unused_always_on` is added by the UI from the skill report (the backend core does not read skills). */
+  code: 'late_cancel' | 'big_context' | 'split_session' | 'resend' | 'startup' | 'cold_cache' | 'blocked' | 'unused_always_on';
+  /** `sure`: the tokens were spent. `likely`: acting on the advice probably saves them. `max`: an upper bound. */
+  confidence: 'sure' | 'likely' | 'max';
   /** Turns, or sessions for `split_session`. */
   count: number;
   /** Quota-weighted tokens (cache reads count 0.1×, output 5×), not money. */
@@ -115,6 +116,41 @@ export interface Effect {
   big_context_weighted: number;
   compactions: number;
   advice: Advice[];
+  /** Session economics over every call in the range; null when there were no calls. */
+  economics: Economics | null;
+  /** Rate-limit hits; null for a tool without 5h/7d limits. */
+  blocked: Blocked | null;
+}
+
+export interface Share { key: string; weighted: number }
+
+export interface Economics {
+  /** Every call in the range, including calls for messages the user did not type (they belong to no turn). */
+  calls: number;
+  weighted: number;
+  startup: { sessions: number; median: number; weighted: number; max_session: string | null };
+  /** `median` = sum of contexts ÷ largest context, over sessions with ≥ 3 main-chain calls. */
+  resend: { sessions: number; median: number; flagged: number; flagged_weighted: number; worst: [string, number] | null };
+  /** null for a tool without a prompt cache. */
+  cache: { read_share: number; write_1h_share: number; cold_calls: number; cold_extra: number; worst_session: string | null } | null;
+  breakdown: { by_model: Share[]; by_chain: Share[]; by_start: Share[] };
+}
+
+export interface Blocked { count: number; by_type: { limit_type: string; count: number; wait_secs: number }[] }
+
+/** One session's economics, from the database (works for every tool). */
+export interface SessionEconomics {
+  session_id: string;
+  calls: number;
+  startup_ctx: number;
+  max_ctx: number;
+  total_ctx: number;
+  resend: number;
+  weighted: number;
+  /** Request ids of calls that rewrote an expired cache. */
+  cold: string[];
+  by_model: Share[];
+  by_chain: Share[];
 }
 
 type Transport = {
@@ -163,6 +199,7 @@ export const api = {
   todaySummary: () => call<TodaySummary>('today_summary'),
   limitState: () => call<LimitState>('limit_state'),
   effectiveness: (from: string, tool?: string) => call<Effect>('effectiveness', { from, tool }),
+  sessionEconomics: (sessionId: string) => call<SessionEconomics | null>('session_economics', { session_id: sessionId }),
   setNote: (key: string, starred: boolean, note: string) => call<boolean>('set_note', { key, starred, note }),
   settings: () => call<SettingsInfo>('settings:get'),
   statuslinePlan: (mode: StatuslineMode) => call<{ description: string; noop: boolean }>('settings:statusline_plan', { mode }),

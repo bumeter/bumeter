@@ -201,7 +201,9 @@ fn report(paths: &Paths, days: u32, tool: Option<&str>, json: bool, efficiency: 
     let mut r = report::build(&ctx, &sources, days, tool, &from, now)?;
     // Only Claude Code's log records skill use, so only its skills can be called unused.
     if efficiency && tool.is_none_or(|t| t == "claude_code") {
-        r.unused_skills = Some(unused_skills(&store, r.sessions, r.calls));
+        // Same count as the app's panel: every call in the range.
+        let calls = r.effect.economics.as_ref().map_or(r.calls, |e| e.calls);
+        r.unused_skills = Some(unused_skills(&store, r.sessions, calls));
     }
     if json {
         println!("{}", serde_json::to_string_pretty(&r)?);

@@ -426,6 +426,30 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .overview .ov-effect .eff-ok { margin: 10px 0 0; color: var(--ink3); font-size: 12.5px; }
 .overview .ov-effect .eff-note { margin: 12px 0 0; color: var(--ink3); font-size: 12px; line-height: 1.45; }
 @media (max-width: 699px) { .overview .ov-effect .eff-tip { grid-template-columns: auto 1fr; } .overview .ov-effect .eff-tip .btn { grid-column: 2; justify-self: start; } }
+/* Efficiency 2.0: economics cards, where the quota went, "see all". */
+.overview .ov-effect .eff-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.overview .ov-effect .eff-card { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--r-box); background: var(--sunk); min-width: 0; }
+.overview .ov-effect .eff-card .lbl { font: 12px var(--font); color: var(--ink2); }
+.overview .ov-effect .eff-card .big { font: 700 18px var(--font); color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.overview .ov-effect .eff-card .sub { font: 11.5px var(--font); color: var(--ink3); line-height: 1.35; }
+.overview .ov-effect .eff-split { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.overview .ov-effect .eff-split-title, .overview .ov-effect .eff-old-title { font: 600 11px var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); }
+.overview .ov-effect .eff-split-row { display: grid; grid-template-columns: 9.5em 1fr; gap: 10px; align-items: center; font: 12px var(--font); color: var(--ink2); }
+.overview .ov-effect .eff-bar { display: flex; height: 18px; border-radius: 5px; overflow: hidden; background: var(--sunk); }
+.overview .ov-effect .eff-bar i { display: block; height: 100%; font: normal 10.5px/18px var(--font); padding-left: 6px; white-space: nowrap; overflow: hidden; color: #2a1608; }
+.overview .ov-effect .eff-bar i + i { border-left: 2px solid var(--surf); }
+.overview .ov-effect .eff-bar .c1 { background: var(--acc); }
+.overview .ov-effect .eff-bar .c2 { background: color-mix(in srgb, var(--acc) 50%, var(--surf)); }
+.overview .ov-effect .eff-bar .c3 { background: color-mix(in srgb, var(--ink3) 35%, var(--surf)); color: var(--ink); }
+.overview .ov-effect .eff-conf.max { color: var(--ink2); background: var(--sunk); border: var(--hair) dashed var(--ink3); }
+.overview .ov-effect .eff-more { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.overview .ov-effect .eff-old { margin-top: 4px; }
+.overview .ov-effect .eff-toggle { align-self: flex-start; margin-top: 10px; }
+@media (max-width: 699px) {
+  .overview .ov-effect .eff-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .overview .ov-effect .eff-split-row { grid-template-columns: 1fr; gap: 4px; }
+}
+
 .overview .panel .section-title { margin-top: 0; }
 .overview .panel svg.days { margin: 8px 0 0; }
 .overview .bum-tips .section-title { margin-bottom: 14px; }
