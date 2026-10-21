@@ -158,6 +158,7 @@ export const vi = {
   'ov.effSeeInterrupted': 'Xem lượt bị hủy',
   'ov.effSeeTurns': 'Xem các lượt này',
   'ov.effOpenSession': 'Mở phiên tràn nhiều nhất',
+  'ov.effOpenThat': 'Mở phiên này',
   'ov.effectAllGood': 'Không có gì đáng lo trong khoảng này.',
   'ov.effectNote': 'Chỉ dùng dữ kiện có trong log, không gọi model nên không tốn token, và không chấm chất lượng câu trả lời. Token quy đổi theo hạn mức: cache read ×0,1, ghi cache ×1,25–2, output ×5 — ước lượng, không phải tiền.',
   'ov.effMax': 'Tối đa',

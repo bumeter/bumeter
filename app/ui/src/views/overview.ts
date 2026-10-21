@@ -24,9 +24,9 @@ const ADVICE: Record<Advice['code'], { title: Key; how: Key; act: Key }> = {
   late_cancel: { title: 'ov.effLateCancel', how: 'ov.effLateCancelHow', act: 'ov.effSeeInterrupted' },
   big_context: { title: 'ov.effBigContext', how: 'ov.effBigContextHow', act: 'ov.effSeeTurns' },
   split_session: { title: 'ov.effSplit', how: 'ov.effSplitHow', act: 'ov.effOpenSession' },
-  resend: { title: 'ov.effResendTip', how: 'ov.effResendHow', act: 'ov.effOpenSession' },
-  startup: { title: 'ov.effStartupTip', how: 'ov.effStartupHow', act: 'ov.effOpenSession' },
-  cold_cache: { title: 'ov.effColdTip', how: 'ov.effColdHow', act: 'ov.effOpenSession' },
+  resend: { title: 'ov.effResendTip', how: 'ov.effResendHow', act: 'ov.effOpenThat' },
+  startup: { title: 'ov.effStartupTip', how: 'ov.effStartupHow', act: 'ov.effOpenThat' },
+  cold_cache: { title: 'ov.effColdTip', how: 'ov.effColdHow', act: 'ov.effOpenThat' },
   blocked: { title: 'ov.effBlockedTip', how: 'ov.effBlockedHow', act: 'ov.effSeeQuota' },
   unused_always_on: { title: 'ov.effUnusedTip', how: 'ov.effUnusedHow', act: 'ov.effSeeSkills' },
 };

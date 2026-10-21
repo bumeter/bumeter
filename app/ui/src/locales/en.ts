@@ -159,6 +159,7 @@ export const en: Record<keyof typeof vi, string> = {
   'ov.effSeeInterrupted': 'See cancelled turns',
   'ov.effSeeTurns': 'See these turns',
   'ov.effOpenSession': 'Open the worst session',
+  'ov.effOpenThat': 'Open that session',
   'ov.effectAllGood': 'Nothing worth worrying about in this range.',
   'ov.effectNote': 'Only facts from the log: no model is called, so it costs no tokens, and it does not score answer quality. Quota-weighted tokens: cache reads ×0.1, cache writes ×1.25–2, output ×5 — an estimate, not money.',
   'ov.effMax': 'At most',

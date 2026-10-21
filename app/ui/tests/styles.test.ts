@@ -105,3 +105,9 @@ describe('styles: Overview — credit column in the Model card', () => {
     expect(css).toMatch(/\.overview \.ov-bottom \.ov-row\.has-credit\s*\{[^}]*grid-template-columns:[^;}]*auto/);
   });
 });
+
+describe('styles: toggled sections stay hidden', () => {
+  it('.eff-more sets display, so it must also hide itself when [hidden]', () => {
+    expect(cssContents['layout.css']).toMatch(/\.eff-more\[hidden\]\s*\{\s*display:\s*none/);
+  });
+});

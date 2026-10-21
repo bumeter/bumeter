@@ -447,10 +447,11 @@ svg.days text.axis { fill: var(--label-3); font: 10px var(--font); }
 .overview .ov-effect .eff-bar i { display: block; height: 100%; font: normal 10.5px/18px var(--font); padding-left: 6px; white-space: nowrap; overflow: hidden; color: #2a1608; }
 .overview .ov-effect .eff-bar i + i { border-left: 2px solid var(--surf); }
 .overview .ov-effect .eff-bar .c1 { background: var(--acc); }
-.overview .ov-effect .eff-bar .c2 { background: color-mix(in srgb, var(--acc) 50%, var(--surf)); }
+.overview .ov-effect .eff-bar .c2 { background: color-mix(in srgb, var(--acc) 50%, var(--surf)); color: var(--ink); }
 .overview .ov-effect .eff-bar .c3 { background: color-mix(in srgb, var(--ink3) 35%, var(--surf)); color: var(--ink); }
 .overview .ov-effect .eff-conf.max { color: var(--ink2); background: var(--sunk); border: var(--hair) dashed var(--ink3); }
 .overview .ov-effect .eff-more { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.overview .ov-effect .eff-more[hidden] { display: none; }
 .overview .ov-effect .eff-old { margin-top: 4px; }
 .overview .ov-effect .eff-toggle { align-self: flex-start; margin-top: 10px; }
 @media (max-width: 699px) {
