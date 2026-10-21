@@ -454,3 +454,54 @@ impl Store {
         Ok(out)
     }
 }
+
+/// One model call with what the effectiveness analysis needs (see `crate::effect::economics`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RangeCall {
+    pub session_id: String,
+    pub request_id: String,
+    pub ts: String,
+    pub model: String,
+    pub sidechain: bool,
+    pub usage: Usage,
+}
+
+const CALL_COLS: &str = "a.session_id, a.request_id, a.ts, a.model, a.sidechain, a.input, a.cw5, a.cw1h, a.cache_read, a.output, a.reasoning";
+
+fn range_call(r: &Row) -> rusqlite::Result<RangeCall> {
+    Ok(RangeCall { session_id: r.get(0)?, request_id: r.get(1)?, ts: r.get(2)?, model: r.get(3)?, sidechain: r.get(4)?, usage: usage_at(r, 5)? })
+}
+
+impl Store {
+    /// Calls in `[from, to)`, optionally for one AI tool, ordered by session then time.
+    pub fn session_calls_between(&self, from: &str, to: &str, tool: Option<&str>) -> rusqlite::Result<Vec<RangeCall>> {
+        let mut st = self.conn().prepare(&format!(
+            "SELECT {CALL_COLS} FROM api_calls a JOIN sessions s ON s.id = a.session_id
+             WHERE a.ts >= ?1 AND a.ts < ?2 AND (?3 IS NULL OR s.tool = ?3)
+             ORDER BY a.session_id, a.ts, a.request_id"
+        ))?;
+        let rows = st.query_map(params![from, to, tool], range_call)?;
+        rows.collect()
+    }
+
+    /// The first main-chain call of each session, over its whole history (not only a range).
+    pub fn first_main_calls(&self, session_ids: &[String]) -> rusqlite::Result<std::collections::HashMap<String, RangeCall>> {
+        let mut st = self.conn().prepare(&format!(
+            "SELECT {CALL_COLS} FROM api_calls a WHERE a.session_id = ?1 AND a.sidechain = 0 ORDER BY a.ts, a.request_id LIMIT 1"
+        ))?;
+        let mut out = std::collections::HashMap::new();
+        for sid in session_ids {
+            if let Some(c) = st.query_row([sid], range_call).optional()? {
+                out.insert(sid.clone(), c);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Times the rate limit was hit in `[from, to)`: (limit_type, resets_at, ts).
+    pub fn rate_limit_events_between(&self, from: &str, to: &str) -> rusqlite::Result<Vec<(String, i64, String)>> {
+        let mut st = self.conn().prepare("SELECT limit_type, resets_at, ts FROM rate_limit_events WHERE ts >= ?1 AND ts < ?2 ORDER BY ts")?;
+        let rows = st.query_map(params![from, to], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        rows.collect()
+    }
+}
