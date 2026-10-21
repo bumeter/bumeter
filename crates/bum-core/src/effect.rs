@@ -291,6 +291,11 @@ pub struct Breakdown {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Economics {
+    /// Every model call in the range and their quota-weighted tokens. Larger than the turns' total:
+    /// calls made for messages the user did not type (a subagent's hand-back, another session's
+    /// message) belong to no turn.
+    pub calls: u64,
+    pub weighted: u64,
     pub startup: Startup,
     pub resend: Resend,
     /// `None` for a tool that reports no prompt cache.
@@ -439,6 +444,8 @@ pub fn economics(
     cold_by_session.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
 
     Economics {
+        calls: calls.len() as u64,
+        weighted: calls.iter().map(|c| c.usage.quota_weight()).sum(),
         startup: Startup {
             sessions: starts.len() as u64,
             median: median_u64(starts.iter().map(|s| s.1).collect()),
@@ -719,6 +726,7 @@ mod tests {
         let models: Vec<&str> = e.breakdown.by_model.iter().map(|s| s.key.as_str()).collect();
         assert_eq!(models, vec!["opus", "sonnet", "kiro:auto"]);
         assert_eq!(e.breakdown.by_model.iter().map(|s| s.weighted).sum::<u64>(), 1500);
+        assert_eq!((e.calls, e.weighted), (3, 1500));
     }
 
     #[test]

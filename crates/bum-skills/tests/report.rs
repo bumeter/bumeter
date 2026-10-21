@@ -95,3 +95,10 @@ fn kiro_skills_do_not_borrow_claude_usage_and_are_never_flagged_unused() {
     assert!(!kiro.usage_known && !kiro.unused_30d);
     assert_eq!(r.total_always_on, 90, "always-on cost is only counted for Claude Code");
 }
+
+#[test]
+fn unused_weight_is_one_write_per_session_and_one_read_per_call() {
+    use bum_skills::report::unused_weight;
+    assert_eq!(unused_weight(100, 2, 10), 100 * (2 * 125 + 10 * 10) / 100);
+    assert_eq!(unused_weight(0, 5, 50), 0);
+}

@@ -59,6 +59,10 @@ enum Cmd {
         /// Print JSON instead of text (for agents and scripts).
         #[arg(long)]
         json: bool,
+        /// Why the sessions cost what they cost: startup context, resend factor, cold cache, rate-limit
+        /// hits, where the quota went, and every piece of advice, ranked.
+        #[arg(long)]
+        efficiency: bool,
     },
     /// Analyze the context composition of a session (read-only).
     Session { session_id: String },
@@ -117,7 +121,7 @@ fn main() -> ExitCode {
         Cmd::Scan => scan(&paths),
         Cmd::Daemon => daemon::run(paths.clone(), config(&paths)).map(|_| true),
         Cmd::Status => status(&paths),
-        Cmd::Report { days, tool, json } => report(&paths, days, tool.as_deref(), json),
+        Cmd::Report { days, tool, json, efficiency } => report(&paths, days, tool.as_deref(), json, efficiency),
         Cmd::Skills { cmd, tool, json } => skills(&paths, &tool, json, cmd),
         Cmd::Session { session_id } => session(&paths, &session_id),
     };
@@ -174,7 +178,7 @@ fn status(paths: &Paths) -> anyhow::Result<bool> {
 
 /// `bum report`: bring the DB up to date when no host is running (a running host keeps it current
 /// and holds the lock), then print the report.
-fn report(paths: &Paths, days: u32, tool: Option<&str>, json: bool) -> anyhow::Result<bool> {
+fn report(paths: &Paths, days: u32, tool: Option<&str>, json: bool, efficiency: bool) -> anyhow::Result<bool> {
     let cfg = config(paths);
     let roots = bum_service::host::roots(&cfg);
     let sources: Vec<bum_core::source::SourceInfo> = bum_adapters::registry(&roots).into_iter().map(|(i, _)| i).collect();
@@ -194,11 +198,20 @@ fn report(paths: &Paths, days: u32, tool: Option<&str>, json: bool) -> anyhow::R
     let ctx = bum_core::handlers::HandlerCtx { store: &store, pricing: &pricing, cfg: &cfg, paths };
     let now = chrono::Utc::now();
     let from = report::range_start(days, now.with_timezone(&chrono::Local));
-    let r = report::build(&ctx, &sources, days, tool, &from, now)?;
+    let mut r = report::build(&ctx, &sources, days, tool, &from, now)?;
+    // Only Claude Code's log records skill use, so only its skills can be called unused.
+    if efficiency && tool.is_none_or(|t| t == "claude_code") {
+        r.unused_skills = Some(unused_skills(&store, r.sessions, r.calls));
+    }
     if json {
         println!("{}", serde_json::to_string_pretty(&r)?);
     } else {
-        print!("{}", report::render(&r, &tool_lines(paths, &r.limits, now), cfg.language));
+        let lines = tool_lines(paths, &r.limits, now);
+        if efficiency {
+            print!("{}{}", report::render_overview(&r, &lines, cfg.language, false), report::render_efficiency(&r, cfg.language));
+        } else {
+            print!("{}", report::render(&r, &lines, cfg.language));
+        }
     }
     Ok(true)
 }
@@ -354,6 +367,18 @@ fn scan_entries(tool: &str) -> (Vec<bum_skills::catalog::SkillEntry>, Vec<String
         warnings = w;
     }
     (entries, warnings)
+}
+
+/// Claude Code skills that cost tokens every session but went unused for 30 days, with their cost over
+/// `sessions` sessions and `calls` calls.
+fn unused_skills(store: &Store, sessions: u64, calls: u64) -> report::UnusedSkills {
+    use bum_skills::report::{build, unused_weight, Usage};
+    let (entries, warnings) = scan_entries("claude_code");
+    let usage: Option<Vec<Usage>> = bum_core::handlers::skill_stats(store)
+        .ok()
+        .map(|v| v.into_iter().map(|s| Usage { name: s.name, uses: s.uses, projects: s.projects, tokens: s.tokens, avg_tokens: s.avg_tokens, last_used: s.last_used }).collect());
+    let r = build(entries, usage, warnings, chrono::Utc::now());
+    report::UnusedSkills { skills: r.unused.clone(), tokens: r.unused_always_on, weighted: unused_weight(r.unused_always_on, sessions, calls) }
 }
 
 fn skills_list(paths: &Paths, tool: &str, json: bool) -> anyhow::Result<bool> {
