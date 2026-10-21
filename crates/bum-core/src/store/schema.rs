@@ -32,7 +32,7 @@ CREATE TABLE notes(prompt_key TEXT PRIMARY KEY, starred INTEGER NOT NULL DEFAULT
   updated_at TEXT NOT NULL);
 "#;
 
-pub const CURRENT_VERSION: i64 = 7;
+pub const CURRENT_VERSION: i64 = 8;
 
 pub fn version(conn: &Connection) -> rusqlite::Result<i64> {
     conn.query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -86,6 +86,24 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             }
         }
         conn.pragma_update(None, "user_version", 7)?;
+    }
+    if version < 8 {
+        // What each tool call acted on and whether it failed (repeated reads, retried errors).
+        for (col, ddl) in [("target", "TEXT"), ("target_hash", "INTEGER"), ("error", "INTEGER"), ("result_chars", "INTEGER")] {
+            let has: bool = conn.prepare("SELECT 1 FROM pragma_table_info('api_call_tools') WHERE name = ?1")?.exists([col])?;
+            if !has {
+                conn.execute_batch(&format!("ALTER TABLE api_call_tools ADD COLUMN {col} {ddl};"))?;
+            }
+        }
+        conn.execute_batch("CREATE INDEX IF NOT EXISTS api_call_tools_req ON api_call_tools(request_id);")?;
+        // Fill the new columns for the history too: skew the offsets of Claude Code's files so the engine
+        // deletes their old rows and reads them again, once (as v5 did for Kiro). Notes are keyed by
+        // prompt key, which a re-read gives back unchanged.
+        conn.execute_batch(
+            "UPDATE file_offsets SET size = -1 WHERE path IN (
+               SELECT a.source_file FROM api_calls a JOIN sessions s ON s.id = a.session_id WHERE s.tool = 'claude_code');",
+        )?;
+        conn.pragma_update(None, "user_version", 8)?;
     }
     Ok(())
 }

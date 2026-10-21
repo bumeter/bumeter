@@ -122,7 +122,7 @@ fn tool_uses(content: &Value) -> Vec<ToolUse> {
         .into_iter()
         .flatten()
         .filter(|p| p["type"] == "tool")
-        .map(|p| ToolUse { id: p["id"].as_str().unwrap_or_default().into(), name: p["name"].as_str().unwrap_or_default().into() })
+        .map(|p| ToolUse { id: p["id"].as_str().unwrap_or_default().into(), name: p["name"].as_str().unwrap_or_default().into(), ..Default::default() })
         .collect()
 }
 

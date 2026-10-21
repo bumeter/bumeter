@@ -120,7 +120,7 @@ fn parse_assistant(v: &Value, session_id: &str, ts: &str, sidechain: bool, ctx: 
     if let Some(items) = msg["content"].as_array() {
         for item in items.iter().filter(|i| i["type"] == "tool_use") {
             let name = item["name"].as_str().unwrap_or_default();
-            tool_uses.push(ToolUse { id: item["id"].as_str().unwrap_or_default().into(), name: name.into() });
+            tool_uses.push(ToolUse { id: item["id"].as_str().unwrap_or_default().into(), name: name.into(), ..Default::default() });
             if name == "Skill" {
                 if let Some(skill) = item["input"]["skill"].as_str() {
                     push_direct_skill(out, ctx, session_id, ts, skill);

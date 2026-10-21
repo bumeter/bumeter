@@ -54,7 +54,7 @@ fn read_prompts(jsonl: &Path) -> Vec<(String, String, Vec<ToolUse>)> {
                 if let Some(last) = out.last_mut() {
                     for c in d["content"].as_array().into_iter().flatten().filter(|c| c["kind"] == "toolUse") {
                         let t = &c["data"];
-                        last.2.push(ToolUse { id: t["toolUseId"].as_str().unwrap_or_default().into(), name: t["name"].as_str().unwrap_or_default().into() });
+                        last.2.push(ToolUse { id: t["toolUseId"].as_str().unwrap_or_default().into(), name: t["name"].as_str().unwrap_or_default().into(), ..Default::default() });
                     }
                 }
             }

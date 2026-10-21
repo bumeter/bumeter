@@ -512,3 +512,43 @@ impl Store {
         rows.collect()
     }
 }
+
+/// One tool call with what the tool-signal analysis needs (see `crate::effect::tool_signals`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ToolCallRow {
+    pub session_id: String,
+    pub request_id: String,
+    pub ts: String,
+    pub name: String,
+    pub target: Option<String>,
+    pub target_hash: Option<i64>,
+    /// `None` until the result has been seen (and always for tools whose adapter does not report it).
+    pub error: Option<bool>,
+    pub result_chars: Option<u64>,
+}
+
+impl Store {
+    /// Tool calls of the calls in `[from, to)`, optionally for one AI tool, ordered by session, time,
+    /// then the order they were written in.
+    pub fn tool_calls_between(&self, from: &str, to: &str, tool: Option<&str>) -> rusqlite::Result<Vec<ToolCallRow>> {
+        let mut st = self.conn().prepare(
+            "SELECT a.session_id, a.request_id, a.ts, t.name, t.target, t.target_hash, t.error, t.result_chars
+             FROM api_call_tools t JOIN api_calls a ON a.request_id = t.request_id JOIN sessions s ON s.id = a.session_id
+             WHERE a.ts >= ?1 AND a.ts < ?2 AND (?3 IS NULL OR s.tool = ?3)
+             ORDER BY a.session_id, a.ts, t.rowid",
+        )?;
+        let rows = st.query_map(params![from, to, tool], |r| {
+            Ok(ToolCallRow {
+                session_id: r.get(0)?,
+                request_id: r.get(1)?,
+                ts: r.get(2)?,
+                name: r.get(3)?,
+                target: r.get(4)?,
+                target_hash: r.get(5)?,
+                error: r.get::<_, Option<i64>>(6)?.map(|e| e != 0),
+                result_chars: r.get::<_, Option<i64>>(7)?.map(|n| n.max(0) as u64),
+            })
+        })?;
+        rows.collect()
+    }
+}
