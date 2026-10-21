@@ -198,7 +198,7 @@ fn v8_adds_tool_columns_and_rereads_claude_code_files_only() {
     }
     let c = rusqlite::Connection::open(&db).unwrap();
     c.execute_batch(
-        "DROP INDEX api_call_tools_req;
+        "DROP INDEX api_call_tools_req; DROP INDEX api_call_tools_file; DROP INDEX prompts_file; DROP INDEX skill_uses_file; DROP INDEX compactions_file;
          ALTER TABLE api_call_tools DROP COLUMN target; ALTER TABLE api_call_tools DROP COLUMN target_hash;
          ALTER TABLE api_call_tools DROP COLUMN error; ALTER TABLE api_call_tools DROP COLUMN result_chars;
          PRAGMA user_version = 7;",

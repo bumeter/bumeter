@@ -95,7 +95,15 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                 conn.execute_batch(&format!("ALTER TABLE api_call_tools ADD COLUMN {col} {ddl};"))?;
             }
         }
-        conn.execute_batch("CREATE INDEX IF NOT EXISTS api_call_tools_req ON api_call_tools(request_id);")?;
+        // `purge_file` deletes by source file: without these, re-reading hundreds of files scans the
+        // whole tables once per file (85 s instead of a few on a real 418 MB history).
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS api_call_tools_req ON api_call_tools(request_id);
+             CREATE INDEX IF NOT EXISTS api_call_tools_file ON api_call_tools(source_file);
+             CREATE INDEX IF NOT EXISTS prompts_file ON prompts(source_file);
+             CREATE INDEX IF NOT EXISTS skill_uses_file ON skill_uses(source_file);
+             CREATE INDEX IF NOT EXISTS compactions_file ON compactions(source_file);",
+        )?;
         // Fill the new columns for the history too: make Claude Code's files look replaced, so the engine
         // deletes their old rows and reads them again from the start, once. (Unlike Kiro's whole-file
         // reads in v5, a JSONL tail is resumed by file identity and offset, not by size.) Notes are keyed

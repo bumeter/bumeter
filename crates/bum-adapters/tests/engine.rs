@@ -135,7 +135,7 @@ fn the_v8_migration_makes_the_engine_read_claude_code_logs_again() {
     assert_eq!(scan(), 3549);
     // Back to a v7 database: tool calls without the new columns, offsets at the end of each file.
     rusqlite::Connection::open(&db).unwrap().execute_batch(
-        "DROP INDEX api_call_tools_req;
+        "DROP INDEX api_call_tools_req; DROP INDEX api_call_tools_file; DROP INDEX prompts_file; DROP INDEX skill_uses_file; DROP INDEX compactions_file;
          ALTER TABLE api_call_tools DROP COLUMN target; ALTER TABLE api_call_tools DROP COLUMN target_hash;
          ALTER TABLE api_call_tools DROP COLUMN error; ALTER TABLE api_call_tools DROP COLUMN result_chars;
          PRAGMA user_version = 7;",
