@@ -484,6 +484,13 @@ impl Store {
         rows.collect()
     }
 
+    /// Every call of one session, in time order.
+    pub fn session_calls(&self, session_id: &str) -> rusqlite::Result<Vec<RangeCall>> {
+        let mut st = self.conn().prepare(&format!("SELECT {CALL_COLS} FROM api_calls a WHERE a.session_id = ?1 ORDER BY a.ts, a.request_id"))?;
+        let rows = st.query_map([session_id], range_call)?;
+        rows.collect()
+    }
+
     /// The first main-chain call of each session, over its whole history (not only a range).
     pub fn first_main_calls(&self, session_ids: &[String]) -> rusqlite::Result<std::collections::HashMap<String, RangeCall>> {
         let mut st = self.conn().prepare(&format!(

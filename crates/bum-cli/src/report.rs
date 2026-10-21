@@ -112,12 +112,13 @@ pub fn build(ctx: &HandlerCtx, sources: &[SourceInfo], days: u32, tool: Option<&
 
     let info = |id: &str| sources.iter().find(|s| s.id == id);
     let session_tools = ctx.store.session_tools()?;
-    let analyzable = effect
-        .advice
-        .iter()
-        .filter_map(|a| a.session_id.clone())
-        .filter(|sid| session_tools.get(sid).and_then(|t| info(t)).is_some_and(|s| s.composition))
-        .collect();
+    // Several pieces of advice can point at the same session.
+    let mut analyzable: Vec<String> = Vec::new();
+    for sid in effect.advice.iter().filter_map(|a| a.session_id.as_ref()) {
+        if !analyzable.contains(sid) && session_tools.get(sid).and_then(|t| info(t)).is_some_and(|s| s.composition) {
+            analyzable.push(sid.clone());
+        }
+    }
     let mut tools: Vec<ToolShare> = tools
         .into_iter()
         .map(|(id, (turns, weighted, raw))| ToolShare {
@@ -264,6 +265,7 @@ pub fn render(r: &Report, tool_lines: &[String], lang: Lang) -> String {
         let label = match a.confidence {
             bum_core::effect::Confidence::Sure => lang.pick("chắc chắn", "sure"),
             bum_core::effect::Confidence::Likely => lang.pick("có thể", "likely"),
+            bum_core::effect::Confidence::Max => lang.pick("tối đa", "at most"),
         };
         out.push(format!("  [{label}] {}", a.text(lang)));
         out.push(format!("      {}", a.how(lang)));

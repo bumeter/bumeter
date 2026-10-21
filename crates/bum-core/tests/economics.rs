@@ -48,3 +48,58 @@ fn rate_limit_events_in_a_range() {
     assert_eq!(ev, vec![("five_hour".to_string(), 1789902000, "2026-09-11T04:41:00.000Z".to_string())]);
     assert!(s.rate_limit_events_between("2026-09-12T00:00:00.000Z", TO).unwrap().is_empty());
 }
+
+use bum_core::config::Config;
+use bum_core::handlers::{effectiveness, session_economics};
+use bum_core::model::{RawEvent, ToolUse, Usage};
+
+/// A second session `s2` with 60 growing main-chain calls (sends its context again ~30× over).
+fn long_session() -> Vec<RawEvent> {
+    let mut ev = vec![
+        RawEvent::Session { session_id: "s2".into(), tool: "claude_code".into(), project: "proj".into(), cwd: None, version: None, ts: "2026-09-12T01:00:00.000Z".into() },
+        RawEvent::Prompt { key: "q1".into(), session_id: "s2".into(), ts: "2026-09-12T01:00:00.000Z".into(), text: "go".into() },
+    ];
+    for i in 0..60u64 {
+        ev.push(RawEvent::ApiCall {
+            request_id: format!("long_{i}"),
+            session_id: "s2".into(),
+            prompt_key: Some("q1".into()),
+            ts: format!("2026-09-12T01:{:02}:00.000Z", i),
+            model: "claude-opus-5".into(),
+            usage: Usage { cache_read: 1_000 + i * 10, cache_write_5m: 10, ..Default::default() },
+            tool_uses: Vec::<ToolUse>::new(),
+            sidechain: false,
+            cost_usd: None,
+        });
+    }
+    ev
+}
+
+#[test]
+fn effectiveness_adds_economics_and_puts_a_rate_limit_hit_first() {
+    let mut s = loaded();
+    s.ingest_batch(&offset("/root/-home-u-proj/s2.jsonl"), &long_session(), 0).unwrap();
+    let e = effectiveness(&s, &Config::default(), None, FROM, TO).unwrap();
+    let ec = e.economics.as_ref().unwrap();
+    assert_eq!(ec.startup.sessions, 2);
+    assert_eq!(ec.resend.sessions, 2);
+    assert_eq!(ec.resend.flagged, 0);
+    assert_eq!(ec.resend.worst.as_ref().unwrap().0, "s2");
+    assert_eq!(e.blocked.as_ref().unwrap().count, 1);
+    assert_eq!(e.advice[0].code, "blocked");
+    // A tool without 5h/7d limits has no rate-limit section.
+    assert!(effectiveness(&s, &Config::default(), Some("kiro"), FROM, TO).unwrap().blocked.is_none());
+}
+
+#[test]
+fn session_economics_reads_one_session_from_the_database() {
+    let s = loaded();
+    let e = session_economics(&s, "s1").unwrap().unwrap();
+    assert_eq!(e.calls, 3);
+    assert_eq!(e.startup_ctx, 2 + 100 + 1000);
+    assert_eq!(e.max_ctx, 1 + 1200);
+    assert!(e.cold.is_empty());
+    let chain: Vec<&str> = e.by_chain.iter().map(|s| s.key.as_str()).collect();
+    assert_eq!(chain, vec!["main", "subagent"]);
+    assert!(session_economics(&s, "nope").unwrap().is_none());
+}
