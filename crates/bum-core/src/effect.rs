@@ -14,7 +14,7 @@ use chrono::DateTime;
 use serde::Serialize;
 
 use crate::model::Usage;
-use crate::store::queries::{PromptListItem, RangeCall};
+use crate::store::queries::{PromptListItem, RangeCall, ToolCallRow};
 
 /// An interrupted turn counts as a *late* cancel when the model had already been working this long.
 pub const LATE_CANCEL_SECS: i64 = 120;
@@ -44,6 +44,8 @@ pub struct Advice {
     pub weighted: u64,
     /// For `split_session`: the session that overflowed most, so the UI can open it.
     pub session_id: Option<String>,
+    /// For `repeated_read` / `tool_retry`: the file read most / the tool retried most, to name it.
+    pub target: Option<String>,
 }
 
 impl Advice {
@@ -66,6 +68,10 @@ impl Advice {
             ("cold_cache", En) => format!("The cache went cold {n} times: a long pause between turns made the whole context be written again — ≈ {t} extra quota-weighted tokens"),
             ("blocked", Vi) => format!("Bị chặn vì chạm hạn mức {n} lần"),
             ("blocked", En) => format!("Hit the rate limit {n} times"),
+            ("repeated_read", Vi) => format!("{n} file bị đọc lại từ {REPEAT_READ} lần trở lên mà không sửa gì, nhiều nhất là {} — ≈ {t} token quy đổi", self.target.as_deref().unwrap_or("?")),
+            ("repeated_read", En) => format!("{n} files were read {REPEAT_READ} or more times without an edit, most of all {} — ≈ {t} quota-weighted tokens", self.target.as_deref().unwrap_or("?")),
+            ("tool_retry", Vi) => format!("{n} lần tool lỗi rồi bị gọi lại, nhiều nhất là {} — ≈ {t} token quy đổi của các call lỗi", self.target.as_deref().unwrap_or("?")),
+            ("tool_retry", En) => format!("{n} times a tool failed and was called again, most of all {} — ≈ {t} quota-weighted tokens in the failing calls", self.target.as_deref().unwrap_or("?")),
             (code, _) => code.to_string(),
         }
     }
@@ -97,6 +103,14 @@ impl Advice {
                 "Cache giữ 5 phút (hoặc 1 giờ). Ghi lại cache tốn ×1,25–2, đọc cache chỉ ×0,1: hỏi tiếp sớm, hoặc /compact trước khi nghỉ lâu.",
                 "The cache lasts 5 minutes (or 1 hour). Writing it again costs ×1.25–2, reading it only ×0.1: follow up sooner, or /compact before a long break.",
             ),
+            "repeated_read" => lang.pick(
+                "Đọc một lần, hoặc dùng offset/limit để chỉ đọc phần cần; mỗi lần đọc lại đưa cả file vào context.",
+                "Read it once, or use offset/limit to read only the part you need; every read puts the whole file in the context again.",
+            ),
+            "tool_retry" => lang.pick(
+                "Xem lỗi lặp ở đâu: thường là đường dẫn sai, lệnh sai cú pháp, hoặc test hỏng chưa sửa. Nói rõ cho model trước khi nó thử lại.",
+                "See where the error repeats: often a wrong path, a malformed command, or a broken test. Tell the model before it tries again.",
+            ),
             "blocked" => lang.pick(
                 "Xem panel Hạn mức để biết khi nào mở lại, và dự báo để dừng trước khi chạm.",
                 "See the Quota panel for when it reopens, and the forecast to stop before you hit it.",
@@ -126,6 +140,8 @@ pub struct Effect {
     pub economics: Option<Economics>,
     /// Rate-limit hits; `None` for a tool without 5h/7d limits.
     pub blocked: Option<Blocked>,
+    /// Repeated reads and retried tool errors; `None` when no tool result was recorded in the range.
+    pub tools: Option<Tools>,
 }
 
 /// Seconds between the question and the last model call of the turn, when both are known.
@@ -169,10 +185,10 @@ pub fn summarize(items: &[PromptListItem], compactions: &[(String, u64)], contex
 
     let mut advice = Vec::new();
     if late.0 > 0 {
-        advice.push(Advice { code: "late_cancel", confidence: Confidence::Sure, count: late.0, weighted: late.1, session_id: None });
+        advice.push(Advice { code: "late_cancel", confidence: Confidence::Sure, count: late.0, weighted: late.1, session_id: None, target: None });
     }
     if big.0 > 0 {
-        advice.push(Advice { code: "big_context", confidence: Confidence::Likely, count: big.0, weighted: big.1, session_id: None });
+        advice.push(Advice { code: "big_context", confidence: Confidence::Likely, count: big.0, weighted: big.1, session_id: None, target: None });
     }
     if let Some(worst) = split.first() {
         advice.push(Advice {
@@ -181,6 +197,7 @@ pub fn summarize(items: &[PromptListItem], compactions: &[(String, u64)], contex
             count: split.len() as u64,
             weighted: split.iter().map(|s| s.2).sum(),
             session_id: Some(worst.0.to_string()),
+            target: None,
         });
     }
     advice.sort_by(|a, b| b.weighted.cmp(&a.weighted).then(a.code.cmp(b.code)));
@@ -197,6 +214,7 @@ pub fn summarize(items: &[PromptListItem], compactions: &[(String, u64)], contex
         advice,
         economics: None,
         blocked: None,
+        tools: None,
     }
 }
 
@@ -492,19 +510,163 @@ pub fn blocked(events: &[(String, i64, String)]) -> Blocked {
 pub fn advise(e: &mut Effect) {
     if let Some(ec) = &e.economics {
         if ec.resend.flagged > 0 {
-            e.advice.push(Advice { code: "resend", confidence: Confidence::Likely, count: ec.resend.flagged, weighted: ec.resend.flagged_weighted, session_id: ec.resend.worst.as_ref().map(|w| w.0.clone()) });
+            e.advice.push(Advice { code: "resend", confidence: Confidence::Likely, count: ec.resend.flagged, weighted: ec.resend.flagged_weighted, session_id: ec.resend.worst.as_ref().map(|w| w.0.clone()), target: None });
         }
         if ec.startup.sessions > 0 && ec.startup.median >= STARTUP_FLAG {
-            e.advice.push(Advice { code: "startup", confidence: Confidence::Sure, count: ec.startup.sessions, weighted: ec.startup.weighted, session_id: ec.startup.max_session.clone() });
+            e.advice.push(Advice { code: "startup", confidence: Confidence::Sure, count: ec.startup.sessions, weighted: ec.startup.weighted, session_id: ec.startup.max_session.clone(), target: None });
         }
         if let Some(c) = ec.cache.as_ref().filter(|c| c.cold_calls >= COLD_MIN) {
-            e.advice.push(Advice { code: "cold_cache", confidence: Confidence::Likely, count: c.cold_calls, weighted: c.cold_extra, session_id: c.worst_session.clone() });
+            e.advice.push(Advice { code: "cold_cache", confidence: Confidence::Likely, count: c.cold_calls, weighted: c.cold_extra, session_id: c.worst_session.clone(), target: None });
+        }
+    }
+    if let Some(t) = &e.tools {
+        if let Some(top) = t.repeated.first() {
+            e.advice.push(Advice { code: "repeated_read", confidence: Confidence::Likely, count: t.repeated.len() as u64, weighted: t.repeated_weighted, session_id: Some(top.session_id.clone()), target: Some(top.target.clone()) });
+        }
+        if t.retries >= RETRY_MIN {
+            e.advice.push(Advice { code: "tool_retry", confidence: Confidence::Sure, count: t.retries, weighted: t.retry_weighted, session_id: t.retry_session.clone(), target: t.retry_tool.clone() });
         }
     }
     if let Some(b) = e.blocked.as_ref().filter(|b| b.count > 0) {
-        e.advice.push(Advice { code: "blocked", confidence: Confidence::Sure, count: b.count, weighted: 0, session_id: None });
+        e.advice.push(Advice { code: "blocked", confidence: Confidence::Sure, count: b.count, weighted: 0, session_id: None, target: None });
     }
     e.advice.sort_by(|a, b| (b.code == "blocked").cmp(&(a.code == "blocked")).then(b.weighted.cmp(&a.weighted)).then(a.code.cmp(b.code)));
+}
+
+// --- Tool signals (schema v8) -----------------------------------------------------------------------
+
+/// A file read this many times in a session with no edit of it in between is a repeated read.
+pub const REPEAT_READ: u64 = 3;
+/// A failed tool call is retried when the same call comes again within this many tool calls.
+pub const RETRY_WINDOW: usize = 3;
+/// Advise about retries from this many.
+pub const RETRY_MIN: u64 = 3;
+/// Characters per token, as `composition.rs` estimates them.
+const CHARS_PER_TOKEN_X100: u64 = 350;
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RepeatedRead {
+    pub session_id: String,
+    pub target: String,
+    pub times: u64,
+    /// The reads after the first, put into the context again (×1.25, like a cache write).
+    pub weighted: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ToolErrors {
+    pub name: String,
+    pub errors: u64,
+    /// Calls of this tool whose result was seen.
+    pub results: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Tools {
+    /// Heaviest first.
+    pub repeated: Vec<RepeatedRead>,
+    pub repeated_weighted: u64,
+    pub retries: u64,
+    /// Quota-weighted tokens of the calls that made the failing tool calls (each call once).
+    pub retry_weighted: u64,
+    pub retry_session: Option<String>,
+    pub retry_tool: Option<String>,
+    pub errors: u64,
+    pub calls_with_result: u64,
+    /// Up to 3 tools with the most errors.
+    pub by_tool_error: Vec<ToolErrors>,
+}
+
+const EDITS: [&str; 4] = ["Edit", "MultiEdit", "Write", "NotebookEdit"];
+
+/// `rows` ordered by session, then time (as `Store::tool_calls_between` returns them); `call_weight` =
+/// quota-weighted tokens per request id. `None` when no row has a known result: the tool's adapter does
+/// not record results, or the history predates schema v8.
+pub fn tool_signals(rows: &[ToolCallRow], call_weight: &HashMap<String, u64>) -> Option<Tools> {
+    if !rows.iter().any(|r| r.error.is_some()) {
+        return None;
+    }
+    let mut repeated: Vec<RepeatedRead> = Vec::new();
+    let (mut retries, mut retry_weighted) = (0u64, 0u64);
+    let mut retry_by_session: HashMap<&str, u64> = HashMap::new();
+    let mut retry_by_tool: HashMap<&str, u64> = HashMap::new();
+    let mut by_tool: HashMap<&str, (u64, u64)> = HashMap::new();
+    let (mut errors, mut with_result) = (0u64, 0u64);
+
+    for session in rows.chunk_by(|a, b| a.session_id == b.session_id) {
+        let sid = session[0].session_id.as_str();
+        // Reads of each file since its last edit: (count, characters of the reads after the first).
+        let mut reads: HashMap<&str, (u64, u64)> = HashMap::new();
+        let flush = |target: &str, (times, extra): (u64, u64), out: &mut Vec<RepeatedRead>| {
+            if times >= REPEAT_READ {
+                out.push(RepeatedRead { session_id: sid.to_string(), target: target.to_string(), times, weighted: extra * 125 / CHARS_PER_TOKEN_X100 });
+            }
+        };
+        let mut failed_requests: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for (i, r) in session.iter().enumerate() {
+            if let Some(e) = r.error {
+                with_result += 1;
+                let t = by_tool.entry(r.name.as_str()).or_default();
+                t.1 += 1;
+                if e {
+                    errors += 1;
+                    t.0 += 1;
+                }
+            }
+            match (r.name.as_str(), r.target.as_deref()) {
+                ("Read", Some(target)) => {
+                    let e = reads.entry(target).or_default();
+                    if e.0 > 0 {
+                        e.1 += r.result_chars.unwrap_or(0);
+                    }
+                    e.0 += 1;
+                }
+                (name, Some(target)) if EDITS.contains(&name) => {
+                    if let Some(group) = reads.remove(target) {
+                        flush(target, group, &mut repeated);
+                    }
+                }
+                _ => {}
+            }
+            if r.error == Some(true) {
+                let again = session[i + 1..].iter().take(RETRY_WINDOW).any(|n| n.name == r.name && n.target_hash == r.target_hash);
+                if again {
+                    retries += 1;
+                    *retry_by_session.entry(sid).or_default() += 1;
+                    *retry_by_tool.entry(r.name.as_str()).or_default() += 1;
+                    if failed_requests.insert(r.request_id.as_str()) {
+                        retry_weighted += call_weight.get(&r.request_id).copied().unwrap_or(0);
+                    }
+                }
+            }
+        }
+        let mut left: Vec<(&str, (u64, u64))> = reads.into_iter().collect();
+        left.sort_by(|a, b| a.0.cmp(b.0));
+        for (target, group) in left {
+            flush(target, group, &mut repeated);
+        }
+    }
+
+    repeated.sort_by(|a, b| b.weighted.cmp(&a.weighted).then(b.times.cmp(&a.times)).then(a.target.cmp(&b.target)));
+    let top = |m: HashMap<&str, u64>| m.into_iter().max_by(|a, b| a.1.cmp(&b.1).then(b.0.cmp(a.0))).map(|x| x.0.to_string());
+    let mut by_tool_error: Vec<ToolErrors> = by_tool
+        .into_iter()
+        .filter(|(_, (e, _))| *e > 0)
+        .map(|(name, (errors, results))| ToolErrors { name: name.to_string(), errors, results })
+        .collect();
+    by_tool_error.sort_by(|a, b| b.errors.cmp(&a.errors).then(a.name.cmp(&b.name)));
+    by_tool_error.truncate(3);
+    Some(Tools {
+        repeated_weighted: repeated.iter().map(|r| r.weighted).sum(),
+        repeated,
+        retries,
+        retry_weighted,
+        retry_session: top(retry_by_session),
+        retry_tool: top(retry_by_tool),
+        errors,
+        calls_with_result: with_result,
+        by_tool_error,
+    })
 }
 
 #[cfg(test)]
@@ -570,7 +732,7 @@ mod tests {
         let e = summarize(&items, &[], THRESHOLD);
         assert_eq!((e.turns, e.sessions, e.weighted), (4, 2, 1115));
         assert_eq!((e.interrupted_turns, e.interrupted_weighted), (3, 1110));
-        assert_eq!(e.advice, vec![Advice { code: "late_cancel", confidence: Confidence::Sure, count: 1, weighted: 1000, session_id: None }]);
+        assert_eq!(e.advice, vec![Advice { code: "late_cancel", confidence: Confidence::Sure, count: 1, weighted: 1000, session_id: None, target: None }]);
     }
 
     #[test]
@@ -596,7 +758,7 @@ mod tests {
         let compactions = vec![("a".to_string(), 2), ("b".to_string(), 3), ("c".to_string(), 1)];
         let e = summarize(&items, &compactions, THRESHOLD);
         assert_eq!(e.compactions, 6);
-        assert_eq!(e.advice, vec![Advice { code: "split_session", confidence: Confidence::Likely, count: 2, weighted: 700, session_id: Some("b".into()) }]);
+        assert_eq!(e.advice, vec![Advice { code: "split_session", confidence: Confidence::Likely, count: 2, weighted: 700, session_id: Some("b".into()), target: None }]);
     }
 
     #[test]
@@ -776,6 +938,79 @@ mod tests {
         let codes: Vec<&str> = e.advice.iter().map(|a| a.code).collect();
         assert_eq!(codes, vec!["blocked", "big_context", "resend"]);
         assert_eq!(e.advice[2].session_id.as_deref(), Some("a"));
+    }
+
+    // --- tool signals ---
+
+    fn tr(session: &str, rid: &str, name: &str, target: Option<&str>, hash: Option<i64>, error: Option<bool>, chars: u64) -> ToolCallRow {
+        ToolCallRow { session_id: session.into(), request_id: rid.into(), ts: "2026-10-10T01:00:00.000Z".into(), name: name.into(), target: target.map(String::from), target_hash: hash, error, result_chars: Some(chars) }
+    }
+
+    fn read(session: &str, file: &str) -> ToolCallRow {
+        tr(session, "r", "Read", Some(file), Some(1), Some(false), 3500)
+    }
+
+    #[test]
+    fn three_reads_of_a_file_without_an_edit_are_repeated() {
+        let rows = vec![read("a", "/x.rs"), read("a", "/x.rs"), read("a", "/x.rs")];
+        let t = tool_signals(&rows, &HashMap::new()).unwrap();
+        assert_eq!(t.repeated.len(), 1);
+        // Two reads after the first: 7000 characters ≈ 2000 tokens, ×1.25.
+        assert_eq!((t.repeated[0].times, t.repeated[0].weighted), (3, 2500));
+    }
+
+    #[test]
+    fn an_edit_in_between_resets_the_count() {
+        let edit = tr("a", "r", "Edit", Some("/x.rs"), Some(2), Some(false), 10);
+        let rows = vec![read("a", "/x.rs"), edit, read("a", "/x.rs"), read("a", "/x.rs")];
+        assert!(tool_signals(&rows, &HashMap::new()).unwrap().repeated.is_empty());
+    }
+
+    #[test]
+    fn reads_in_different_sessions_do_not_add_up() {
+        let rows = vec![read("a", "/x.rs"), read("b", "/x.rs"), read("c", "/x.rs")];
+        assert!(tool_signals(&rows, &HashMap::new()).unwrap().repeated.is_empty());
+    }
+
+    #[test]
+    fn a_failed_call_repeated_soon_is_a_retry() {
+        let fail = |rid: &str| tr("a", rid, "Bash", Some("cargo test"), Some(7), Some(true), 10);
+        let other = |rid: &str| tr("a", rid, "Read", Some("/y.rs"), Some(9), Some(false), 10);
+        let again = |rid: &str| tr("a", rid, "Bash", Some("cargo test"), Some(7), Some(false), 10);
+        let weights = HashMap::from([("r1".to_string(), 500), ("r9".to_string(), 50)]);
+        // Retried as the second tool call after the failure: counted.
+        let t = tool_signals(&[fail("r1"), other("r2"), again("r3")], &weights).unwrap();
+        assert_eq!((t.retries, t.retry_weighted, t.errors, t.calls_with_result), (1, 500, 1, 3));
+        assert_eq!(t.retry_tool.as_deref(), Some("Bash"));
+        assert_eq!(t.by_tool_error, vec![ToolErrors { name: "Bash".into(), errors: 1, results: 2 }]);
+        // Four tool calls later: not a retry.
+        let late = tool_signals(&[fail("r9"), other("r2"), other("r3"), other("r4"), again("r5")], &weights).unwrap();
+        assert_eq!(late.retries, 0);
+        // Same tool, different input: not a retry.
+        let diff = tr("a", "r3", "Bash", Some("cargo test"), Some(8), Some(false), 10);
+        assert_eq!(tool_signals(&[fail("r1"), diff], &weights).unwrap().retries, 0);
+    }
+
+    #[test]
+    fn no_known_result_means_no_tool_signals() {
+        let rows = vec![tr("a", "r", "read", None, None, None, 0)];
+        assert!(tool_signals(&rows, &HashMap::new()).is_none());
+    }
+
+    #[test]
+    fn tool_advice_names_the_file_and_the_tool() {
+        let fail = |rid: &str| tr("a", rid, "Bash", Some("npm test"), Some(7), Some(true), 10);
+        let mut rows = vec![read("a", "/x.rs"), read("a", "/x.rs"), read("a", "/x.rs")];
+        for i in 0..3 {
+            rows.push(fail(&format!("f{i}")));
+        }
+        rows.push(tr("a", "ok", "Bash", Some("npm test"), Some(7), Some(false), 10));
+        let mut e = summarize(&[], &[], THRESHOLD);
+        e.tools = tool_signals(&rows, &HashMap::new());
+        advise(&mut e);
+        let a: Vec<(&str, Option<&str>)> = e.advice.iter().map(|a| (a.code, a.target.as_deref())).collect();
+        assert_eq!(a, vec![("repeated_read", Some("/x.rs")), ("tool_retry", Some("Bash"))]);
+        assert!(e.advice[0].text(crate::i18n::Lang::En).contains("/x.rs"));
     }
 
     #[test]

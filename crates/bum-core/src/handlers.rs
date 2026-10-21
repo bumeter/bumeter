@@ -122,6 +122,8 @@ pub fn effectiveness(store: &Store, cfg: &crate::config::Config, tool: Option<&s
             overflow_times.insert(sid.clone(), store.session_compactions(sid)?);
         }
         e.economics = Some(effect::economics(&calls, &first, &overflow_times, &items, from, cfg.context_threshold));
+        let weights: HashMap<String, u64> = calls.iter().map(|c| (c.request_id.clone(), c.usage.quota_weight())).collect();
+        e.tools = effect::tool_signals(&store.tool_calls_between(from, to, tool)?, &weights);
     }
     // Only Claude Code reports 5h/7d limits; the events carry no session, so they cannot be split by tool.
     if tool.is_none_or(|t| t == "claude_code") {
@@ -148,6 +150,8 @@ pub struct SessionEconomics {
     pub cold: Vec<String>,
     pub by_model: Vec<crate::effect::Share>,
     pub by_chain: Vec<crate::effect::Share>,
+    /// Repeated reads and retried tool errors of this session; `None` without recorded tool results.
+    pub tools: Option<crate::effect::Tools>,
 }
 
 pub fn session_economics(store: &Store, session_id: &str) -> rusqlite::Result<Option<SessionEconomics>> {
@@ -162,6 +166,8 @@ pub fn session_economics(store: &Store, session_id: &str) -> rusqlite::Result<Op
     let cold = effect::cold_calls(&main, &store.session_compactions(session_id)?).into_iter().map(|i| main[i].request_id.clone()).collect();
     let first = HashMap::from([(session_id.to_string(), main.first().map_or_else(|| calls[0].clone(), |c| (*c).clone()))]);
     let ec = effect::economics(&calls, &first, &HashMap::new(), &[], "", u64::MAX);
+    let weights: HashMap<String, u64> = calls.iter().map(|c| (c.request_id.clone(), c.usage.quota_weight())).collect();
+    let tools = effect::tool_signals(&store.session_tool_calls(session_id)?, &weights);
     Ok(Some(SessionEconomics {
         session_id: session_id.to_string(),
         calls: main.len() as u64,
@@ -173,6 +179,7 @@ pub fn session_economics(store: &Store, session_id: &str) -> rusqlite::Result<Op
         cold,
         by_model: ec.breakdown.by_model,
         by_chain: ec.breakdown.by_chain,
+        tools,
     }))
 }
 

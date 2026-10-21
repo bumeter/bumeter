@@ -103,3 +103,26 @@ fn session_economics_reads_one_session_from_the_database() {
     assert_eq!(chain, vec!["main", "subagent"]);
     assert!(session_economics(&s, "nope").unwrap().is_none());
 }
+
+#[test]
+fn effectiveness_and_session_economics_carry_tool_signals() {
+    let mut s = Store::open_in_memory().unwrap();
+    let mut ev = vec![RawEvent::Session { session_id: "s3".into(), tool: "claude_code".into(), project: "p".into(), cwd: None, version: None, ts: "2026-09-13T01:00:00.000Z".into() }];
+    for i in 0..4u64 {
+        ev.push(RawEvent::ApiCall {
+            request_id: format!("t{i}"), session_id: "s3".into(), prompt_key: None, ts: format!("2026-09-13T01:0{i}:00.000Z"), model: "claude-opus-5".into(),
+            usage: Usage { input: 100, ..Default::default() }, sidechain: false, cost_usd: None,
+            tool_uses: vec![ToolUse { id: format!("u{i}"), name: "Read".into(), target: Some("/x.rs".into()), target_hash: Some(1) }],
+        });
+        ev.push(RawEvent::ToolResult { tool_use_id: format!("u{i}"), is_error: false, chars: 350 });
+    }
+    s.ingest_batch(&offset("/root/-home-u-proj/s3.jsonl"), &ev, 0).unwrap();
+    let e = effectiveness(&s, &Config::default(), None, FROM, TO).unwrap();
+    let t = e.tools.as_ref().unwrap();
+    assert_eq!((t.repeated.len(), t.repeated[0].times, t.calls_with_result), (1, 4, 4));
+    assert!(e.advice.iter().any(|a| a.code == "repeated_read" && a.target.as_deref() == Some("/x.rs")));
+    let se = session_economics(&s, "s3").unwrap().unwrap();
+    assert_eq!(se.tools.unwrap().repeated[0].times, 4);
+    // The fixture's session has no recorded results: no tool section.
+    assert!(session_economics(&loaded(), "s1").unwrap().unwrap().tools.is_none());
+}

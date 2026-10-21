@@ -528,6 +528,17 @@ pub struct ToolCallRow {
 }
 
 impl Store {
+    /// Every tool call of one session, in order.
+    pub fn session_tool_calls(&self, session_id: &str) -> rusqlite::Result<Vec<ToolCallRow>> {
+        let mut st = self.conn().prepare(
+            "SELECT a.session_id, a.request_id, a.ts, t.name, t.target, t.target_hash, t.error, t.result_chars
+             FROM api_call_tools t JOIN api_calls a ON a.request_id = t.request_id
+             WHERE a.session_id = ?1 ORDER BY a.ts, t.rowid",
+        )?;
+        let rows = st.query_map([session_id], tool_call_row)?;
+        rows.collect()
+    }
+
     /// Tool calls of the calls in `[from, to)`, optionally for one AI tool, ordered by session, time,
     /// then the order they were written in.
     pub fn tool_calls_between(&self, from: &str, to: &str, tool: Option<&str>) -> rusqlite::Result<Vec<ToolCallRow>> {
@@ -537,18 +548,20 @@ impl Store {
              WHERE a.ts >= ?1 AND a.ts < ?2 AND (?3 IS NULL OR s.tool = ?3)
              ORDER BY a.session_id, a.ts, t.rowid",
         )?;
-        let rows = st.query_map(params![from, to, tool], |r| {
-            Ok(ToolCallRow {
-                session_id: r.get(0)?,
-                request_id: r.get(1)?,
-                ts: r.get(2)?,
-                name: r.get(3)?,
-                target: r.get(4)?,
-                target_hash: r.get(5)?,
-                error: r.get::<_, Option<i64>>(6)?.map(|e| e != 0),
-                result_chars: r.get::<_, Option<i64>>(7)?.map(|n| n.max(0) as u64),
-            })
-        })?;
+        let rows = st.query_map(params![from, to, tool], tool_call_row)?;
         rows.collect()
     }
+}
+
+fn tool_call_row(r: &Row) -> rusqlite::Result<ToolCallRow> {
+    Ok(ToolCallRow {
+        session_id: r.get(0)?,
+        request_id: r.get(1)?,
+        ts: r.get(2)?,
+        name: r.get(3)?,
+        target: r.get(4)?,
+        target_hash: r.get(5)?,
+        error: r.get::<_, Option<i64>>(6)?.map(|e| e != 0),
+        result_chars: r.get::<_, Option<i64>>(7)?.map(|n| n.max(0) as u64),
+    })
 }
