@@ -126,3 +126,45 @@ fn effectiveness_and_session_economics_carry_tool_signals() {
     // The fixture's session has no recorded results: no tool section.
     assert!(session_economics(&loaded(), "s1").unwrap().unwrap().tools.is_none());
 }
+
+/// Two projects, each with one session reading files.
+fn two_projects() -> Store {
+    let mut s = Store::open_in_memory().unwrap();
+    for (sid, project, file, reads) in [("pa", "alpha", "/w/alpha/src/a.rs", 4u64), ("pb", "beta", "/w/beta/b.rs", 1)] {
+        let mut ev = vec![RawEvent::Session { session_id: sid.into(), tool: "claude_code".into(), project: project.into(), cwd: None, version: None, ts: "2026-09-13T01:00:00.000Z".into() }];
+        for i in 0..reads {
+            ev.push(RawEvent::ApiCall {
+                request_id: format!("{sid}{i}"), session_id: sid.into(), prompt_key: None, ts: format!("2026-09-13T01:0{i}:00.000Z"), model: "claude-opus-5".into(),
+                usage: Usage { input: 100, ..Default::default() }, sidechain: false, cost_usd: None,
+                tool_uses: vec![ToolUse { id: format!("{sid}u{i}"), name: "Read".into(), target: Some(file.into()), target_hash: Some(1) }],
+            });
+        }
+        ev.push(RawEvent::ApiCall {
+            request_id: format!("{sid}e"), session_id: sid.into(), prompt_key: None, ts: "2026-09-13T02:00:00.000Z".into(), model: "claude-opus-5".into(),
+            usage: Usage { input: 50, ..Default::default() }, sidechain: false, cost_usd: None,
+            tool_uses: vec![ToolUse { id: format!("{sid}ue"), name: "Edit".into(), target: Some(file.into()), target_hash: Some(2) }],
+        });
+        s.ingest_batch(&offset(&format!("/root/-w-{project}/{sid}.jsonl")), &ev, 0).unwrap();
+    }
+    s
+}
+
+#[test]
+fn effectiveness_can_be_limited_to_one_project() {
+    let s = two_projects();
+    let all = bum_core::handlers::effectiveness_for(&s, &Config::default(), None, None, FROM, TO).unwrap();
+    let alpha = bum_core::handlers::effectiveness_for(&s, &Config::default(), None, Some("alpha"), FROM, TO).unwrap();
+    assert_eq!(all.economics.as_ref().unwrap().calls, 7);
+    assert_eq!(alpha.economics.as_ref().unwrap().calls, 5);
+    assert!(bum_core::handlers::effectiveness_for(&s, &Config::default(), None, Some("nope"), FROM, TO).unwrap().economics.is_none());
+}
+
+#[test]
+fn file_reads_count_reads_and_edits_per_file_of_a_project() {
+    let s = two_projects();
+    let r = s.file_reads("alpha", FROM).unwrap();
+    assert_eq!(r.len(), 1);
+    assert_eq!((r[0].path.as_str(), r[0].reads, r[0].edits), ("/w/alpha/src/a.rs", 4, 1));
+    assert_eq!(r[0].last_ts, "2026-09-13T02:00:00.000Z");
+    assert!(s.file_reads("alpha", "2026-09-14T00:00:00.000Z").unwrap().is_empty());
+}

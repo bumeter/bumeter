@@ -565,3 +565,40 @@ fn tool_call_row(r: &Row) -> rusqlite::Result<ToolCallRow> {
         result_chars: r.get::<_, Option<i64>>(7)?.map(|n| n.max(0) as u64),
     })
 }
+
+/// How often agents read and edited one file of a project (from tool calls, schema v8).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FileReads {
+    /// As the log recorded it, with `/` separators.
+    pub path: String,
+    pub reads: u64,
+    pub edits: u64,
+    pub last_ts: String,
+}
+
+impl Store {
+    /// Session ids of one project.
+    pub fn project_sessions(&self, project: &str) -> rusqlite::Result<std::collections::HashSet<String>> {
+        let mut st = self.conn().prepare("SELECT id FROM sessions WHERE project = ?1")?;
+        let rows = st.query_map([project], |r| r.get(0))?;
+        rows.collect()
+    }
+
+    /// Files of `project` read or edited by tool calls since `from`, most read first (at most 500).
+    pub fn file_reads(&self, project: &str, from: &str) -> rusqlite::Result<Vec<FileReads>> {
+        let mut st = self.conn().prepare(
+            "SELECT t.target,
+                    SUM(CASE WHEN t.name = 'Read' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN t.name IN ('Edit', 'MultiEdit', 'Write', 'NotebookEdit') THEN 1 ELSE 0 END),
+                    MAX(a.ts)
+             FROM api_call_tools t JOIN api_calls a ON a.request_id = t.request_id JOIN sessions s ON s.id = a.session_id
+             WHERE s.project = ?1 AND a.ts >= ?2 AND t.target IS NOT NULL
+               AND t.name IN ('Read', 'Edit', 'MultiEdit', 'Write', 'NotebookEdit')
+             GROUP BY t.target
+             ORDER BY 2 DESC, t.target
+             LIMIT 500",
+        )?;
+        let rows = st.query_map(params![project, from], |r| Ok(FileReads { path: r.get(0)?, reads: u64_at(r, 1)?, edits: u64_at(r, 2)?, last_ts: r.get(3)? }))?;
+        rows.collect()
+    }
+}
