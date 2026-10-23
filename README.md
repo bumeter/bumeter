@@ -32,7 +32,11 @@ Everything is read from your own machine. Nothing is uploaded.
   (lead time in Settings).
 - **Overview** for today, 7, 30 or 90 days: tokens compared with the previous period,
   tokens per day, costliest projects and models, and suggestions from Bum
-  (unusually costly turns, a project eating most of the budget, skills that cost tokens but are never used).
+  (unusually costly turns, a project eating most of the budget, skills that cost tokens but are never used),
+  and an **Effectiveness** panel on why sessions cost what they cost: the context a session starts with,
+  how many times the same context is sent again, cold prompt caches, rate-limit hits, where the quota went
+  (model, main session or subagent), files read again and again, failed tool calls retried — each with
+  advice that opens the session it is about. Amounts are quota-weighted (cache reads ×0.1, output ×5), not raw.
 - **Conversations** grouped by day, with a fuel bar per conversation, filters
   (project, time range, model, costly, large context, interrupted, starred) and the full list of turns.
 - **Context analysis** for a session: what fills the context window, when it was compacted, which tool calls were large.
@@ -55,7 +59,7 @@ Bumeter needs a desktop with WebKitGTK 4.1, i.e. **Ubuntu 24.04 or newer** (or a
 **Debian/Ubuntu package**
 
 ```bash
-sudo apt install ./Bumeter_1.0.7_amd64.deb
+sudo apt install ./Bumeter_1.1.0_amd64.deb
 ```
 
 This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin`.
@@ -63,8 +67,8 @@ This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin
 **AppImage** (no install, libraries included)
 
 ```bash
-chmod +x Bumeter_1.0.7_amd64.AppImage
-./Bumeter_1.0.7_amd64.AppImage
+chmod +x Bumeter_1.1.0_amd64.AppImage
+./Bumeter_1.1.0_amd64.AppImage
 ```
 
 **Snap** — the `bumeter` snap is waiting for the Snap Store's classic-confinement review.
@@ -121,6 +125,7 @@ bum report                     the last 7 days, every tool
 bum report --days 1            today
 bum report --tool claude_code  one tool (claude_code, kiro, opencode)
 bum report --json              the same numbers for scripts and agents
+bum report --efficiency        why sessions cost what they cost, and every piece of advice ranked
 ```
 
 `bum skills` works on what Claude Code (or `--tool kiro`) loads, from a terminal or from an agent:
@@ -163,7 +168,7 @@ Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --no
 - `.github/workflows/ci.yml` runs the Rust tests on Linux, macOS and Windows, plus the UI tests, on every push and pull request.
 - `.github/workflows/release.yml` builds the installers with `tauri-action`: `.deb` + `.AppImage` (Ubuntu 22.04+),
   `.dmg` (Apple Silicon and Intel), `.exe` (NSIS) + `.msi` (Windows). Run it from the Actions tab to get the files as
-  artifacts, or push a tag (`git tag v1.0.7 && git push origin v1.0.7`) to get a published GitHub Release with the
+  artifacts, or push a tag (`git tag v1.1.0 && git push origin v1.1.0`) to get a published GitHub Release with the
   files attached. The macOS and Windows builds are not code-signed yet, so Gatekeeper and SmartScreen will warn on
   first launch.
 - Auto-update goes through the same GitHub Release (Settings → Updates, plus a "Check for updates" tray item).
