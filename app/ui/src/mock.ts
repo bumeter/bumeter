@@ -104,7 +104,18 @@ export const transport = {
       case 'prompt_detail': return detail(params.key);
       case 'sidebar_counts': return { prompts: 595, skills: 16, projects: 23, anomalous: 59, big_context: 41, interrupted: 21, starred: 3, by_tool: { claude_code: 380, kiro: 215 } };
       case 'effectiveness': return { turns: 595, sessions: 23, weighted: 9_800_000, interrupted_turns: 21, interrupted_weighted: 640_000, big_context_turns: 41, big_context_weighted: 2_300_000, compactions: 12,
-        advice: [{ code: 'big_context', confidence: 'likely', count: 41, weighted: 2_300_000, session_id: null }, { code: 'split_session', confidence: 'likely', count: 3, weighted: 1_100_000, session_id: 's1' }, { code: 'late_cancel', confidence: 'sure', count: 6, weighted: 410_000, session_id: null }] };
+        advice: [{ code: 'blocked', confidence: 'sure', count: 4, weighted: 0, session_id: null }, { code: 'big_context', confidence: 'likely', count: 41, weighted: 2_300_000, session_id: null }, { code: 'resend', confidence: 'likely', count: 5, weighted: 1_900_000, session_id: 's1' }, { code: 'split_session', confidence: 'likely', count: 3, weighted: 1_100_000, session_id: 's1' }, { code: 'cold_cache', confidence: 'likely', count: 12, weighted: 340_000, session_id: 's1' }, { code: 'late_cancel', confidence: 'sure', count: 6, weighted: 410_000, session_id: null }],
+        economics: { calls: 1_840, weighted: 12_600_000,
+          startup: { sessions: 21, median: 42_000, weighted: 890_000, max_session: 's1' },
+          resend: { sessions: 20, median: 8.3, flagged: 5, flagged_weighted: 1_900_000, worst: ['s1', 64] },
+          cache: { read_share: 0.978, write_1h_share: 0.55, cold_calls: 12, cold_extra: 340_000, worst_session: 's1' },
+          breakdown: { by_model: [{ key: 'opus', weighted: 8_900_000 }, { key: 'sonnet', weighted: 3_000_000 }, { key: 'kiro:auto', weighted: 700_000 }],
+            by_chain: [{ key: 'main', weighted: 10_300_000 }, { key: 'subagent', weighted: 2_300_000 }],
+            by_start: [{ key: 'small', weighted: 2_000_000 }, { key: 'mid', weighted: 3_200_000 }, { key: 'large', weighted: 4_600_000 }] } },
+        tools: { repeated: [{ session_id: 's1', target: '/src/services/worker/handler.ts', times: 4, weighted: 64_000 }], repeated_weighted: 64_000, retries: 5, retry_weighted: 210_000, retry_session: 's1', retry_tool: 'Bash', errors: 23, calls_with_result: 1_210, by_tool_error: [{ name: 'Bash', errors: 17, results: 402 }, { name: 'Edit', errors: 6, results: 260 }] },
+        blocked: { count: 4, by_type: [{ limit_type: 'five_hour', count: 3, wait_secs: 23_400 }, { limit_type: 'seven_day', count: 1, wait_secs: 104_000 }] } };
+      case 'session_economics': return { session_id: params.session_id, calls: 64, startup_ctx: 44_000, max_ctx: 186_000, total_ctx: 4_300_000, resend: 23.1, weighted: 2_900_000, cold: ['r3'],
+        by_model: [{ key: 'opus', weighted: 2_500_000 }, { key: 'haiku', weighted: 400_000 }], by_chain: [{ key: 'main', weighted: 2_600_000 }, { key: 'subagent', weighted: 300_000 }] };
       case 'today_summary': return { prompts: 45, usage: u(38_000_000, 0, 600_000), total: 38_620_966, cost_usd: 27.27, unpriced_models: [] };
       case 'limit_state': return { five_hour: { used_percentage: 78, resets_at: Date.now() / 1000 + 5400 }, seven_day: { used_percentage: 41, resets_at: Date.now() / 1000 + 86400 * 3 }, updated_at: Date.now() / 1000 - 12, stale: false, blocked: null, forecast_five_hour: { rate_per_hour: 18, hits_at: Date.now() / 1000 + 3600, resets_at: Date.now() / 1000 + 5400, at_risk: true }, forecast_seven_day: null };
       case 'latest_anomaly_ts': return new Date(Date.now() - 25 * 60_000).toISOString();

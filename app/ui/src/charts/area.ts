@@ -49,7 +49,7 @@ export function areaLayout(calls: SessionCall[], width: number, height: number, 
   return { xs, index, top: cum.map(y), layers };
 }
 
-export function areaChart(calls: SessionCall[], onPick: (callIndex: number) => void, marks: { compactions: number[]; prompts: number[] }, width = 900, height = 170): SVGElement {
+export function areaChart(calls: SessionCall[], onPick: (callIndex: number) => void, marks: { compactions: number[]; prompts: number[]; cold?: number[] }, width = 900, height = 170): SVGElement {
   const l = areaLayout(calls, width, height);
   const root = svg('svg', { class: 'area', viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: 'none', width: '100%', height, role: 'img', 'aria-label': t('sess.chartAria', { n: calls.length }) });
   l.layers.forEach((layer) => root.append(svg('path', { class: `layer ${layer.cat}`, d: layer.d })));
@@ -60,6 +60,8 @@ export function areaChart(calls: SessionCall[], onPick: (callIndex: number) => v
   };
   marks.compactions.forEach((ci) => root.append(svg('line', { class: 'compact-mark', x1: xOf(ci), x2: xOf(ci), y1: 0, y2: height })));
   marks.prompts.forEach((ci) => root.append(svg('line', { class: 'prompt-mark', x1: xOf(ci), x2: xOf(ci), y1: height - 6, y2: height })));
+  // Calls that rewrote an expired prompt cache.
+  (marks.cold ?? []).forEach((ci) => root.append(svg('line', { class: 'cold-mark', x1: xOf(ci), x2: xOf(ci), y1: 0, y2: height })));
   const w = l.xs.length > 1 ? width / (l.xs.length - 1) : width;
   l.xs.forEach((x, k) => {
     const hit = svg('rect', { class: 'hit', x: Math.max(0, x - w / 2), y: 0, width: w, height, 'data-call': l.index[k] });

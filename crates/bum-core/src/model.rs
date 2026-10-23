@@ -77,10 +77,17 @@ impl SkillKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToolUse {
     pub id: String,
     pub name: String,
+    /// What the tool acted on, short: a file path, a search pattern, the first two words of a command,
+    /// a skill name. `None` when the adapter does not know (Kiro, OpenCode) or the tool has none.
+    #[serde(default)]
+    pub target: Option<String>,
+    /// Hash of the whole input, to tell "the same call again" without storing the input.
+    #[serde(default)]
+    pub target_hash: Option<i64>,
 }
 
 /// Event produced by an adapter from a log line. Times are RFC3339 UTC.
@@ -133,6 +140,13 @@ pub enum RawEvent {
         ts: String,
         limit_type: String,
         resets_at: i64,
+    },
+    /// The result of a tool call, which the log writes after the call itself.
+    ToolResult {
+        tool_use_id: String,
+        is_error: bool,
+        /// Length of the result's text, in characters.
+        chars: u64,
     },
     /// Conversation title (Claude `ai-title`, Kiro `title`); the last one wins.
     Title {

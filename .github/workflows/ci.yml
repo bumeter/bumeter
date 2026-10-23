@@ -52,7 +52,8 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: cargo test
-        run: cargo test --workspace --locked
+        # Run every crate even when one fails, so one CI run shows every failure on that OS.
+        run: cargo test --workspace --locked --no-fail-fast
 
   ui:
     name: UI

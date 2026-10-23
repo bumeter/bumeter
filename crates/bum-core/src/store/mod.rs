@@ -148,8 +148,8 @@ impl Store {
                     )?;
                     for t in tool_uses {
                         tx.execute(
-                            "INSERT OR IGNORE INTO api_call_tools(tool_use_id, request_id, name, source_file) VALUES(?1, ?2, ?3, ?4)",
-                            params![t.id, request_id, t.name, src],
+                            "INSERT OR IGNORE INTO api_call_tools(tool_use_id, request_id, name, source_file, target, target_hash) VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
+                            params![t.id, request_id, t.name, src, t.target, t.target_hash],
                         )?;
                     }
                     if let Some(k) = prompt_key {
@@ -178,6 +178,13 @@ impl Store {
                         "INSERT INTO session_titles(session_id, title, source_file) VALUES(?1, ?2, ?3)
                          ON CONFLICT(session_id) DO UPDATE SET title = excluded.title",
                         params![session_id, title, src],
+                    )?;
+                }
+                RawEvent::ToolResult { tool_use_id, is_error, chars } => {
+                    // The call is always written before its result; a result without one is dropped.
+                    tx.execute(
+                        "UPDATE api_call_tools SET error = ?2, result_chars = ?3 WHERE tool_use_id = ?1",
+                        params![tool_use_id, is_error, *chars as i64],
                     )?;
                 }
                 RawEvent::Metered { request_id, credits } => {

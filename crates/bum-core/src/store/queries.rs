@@ -454,3 +454,114 @@ impl Store {
         Ok(out)
     }
 }
+
+/// One model call with what the effectiveness analysis needs (see `crate::effect::economics`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RangeCall {
+    pub session_id: String,
+    pub request_id: String,
+    pub ts: String,
+    pub model: String,
+    pub sidechain: bool,
+    pub usage: Usage,
+}
+
+const CALL_COLS: &str = "a.session_id, a.request_id, a.ts, a.model, a.sidechain, a.input, a.cw5, a.cw1h, a.cache_read, a.output, a.reasoning";
+
+fn range_call(r: &Row) -> rusqlite::Result<RangeCall> {
+    Ok(RangeCall { session_id: r.get(0)?, request_id: r.get(1)?, ts: r.get(2)?, model: r.get(3)?, sidechain: r.get(4)?, usage: usage_at(r, 5)? })
+}
+
+impl Store {
+    /// Calls in `[from, to)`, optionally for one AI tool, ordered by session then time.
+    pub fn session_calls_between(&self, from: &str, to: &str, tool: Option<&str>) -> rusqlite::Result<Vec<RangeCall>> {
+        let mut st = self.conn().prepare(&format!(
+            "SELECT {CALL_COLS} FROM api_calls a JOIN sessions s ON s.id = a.session_id
+             WHERE a.ts >= ?1 AND a.ts < ?2 AND (?3 IS NULL OR s.tool = ?3)
+             ORDER BY a.session_id, a.ts, a.request_id"
+        ))?;
+        let rows = st.query_map(params![from, to, tool], range_call)?;
+        rows.collect()
+    }
+
+    /// Every call of one session, in time order.
+    pub fn session_calls(&self, session_id: &str) -> rusqlite::Result<Vec<RangeCall>> {
+        let mut st = self.conn().prepare(&format!("SELECT {CALL_COLS} FROM api_calls a WHERE a.session_id = ?1 ORDER BY a.ts, a.request_id"))?;
+        let rows = st.query_map([session_id], range_call)?;
+        rows.collect()
+    }
+
+    /// The first main-chain call of each session, over its whole history (not only a range).
+    pub fn first_main_calls(&self, session_ids: &[String]) -> rusqlite::Result<std::collections::HashMap<String, RangeCall>> {
+        let mut st = self.conn().prepare(&format!(
+            "SELECT {CALL_COLS} FROM api_calls a WHERE a.session_id = ?1 AND a.sidechain = 0 ORDER BY a.ts, a.request_id LIMIT 1"
+        ))?;
+        let mut out = std::collections::HashMap::new();
+        for sid in session_ids {
+            if let Some(c) = st.query_row([sid], range_call).optional()? {
+                out.insert(sid.clone(), c);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Times the rate limit was hit in `[from, to)`: (limit_type, resets_at, ts).
+    pub fn rate_limit_events_between(&self, from: &str, to: &str) -> rusqlite::Result<Vec<(String, i64, String)>> {
+        let mut st = self.conn().prepare("SELECT limit_type, resets_at, ts FROM rate_limit_events WHERE ts >= ?1 AND ts < ?2 ORDER BY ts")?;
+        let rows = st.query_map(params![from, to], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        rows.collect()
+    }
+}
+
+/// One tool call with what the tool-signal analysis needs (see `crate::effect::tool_signals`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ToolCallRow {
+    pub session_id: String,
+    pub request_id: String,
+    pub ts: String,
+    pub name: String,
+    pub target: Option<String>,
+    pub target_hash: Option<i64>,
+    /// `None` until the result has been seen (and always for tools whose adapter does not report it).
+    pub error: Option<bool>,
+    pub result_chars: Option<u64>,
+}
+
+impl Store {
+    /// Every tool call of one session, in order.
+    pub fn session_tool_calls(&self, session_id: &str) -> rusqlite::Result<Vec<ToolCallRow>> {
+        let mut st = self.conn().prepare(
+            "SELECT a.session_id, a.request_id, a.ts, t.name, t.target, t.target_hash, t.error, t.result_chars
+             FROM api_call_tools t JOIN api_calls a ON a.request_id = t.request_id
+             WHERE a.session_id = ?1 ORDER BY a.ts, t.rowid",
+        )?;
+        let rows = st.query_map([session_id], tool_call_row)?;
+        rows.collect()
+    }
+
+    /// Tool calls of the calls in `[from, to)`, optionally for one AI tool, ordered by session, time,
+    /// then the order they were written in.
+    pub fn tool_calls_between(&self, from: &str, to: &str, tool: Option<&str>) -> rusqlite::Result<Vec<ToolCallRow>> {
+        let mut st = self.conn().prepare(
+            "SELECT a.session_id, a.request_id, a.ts, t.name, t.target, t.target_hash, t.error, t.result_chars
+             FROM api_call_tools t JOIN api_calls a ON a.request_id = t.request_id JOIN sessions s ON s.id = a.session_id
+             WHERE a.ts >= ?1 AND a.ts < ?2 AND (?3 IS NULL OR s.tool = ?3)
+             ORDER BY a.session_id, a.ts, t.rowid",
+        )?;
+        let rows = st.query_map(params![from, to, tool], tool_call_row)?;
+        rows.collect()
+    }
+}
+
+fn tool_call_row(r: &Row) -> rusqlite::Result<ToolCallRow> {
+    Ok(ToolCallRow {
+        session_id: r.get(0)?,
+        request_id: r.get(1)?,
+        ts: r.get(2)?,
+        name: r.get(3)?,
+        target: r.get(4)?,
+        target_hash: r.get(5)?,
+        error: r.get::<_, Option<i64>>(6)?.map(|e| e != 0),
+        result_chars: r.get::<_, Option<i64>>(7)?.map(|n| n.max(0) as u64),
+    })
+}

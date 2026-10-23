@@ -323,6 +323,100 @@ describe('Overview quota panel', () => {
     expect(new Date(last[last.length - 1].params.from as string).toDateString()).toBe(new Date().toDateString());
   });
 
+  const ECON = {
+    ...EFFECT,
+    advice: [
+      { code: 'blocked', confidence: 'sure', count: 2, weighted: 0, session_id: null },
+      ...EFFECT.advice,
+      { code: 'resend', confidence: 'likely', count: 1, weighted: 50_000, session_id: 'sess-long' },
+      { code: 'cold_cache', confidence: 'likely', count: 4, weighted: 20_000, session_id: 'sess-cold' },
+    ],
+    economics: {
+      calls: 300, weighted: 1_400_000,
+      startup: { sessions: 6, median: 38_000, weighted: 30_000, max_session: 'sess-1' },
+      resend: { sessions: 5, median: 25.4, flagged: 1, flagged_weighted: 50_000, worst: ['sess-long', 70] },
+      cache: { read_share: 0.951, write_1h_share: 0.5, cold_calls: 4, cold_extra: 20_000, worst_session: 'sess-cold' },
+      breakdown: {
+        by_model: [{ key: 'opus', weighted: 1_000_000 }, { key: 'kiro:auto', weighted: 300_000 }, { key: 'other', weighted: 100_000 }],
+        by_chain: [{ key: 'main', weighted: 1_100_000 }, { key: 'subagent', weighted: 300_000 }],
+        by_start: [{ key: 'small', weighted: 200_000 }, { key: 'large', weighted: 800_000 }],
+      },
+    },
+    blocked: { count: 2, by_type: [{ limit_type: 'five_hour', count: 1, wait_secs: 7_200 }, { limit_type: 'seven_day', count: 1, wait_secs: 100_800 }] },
+  };
+
+  it('effectiveness 2.0: four cards, three bars, a rate-limit hit first', async () => {
+    fake({ ...handlers(), effectiveness: () => ECON });
+    await mountOverview(el);
+    const panel = el.querySelector('.ov-effect')!;
+    const big = (k: string) => panel.querySelector(`.eff-card[data-card="${k}"] .big`)?.textContent;
+    expect([big('startup'), big('resend'), big('cache'), big('blocked')]).toEqual(['38K', '×25', '95% đọc', '2 lần']);
+    // Waits are given per limit type, never added up.
+    const blocked = panel.querySelector('.eff-card[data-card="blocked"] .sub')!.textContent!;
+    expect(blocked).toContain('5h: 1 lần, chờ ≈ 2.0h');
+    expect(blocked).toContain('7 ngày: 1 lần, chờ ≈ 28h');
+    expect([...panel.querySelectorAll('.eff-split-row')].map((r) => r.getAttribute('data-split'))).toEqual(['model', 'chain', 'start']);
+    expect(panel.querySelector('[data-split="model"] .eff-bar')!.getAttribute('aria-label')).toBe('Opus 71%, Kiro · auto 21%, Khác 7%');
+    const tips = [...panel.querySelectorAll('.eff-tips > .eff-tip')];
+    expect(tips.length).toBe(5);
+    expect(tips[0].getAttribute('data-code')).toBe('blocked');
+    // Totals count every call, and say so.
+    expect(panel.textContent).toContain('300 call');
+  });
+
+  it('effectiveness 2.0: "see all" shows the rest and the old numbers', async () => {
+    fake({ ...handlers(), effectiveness: () => ECON });
+    await mountOverview(el);
+    const more = () => el.querySelector('.ov-effect .eff-more') as HTMLElement;
+    expect(more().hidden).toBe(true);
+    expect(more().querySelectorAll('.eff-tip').length).toBe(1);
+    expect(more().querySelectorAll('.eff-row').length).toBe(3);
+    (el.querySelector('.ov-effect .eff-toggle') as HTMLButtonElement).click();
+    expect(more().hidden).toBe(false);
+    expect(el.querySelector('.ov-effect .eff-toggle')!.textContent).toBe('Thu gọn');
+  });
+
+  it('effectiveness 2.0: session advice opens its conversation; no economics shows dashes', async () => {
+    fake({ ...handlers(), effectiveness: () => ECON });
+    await mountOverview(el);
+    (el.querySelector('.eff-tip[data-code="resend"] button') as HTMLButtonElement).click();
+    expect(state.view).toBe('conversations');
+    expect(state.conversation).toBe('sess-long');
+    update({ view: 'overview', conversation: null });
+    fake({ ...handlers(), effectiveness: () => ({ ...EFFECT, economics: null, blocked: null }) });
+    await mountOverview(el);
+    const big = [...el.querySelectorAll('.ov-effect .eff-card .big')].map((b) => b.textContent);
+    expect(big).toEqual(['—', '—', '—', '—']);
+    expect(el.querySelector('.ov-effect .eff-split')).toBeNull();
+  });
+
+  it('effectiveness 2.0: unused always-on skills join the advice with an upper bound', async () => {
+    fake({ ...handlers(), effectiveness: () => ECON, skills_list: () => skillReport });
+    await mountOverview(el);
+    const all = [...el.querySelectorAll('.ov-effect .eff-tip')];
+    const tip = all.find((x) => x.getAttribute('data-code') === 'unused_always_on')!;
+    // 500 always-on tokens × (6 sessions × 1.25 + 300 calls × 0.1) = 18,750.
+    expect(tip.textContent).toContain('2 skill luôn bật, 30 ngày không dùng — ≈ 18K');
+    expect(tip.querySelector('.eff-conf')!.textContent).toBe('Tối đa');
+    (tip.querySelector('button') as HTMLButtonElement).click();
+    expect(state.view).toBe('skills');
+    expect(state.skillFilter).toBe('unused');
+  });
+
+  it('effectiveness 2.0: tool errors get a fifth card, and their advice names the file', async () => {
+    const tools = { repeated: [{ session_id: 'sess-r', target: '/src/a.rs', times: 4, weighted: 30_000 }], repeated_weighted: 30_000, retries: 3, retry_weighted: 9_000, retry_session: 'sess-t', retry_tool: 'Bash', errors: 12, calls_with_result: 400, by_tool_error: [] };
+    fake({ ...handlers(), effectiveness: () => ({ ...ECON, tools, advice: [...ECON.advice, { code: 'repeated_read', confidence: 'likely', count: 1, weighted: 30_000, session_id: 'sess-r', target: '/src/a.rs' }] }) });
+    await mountOverview(el);
+    const panel = el.querySelector('.ov-effect')!;
+    expect(panel.querySelector('.eff-cards')!.getAttribute('data-n')).toBe('5');
+    expect(panel.querySelector('.eff-card[data-card="tools"] .big')!.textContent).toBe('3%');
+    expect(panel.querySelector('.eff-card[data-card="tools"] .sub')!.textContent).toBe('12 lỗi · 3 lần thử lại');
+    const tip = panel.querySelector('.eff-tip[data-code="repeated_read"]')!;
+    expect(tip.textContent).toContain('nhiều nhất là /src/a.rs');
+    (tip.querySelector('button') as HTMLButtonElement).click();
+    expect(state.conversation).toBe('sess-r');
+  });
+
   it('effectiveness: nothing to advise says so', async () => {
     fake({ ...handlers(), effectiveness: () => ({ ...EFFECT, advice: [] }) });
     await mountOverview(el);

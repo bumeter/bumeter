@@ -90,7 +90,7 @@ fn maps_sessions_turns_calls_and_compactions() {
     assert_eq!(a1.1.as_deref(), Some("opencode:msg_u1"));
     assert_eq!(a1.2, "opencode:deepseek/deepseek-v4.1-flash");
     assert_eq!(a1.3, Usage { input: 100, output: 20, reasoning: 30, cache_read: 5_000, cache_write_5m: 400, cache_write_1h: 0 });
-    assert_eq!(a1.4, vec![ToolUse { id: "call-1".into(), name: "read".into() }]);
+    assert_eq!(a1.4, vec![ToolUse { id: "call-1".into(), name: "read".into(), ..Default::default() }]);
     assert!(!a1.5);
     assert_eq!(a1.6, Some(0.01));
     assert_eq!(c[1].1.as_deref(), Some("opencode:msg_u1"), "second call of the same turn");

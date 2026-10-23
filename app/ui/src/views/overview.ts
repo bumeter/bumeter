@@ -1,6 +1,6 @@
 // Overview: 3 cards (Tokens + Bum, Turns, Conversations), tokens per day, "Bum suggests", projects and models. Scoped to the selected tool.
 import { api } from '../api';
-import type { Advice, DayStat, Effect, Forecast, LimitState, ModelStat, ProjectStat, SidebarCounts, SkillReport, ToolQuota, Window } from '../api';
+import type { Advice, DayStat, Effect, Forecast, LimitState, ModelStat, ProjectStat, Share, SidebarCounts, SkillReport, ToolQuota, Window } from '../api';
 import { bum } from '../components/bum';
 import { bumMood, EMPTY_BUM_INFO, loadBumInfo } from '../components/bum-data';
 import type { BumInfo } from '../components/bum-data';
@@ -12,6 +12,7 @@ import type { Key } from '../i18n';
 import { state, subscribe, update } from '../state';
 import { allSources, modelTag, toolDef } from '../tools';
 import { toolTabs } from '../components/toolTabs';
+import { unusedWeight } from '../quota';
 
 const W = 900;
 const H = 160;
@@ -23,7 +24,21 @@ const ADVICE: Record<Advice['code'], { title: Key; how: Key; act: Key }> = {
   late_cancel: { title: 'ov.effLateCancel', how: 'ov.effLateCancelHow', act: 'ov.effSeeInterrupted' },
   big_context: { title: 'ov.effBigContext', how: 'ov.effBigContextHow', act: 'ov.effSeeTurns' },
   split_session: { title: 'ov.effSplit', how: 'ov.effSplitHow', act: 'ov.effOpenSession' },
+  resend: { title: 'ov.effResendTip', how: 'ov.effResendHow', act: 'ov.effOpenThat' },
+  startup: { title: 'ov.effStartupTip', how: 'ov.effStartupHow', act: 'ov.effOpenThat' },
+  cold_cache: { title: 'ov.effColdTip', how: 'ov.effColdHow', act: 'ov.effOpenThat' },
+  blocked: { title: 'ov.effBlockedTip', how: 'ov.effBlockedHow', act: 'ov.effSeeQuota' },
+  repeated_read: { title: 'ov.effReadTip', how: 'ov.effReadHow', act: 'ov.effOpenThat' },
+  tool_retry: { title: 'ov.effRetryTip', how: 'ov.effRetryHow', act: 'ov.effOpenThat' },
+  unused_always_on: { title: 'ov.effUnusedTip', how: 'ov.effUnusedHow', act: 'ov.effSeeSkills' },
 };
+/** Advice shown before "See all". */
+const TIPS_SHOWN = 5;
+const CONF_KEY: Record<Advice['confidence'], Key> = { sure: 'ov.effSure', likely: 'ov.effLikely', max: 'ov.effMax' };
+
+
+/** Hours, one decimal under 10. */
+const fmtHours = (secs: number) => { const h = secs / 3600; return h < 10 ? `${h.toFixed(1)}h` : `${Math.round(h)}h`; };
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const daysAgo = (today: Date, n: number) => { const d = new Date(today.getFullYear(), today.getMonth(), today.getDate()); d.setDate(d.getDate() - n); return dayKey(d); };
@@ -98,6 +113,8 @@ export async function mountOverview(el: HTMLElement) {
   /** Number of conversations with turns in the selected range, per tool. */
   let convCounts: Record<string, number> = {};
   let effect: Effect | null = null;
+  /** "See all" opened in the Effectiveness panel. */
+  let effAll = false;
   let seq = 0;
   let convSeq = 0;
   let effSeq = 0;
@@ -190,26 +207,101 @@ export async function mountOverview(el: HTMLElement) {
       return h('div', { class: 'panel ov-effect', 'data-empty': '1' }, head, h('div', { class: 'empty' }, t('ov.effectNone')));
     }
     const from = rangeStart(range);
+    const ec = effect.economics;
+    const openSession = (a: Advice) => update({ view: 'conversations', filter: { tool: state.scope }, conversation: a.session_id, turn: null });
+    const open: Record<Advice['code'], (a: Advice) => void> = {
+      late_cancel: () => go({ quick: 'interrupted', from }),
+      big_context: () => go({ quick: 'big_context', from }),
+      split_session: openSession,
+      resend: openSession,
+      startup: openSession,
+      cold_cache: openSession,
+      repeated_read: openSession,
+      tool_retry: openSession,
+      blocked: () => (document.querySelector('.ov-quota') as HTMLElement | null)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }),
+      unused_always_on: () => update({ view: 'skills', skillFilter: 'unused' }),
+    };
+
+    // Unused always-on skills come from the skill report, not the backend's advice (only Claude Code logs skill use).
+    const advice = [...effect.advice];
+    const idle = (!state.scope || state.scope === 'claude_code')
+      ? (report?.rows ?? []).filter((r) => r.unused_30d && r.usage_known && (r.entry.always_on_tokens ?? 0) > 0) : [];
+    if (idle.length && ec) {
+      const tokens = idle.reduce((n, r) => n + (r.entry.always_on_tokens ?? 0), 0);
+      const tip: Advice = { code: 'unused_always_on', confidence: 'max', count: idle.length, weighted: unusedWeight(tokens, effect.sessions, ec.calls), session_id: null };
+      const at = advice.findIndex((a) => a.code !== 'blocked' && a.weighted < tip.weighted);
+      advice.splice(at < 0 ? advice.length : at, 0, tip);
+    }
+
+    const card = (key: string, name: string, big: string, sub: string) => h('div', { class: 'eff-card', 'data-card': key },
+      h('span', { class: 'lbl' }, name), h('span', { class: 'big num' }, big), h('span', { class: 'sub' }, sub));
+    const dash = '—';
+    const blocked = effect.blocked;
+    const blockedSub = !blocked ? t('ov.effBlockedNone') : blocked.by_type.map((b) => t(b.limit_type === 'seven_day' ? 'ov.effBlocked7d' : 'ov.effBlocked5h', { n: b.count, h: fmtHours(b.wait_secs) })).join(' · ');
+    const cards = h('div', { class: 'eff-cards' },
+      card('startup', t('ov.effStartup'), ec && ec.startup.sessions ? fmtTokens(ec.startup.median) : dash, t('ov.effStartupSub')),
+      card('resend', t('ov.effResend'), ec && ec.resend.sessions ? `×${Math.round(ec.resend.median)}` : dash,
+        ec && ec.resend.sessions ? t('ov.effResendSub', { n: Math.round(ec.resend.median) }) : ''),
+      card('cache', t('ov.effCache'), ec?.cache ? t('ov.effCacheRead', { pct: Math.round(ec.cache.read_share * 100) }) : dash,
+        ec?.cache ? t('ov.effCacheCold', { n: ec.cache.cold_calls }) : t('ov.effCacheNone')),
+      card('blocked', t('ov.effBlocked'), blocked ? (blocked.count ? t('ov.effBlockedTimes', { n: blocked.count }) : t('ov.effBlockedNever')) : dash, blocked?.count ? blockedSub : (blocked ? '' : blockedSub)),
+      // Only once tool results are recorded (Claude Code, from schema v8 on).
+      effect.tools ? card('tools', t('ov.effTools'), effect.tools.calls_with_result ? `${Math.round((effect.tools.errors / effect.tools.calls_with_result) * 1000) / 10}%` : dash,
+        t('ov.effToolsSub', { errors: effect.tools.errors, retries: effect.tools.retries })) : null);
+    if (effect.tools) cards.setAttribute('data-n', '5');
+
+    const split = (key: string, name: string, list: Share[], labelOf: (k: string) => string) => {
+      const total = list.reduce((n, x) => n + x.weighted, 0);
+      if (!total) return null;
+      const pct = (x: Share) => Math.round((x.weighted / total) * 100);
+      return h('div', { class: 'eff-split-row', 'data-split': key },
+        h('span', { class: 'name' }, name),
+        h('div', { class: 'eff-bar', role: 'img', 'aria-label': list.map((x) => `${labelOf(x.key)} ${pct(x)}%`).join(', ') },
+          ...list.map((x, i) => h('i', { class: `c${Math.min(i, 2) + 1}`, style: `width:${(x.weighted / total) * 100}%`, title: `${labelOf(x.key)} ${pct(x)}%` },
+            pct(x) >= 12 ? `${labelOf(x.key)} ${pct(x)}%` : ''))));
+    };
+    // Claude families are capitalized; other tools' models are stored as `<tool>:<model>`.
+    const modelLabel = (k: string) => {
+      if (k === 'other') return t('ov.effOther');
+      const i = k.indexOf(':');
+      return i > 0 ? `${toolDef(k.slice(0, i)).label} · ${k.slice(i + 1)}` : k.charAt(0).toUpperCase() + k.slice(1);
+    };
+    const chainLabel = (k: string) => (k === 'main' ? t('ov.effMain') : t('ov.effSub'));
+    const startLabel = (k: string) => t(k === 'small' ? 'ov.effSmall' : k === 'mid' ? 'ov.effMid' : 'ov.effLarge');
+    const splits = ec ? compact([
+      split('model', t('ov.effByModel'), ec.breakdown.by_model, modelLabel),
+      split('chain', t('ov.effByChain'), ec.breakdown.by_chain, chainLabel),
+      split('start', t('ov.effByStart'), ec.breakdown.by_start, startLabel),
+    ]) : [];
+
+    const tip = (a: Advice) => h('div', { class: 'eff-tip', 'data-code': a.code },
+      h('span', { class: `eff-conf ${a.confidence}` }, t(CONF_KEY[a.confidence])),
+      h('div', { class: 'eff-tip-body' },
+        h('div', { class: 'eff-tip-title' }, t(ADVICE[a.code].title, { n: a.count, tokens: fmtTokens(a.weighted), target: a.target ?? '' })),
+        h('div', { class: 'sub' }, t(ADVICE[a.code].how))),
+      h('button', { class: 'btn', type: 'button', onclick: (() => open[a.code](a)) as EventListener }, t(ADVICE[a.code].act)));
     const row = (name: string, n: number, weighted: number | null) => h('div', { class: 'eff-row' },
       h('span', { class: 'name' }, name),
       h('span', { class: 'num' }, String(n)),
       h('span', { class: 'num w' }, weighted == null ? '' : `≈ ${fmtTokens(weighted)}`));
-    const open: Record<Advice['code'], (a: Advice) => void> = {
-      late_cancel: () => go({ quick: 'interrupted', from }),
-      big_context: () => go({ quick: 'big_context', from }),
-      split_session: (a) => update({ view: 'conversations', filter: { tool: state.scope }, conversation: a.session_id, turn: null }),
-    };
-    const tip = (a: Advice) => h('div', { class: 'eff-tip', 'data-code': a.code },
-      h('span', { class: `eff-conf ${a.confidence}` }, t(a.confidence === 'sure' ? 'ov.effSure' : 'ov.effLikely')),
-      h('div', { class: 'eff-tip-body' },
-        h('div', { class: 'eff-tip-title' }, t(ADVICE[a.code].title, { n: a.count, tokens: fmtTokens(a.weighted) })),
-        h('div', { class: 'sub' }, t(ADVICE[a.code].how))),
-      h('button', { class: 'btn', type: 'button', onclick: (() => open[a.code](a)) as EventListener }, t(ADVICE[a.code].act)));
+    const rest = advice.slice(TIPS_SHOWN);
+    const more = h('div', { class: 'eff-more', hidden: !effAll },
+      ...rest.map(tip),
+      h('div', { class: 'eff-old' },
+        h('div', { class: 'eff-old-title' }, t('ov.effOld')),
+        row(t('ov.effectInterrupted'), effect.interrupted_turns, effect.interrupted_weighted),
+        row(t('ov.effectBigContext'), effect.big_context_turns, effect.big_context_weighted),
+        row(t('ov.effectCompactions'), effect.compactions, null)));
+    const toggle = h('button', { class: 'btn eff-toggle', type: 'button', 'aria-expanded': String(effAll), onclick: (() => { effAll = !effAll; render(); }) as EventListener },
+      effAll ? t('ov.effLess') : t('ov.effMore', { n: advice.length }));
+
     return h('div', { class: 'panel ov-effect' }, head,
-      row(t('ov.effectInterrupted'), effect.interrupted_turns, effect.interrupted_weighted),
-      row(t('ov.effectBigContext'), effect.big_context_turns, effect.big_context_weighted),
-      row(t('ov.effectCompactions'), effect.compactions, null),
-      effect.advice.length ? h('div', { class: 'eff-tips' }, ...effect.advice.map(tip)) : h('p', { class: 'sub eff-ok' }, t('ov.effectAllGood')),
+      cards,
+      splits.length ? h('div', { class: 'eff-split' }, h('div', { class: 'eff-split-title' }, t('ov.effWhere')), ...splits) : null,
+      advice.length ? h('div', { class: 'eff-tips' }, ...advice.slice(0, TIPS_SHOWN).map(tip)) : h('p', { class: 'sub eff-ok' }, t('ov.effectAllGood')),
+      more,
+      toggle,
+      ec ? h('p', { class: 'sub eff-note' }, t('ov.effCallsNote', { calls: ec.calls, tokens: fmtTokens(ec.weighted) })) : null,
       h('p', { class: 'sub eff-note' }, t('ov.effectNote')));
   };
 

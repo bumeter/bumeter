@@ -43,6 +43,13 @@ pub struct SkillReport {
     pub warnings: Vec<String>,
 }
 
+/// Upper bound of the quota-weighted tokens that `always_on` tokens of unused skills cost over a range of
+/// `sessions` sessions and `calls` model calls: written to the prompt cache once per session (×1.25) and
+/// read back on every call (×0.1). An upper bound because a session does not always load every skill.
+pub fn unused_weight(always_on: u64, sessions: u64, calls: u64) -> u64 {
+    always_on.saturating_mul(sessions * 125 + calls * 10) / 100
+}
+
 /// A skill installed within the last 30 days has not been around long enough to count as "unused".
 fn recently_installed(installed_at: Option<&str>, now: DateTime<Utc>) -> bool {
     installed_at.and_then(|t| DateTime::parse_from_rfc3339(t).ok()).is_some_and(|t| (now - t.to_utc()).num_days() <= UNUSED_DAYS)

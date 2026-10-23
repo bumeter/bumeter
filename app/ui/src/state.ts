@@ -21,6 +21,8 @@ export interface UiState {
   layout: Layout;
   /** Bumped when installed skills change (install/remove), so the sidebar badge refreshes. */
   skillsRev: number;
+  /** Open the Skills screen with this status filter (set by a link, cleared once applied). */
+  skillFilter?: 'unused' | null;
 }
 
 type Listener = (s: UiState, changed: (keyof UiState)[]) => void;

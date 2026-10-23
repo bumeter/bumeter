@@ -32,7 +32,7 @@ CREATE TABLE notes(prompt_key TEXT PRIMARY KEY, starred INTEGER NOT NULL DEFAULT
   updated_at TEXT NOT NULL);
 "#;
 
-pub const CURRENT_VERSION: i64 = 7;
+pub const CURRENT_VERSION: i64 = 8;
 
 pub fn version(conn: &Connection) -> rusqlite::Result<i64> {
     conn.query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -86,6 +86,33 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             }
         }
         conn.pragma_update(None, "user_version", 7)?;
+    }
+    if version < 8 {
+        // What each tool call acted on and whether it failed (repeated reads, retried errors).
+        for (col, ddl) in [("target", "TEXT"), ("target_hash", "INTEGER"), ("error", "INTEGER"), ("result_chars", "INTEGER")] {
+            let has: bool = conn.prepare("SELECT 1 FROM pragma_table_info('api_call_tools') WHERE name = ?1")?.exists([col])?;
+            if !has {
+                conn.execute_batch(&format!("ALTER TABLE api_call_tools ADD COLUMN {col} {ddl};"))?;
+            }
+        }
+        // `purge_file` deletes by source file: without these, re-reading hundreds of files scans the
+        // whole tables once per file (85 s instead of a few on a real 418 MB history).
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS api_call_tools_req ON api_call_tools(request_id);
+             CREATE INDEX IF NOT EXISTS api_call_tools_file ON api_call_tools(source_file);
+             CREATE INDEX IF NOT EXISTS prompts_file ON prompts(source_file);
+             CREATE INDEX IF NOT EXISTS skill_uses_file ON skill_uses(source_file);
+             CREATE INDEX IF NOT EXISTS compactions_file ON compactions(source_file);",
+        )?;
+        // Fill the new columns for the history too: make Claude Code's files look replaced, so the engine
+        // deletes their old rows and reads them again from the start, once. (Unlike Kiro's whole-file
+        // reads in v5, a JSONL tail is resumed by file identity and offset, not by size.) Notes are keyed
+        // by prompt key, which a re-read gives back unchanged.
+        conn.execute_batch(
+            "UPDATE file_offsets SET file_id = 'reread-v8' WHERE path IN (
+               SELECT a.source_file FROM api_calls a JOIN sessions s ON s.id = a.session_id WHERE s.tool = 'claude_code');",
+        )?;
+        conn.pragma_update(None, "user_version", 8)?;
     }
     Ok(())
 }

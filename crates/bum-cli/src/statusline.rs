@@ -55,6 +55,14 @@ fn segment(st: &limits::LimitState, ctx: Option<u64>, threshold: u64, lang: bum_
     parts.join(" · ")
 }
 
+/// Shells to run the user's status line with, in order. On Windows the `bash` found first on `PATH` is
+/// usually `System32\bash.exe`, the WSL launcher: it runs the line inside a Linux distribution, or
+/// prints an error when there is none. Git for Windows' `sh` is bash, and is what Claude Code uses.
+#[cfg(windows)]
+const SHELLS: &[&str] = &["sh"];
+#[cfg(not(windows))]
+const SHELLS: &[&str] = &["bash", "sh"];
+
 /// The user's own status line run with the same input, for `--around`. None when it fails or prints
 /// nothing: Bumeter's part is then shown alone rather than an error. Run with `bash` as Claude Code
 /// does, so a line written for bash still works where `sh` is dash; `sh` when there is no bash.
@@ -62,11 +70,17 @@ fn original_line(cmd: &str, input: &str) -> Option<String> {
     use std::io::Write;
     use std::process::{Command, Stdio};
     let spawn = |shell: &str| Command::new(shell).arg("-c").arg(cmd).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn();
-    let mut child = match spawn("bash") {
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => spawn("sh"),
-        r => r,
+    let mut child = None;
+    for shell in SHELLS {
+        match spawn(shell) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            r => {
+                child = r.ok();
+                break;
+            }
+        }
     }
-    .ok()?;
+    let mut child = child?;
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin.write_all(input.as_bytes());
     }

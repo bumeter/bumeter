@@ -17,7 +17,7 @@ pub fn call(rid: &str, pk: &str, ts: &str, model: &str, usage: Usage, tools: &[(
         ts: ts.into(),
         model: model.into(),
         usage,
-        tool_uses: tools.iter().map(|(id, n)| ToolUse { id: (*id).into(), name: (*n).into() }).collect(),
+        tool_uses: tools.iter().map(|(id, n)| ToolUse { id: (*id).into(), name: (*n).into(), ..Default::default() }).collect(),
         sidechain,
         cost_usd: None,
     }

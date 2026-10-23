@@ -68,6 +68,20 @@ pub struct Report {
     /// Sessions named by the advice whose tool `bum session` can analyze (Claude Code today), so the
     /// text only suggests a command that works.
     pub analyzable: Vec<String>,
+    /// Model calls in the range (for the cost of unused always-on skills).
+    pub calls: u64,
+    /// Enabled Claude Code skills with an always-on cost that went unused for 30 days; set by the caller
+    /// (the skill catalog lives outside the database). `None` when not looked up.
+    pub unused_skills: Option<UnusedSkills>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UnusedSkills {
+    pub skills: Vec<String>,
+    /// Always-on tokens per session, all of them together.
+    pub tokens: u64,
+    /// Upper bound over the range (`bum_skills::report::unused_weight`).
+    pub weighted: u64,
 }
 
 /// Local midnight that starts a range of `days` calendar days (today included), as RFC3339 UTC: the
@@ -112,12 +126,13 @@ pub fn build(ctx: &HandlerCtx, sources: &[SourceInfo], days: u32, tool: Option<&
 
     let info = |id: &str| sources.iter().find(|s| s.id == id);
     let session_tools = ctx.store.session_tools()?;
-    let analyzable = effect
-        .advice
-        .iter()
-        .filter_map(|a| a.session_id.clone())
-        .filter(|sid| session_tools.get(sid).and_then(|t| info(t)).is_some_and(|s| s.composition))
-        .collect();
+    // Several pieces of advice can point at the same session.
+    let mut analyzable: Vec<String> = Vec::new();
+    for sid in effect.advice.iter().filter_map(|a| a.session_id.as_ref()) {
+        if !analyzable.contains(sid) && session_tools.get(sid).and_then(|t| info(t)).is_some_and(|s| s.composition) {
+            analyzable.push(sid.clone());
+        }
+    }
     let mut tools: Vec<ToolShare> = tools
         .into_iter()
         .map(|(id, (turns, weighted, raw))| ToolShare {
@@ -165,9 +180,120 @@ pub fn build(ctx: &HandlerCtx, sources: &[SourceInfo], days: u32, tool: Option<&
         tools,
         projects,
         costliest,
+        calls: items.iter().map(|it| u64::from(it.stats.api_calls)).sum(),
         effect,
         analyzable,
+        unused_skills: None,
     })
+}
+
+fn confidence(c: bum_core::effect::Confidence, lang: Lang) -> &'static str {
+    match c {
+        bum_core::effect::Confidence::Sure => lang.pick("chắc chắn", "sure"),
+        bum_core::effect::Confidence::Likely => lang.pick("có thể", "likely"),
+        bum_core::effect::Confidence::Max => lang.pick("tối đa", "at most"),
+    }
+}
+
+fn hours(secs: i64) -> String {
+    let h = secs as f64 / 3600.0;
+    if h < 10.0 { format!("{h:.1}h") } else { format!("{}h", h.round() as i64) }
+}
+
+fn shares(list: &[bum_core::effect::Share], label: impl Fn(&str) -> String) -> String {
+    let total: u64 = list.iter().map(|s| s.weighted).sum();
+    list.iter().map(|s| format!("{} {}%", label(&s.key), pct(s.weighted, total))).collect::<Vec<_>>().join(" · ")
+}
+
+/// `bum report --efficiency`: why the sessions cost what they cost, then every piece of advice, ranked.
+pub fn render_efficiency(r: &Report, lang: Lang) -> String {
+    let e = &r.effect;
+    let mut out = Vec::new();
+    if let Some(ec) = &e.economics {
+        out.push(format!(
+            "{}  {} {} · {} {} ({})",
+            lang.pick("Hiệu quả ", "Effect   "),
+            ec.calls,
+            lang.pick("call", "calls"),
+            fmt_tokens(ec.weighted),
+            lang.pick("token quy đổi", "quota-weighted tokens"),
+            lang.pick("gồm cả call của subagent và tin nhắn không do bạn gõ", "including calls for subagents and messages you did not type"),
+        ));
+        out.push(format!(
+            "  {:<22} {} / {}     {:<16} ×{:.0}",
+            lang.pick("Context khởi động", "Startup context"),
+            fmt_tokens(ec.startup.median),
+            lang.pick("phiên (trung vị)", "session (median)"),
+            lang.pick("Hệ số gửi lại", "Resend factor"),
+            ec.resend.median,
+        ));
+        if let Some(c) = &ec.cache {
+            out.push(format!(
+                "  {:<22} {}%  ({} {}, ≈ {})",
+                lang.pick("Đọc cache", "Cache reads"),
+                (c.read_share * 100.0).round(),
+                c.cold_calls,
+                lang.pick("lần nguội", "cold"),
+                fmt_tokens(c.cold_extra),
+            ));
+        }
+        let model = |k: &str| if k == "other" { lang.pick("khác", "other").to_string() } else { k.to_string() };
+        out.push(format!("  {:<22} {}", lang.pick("Theo model", "By model"), shares(&ec.breakdown.by_model, model)));
+        let chain = |k: &str| match k { "main" => lang.pick("phiên chính", "main").to_string(), _ => "subagent".to_string() };
+        out.push(format!("  {:<22} {}", lang.pick("Phiên chính / sub", "Main / subagent"), shares(&ec.breakdown.by_chain, chain)));
+        let start = |k: &str| match k { "small" => "<100K".to_string(), "mid" => "100K–".to_string() + lang.pick("ngưỡng", "threshold"), _ => format!(">{}", lang.pick("ngưỡng", "threshold")) };
+        out.push(format!("  {:<22} {}", lang.pick("Lúc bắt đầu lượt", "Turn starts at"), shares(&ec.breakdown.by_start, start)));
+    }
+    if let Some(t) = &e.tools {
+        out.push(format!(
+            "  {:<22} {}/{} ({}%) · {} {}",
+            lang.pick("Tool lỗi", "Tool errors"),
+            t.errors,
+            t.calls_with_result,
+            pct(t.errors, t.calls_with_result),
+            t.retries,
+            lang.pick("lần thử lại", "retries"),
+        ));
+    }
+    if let Some(b) = e.blocked.as_ref().filter(|b| b.count > 0) {
+        let parts: Vec<String> = b.by_type.iter().map(|t| {
+            let kind = match t.limit_type.as_str() { "five_hour" => "5h".to_string(), "seven_day" => lang.pick("7 ngày", "7 days").to_string(), k => k.to_string() };
+            format!("{kind}: {} {}, {} ≈ {}", t.count, lang.pick("lần", "times"), lang.pick("chờ", "waited"), hours(t.wait_secs))
+        }).collect();
+        out.push(format!("  {:<22} {}", lang.pick("Bị chặn quota", "Rate-limited"), parts.join(" · ")));
+    }
+    out.push(String::new());
+
+    let mut lines: Vec<(u64, bool, String, String, Option<String>)> = e
+        .advice
+        .iter()
+        .map(|a| (a.weighted, a.code == "blocked", format!("[{}] {}", confidence(a.confidence, lang), a.text(lang)), a.how(lang).to_string(), a.session_id.clone().filter(|sid| r.analyzable.contains(sid))))
+        .collect();
+    if let Some(u) = r.unused_skills.as_ref().filter(|u| !u.skills.is_empty()) {
+        let text = match lang {
+            Lang::Vi => format!("{} skill luôn bật, 30 ngày không dùng ({}) — ≈ {} token quy đổi", u.skills.len(), u.skills.join(", "), fmt_tokens(u.weighted)),
+            Lang::En => format!("{} always-on skills unused for 30 days ({}) — ≈ {} quota-weighted tokens", u.skills.len(), u.skills.join(", "), fmt_tokens(u.weighted)),
+        };
+        let how = lang.pick("Tắt bằng `bum skills disable <tên>` (in kế hoạch trước, có hoàn tác).", "Turn them off with `bum skills disable <name>` (prints a plan first, can be undone).");
+        lines.push((u.weighted, false, format!("[{}] {text}", confidence(bum_core::effect::Confidence::Max, lang)), how.to_string(), None));
+    }
+    lines.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0)));
+    if lines.is_empty() {
+        out.push(format!("  {}", lang.pick("Không có gì đáng lo trong khoảng này.", "Nothing worth worrying about in this range.")));
+    }
+    for (i, (_, _, text, how, sid)) in lines.iter().enumerate() {
+        out.push(format!("  {}. {text}", i + 1));
+        out.push(format!("     {how}"));
+        if let Some(sid) = sid {
+            out.push(format!("     bum session {sid}"));
+        }
+    }
+    out.push(String::new());
+    out.push(lang.pick(
+        "Hệ số gửi lại = tổng context đã gửi ÷ context lớn nhất của phiên: cách model hoạt động, không phải lãng phí, nhưng cho biết phiên dài tới đâu.",
+        "Resend factor = all context sent ÷ the session's largest context: how the model works, not waste, but it shows how long a session ran.",
+    ).to_string());
+    out.join("\n") + "\n"
 }
 
 fn pct(part: u64, whole: u64) -> u64 {
@@ -181,6 +307,12 @@ fn local_time(ts: &str) -> String {
 
 /// The report as text. `tool_lines` are the per-tool quota lines of the tray (`bum status`).
 pub fn render(r: &Report, tool_lines: &[String], lang: Lang) -> String {
+    render_overview(r, tool_lines, lang, true)
+}
+
+/// `with_effect = false` leaves out the short Effectiveness section, for `--efficiency`, which prints
+/// the full one.
+pub fn render_overview(r: &Report, tool_lines: &[String], lang: Lang, with_effect: bool) -> String {
     let mut out = Vec::new();
     let scope = r.tools.iter().find(|t| Some(&t.id) == r.tool.as_ref()).map_or_else(|| lang.pick("mọi tool", "all tools").to_string(), |t| t.label.clone());
     let range = match r.days {
@@ -244,6 +376,9 @@ pub fn render(r: &Report, tool_lines: &[String], lang: Lang) -> String {
         out.push(String::new());
     }
 
+    if !with_effect {
+        return out.join("\n") + "\n";
+    }
     let e = &r.effect;
     out.push(format!(
         "{}  {} {} (≈ {}) · {} {} (≈ {}) · {} {}",
@@ -261,10 +396,7 @@ pub fn render(r: &Report, tool_lines: &[String], lang: Lang) -> String {
         out.push(format!("           {}", lang.pick("Không có gì đáng lo trong khoảng này.", "Nothing worth worrying about in this range.")));
     }
     for a in &e.advice {
-        let label = match a.confidence {
-            bum_core::effect::Confidence::Sure => lang.pick("chắc chắn", "sure"),
-            bum_core::effect::Confidence::Likely => lang.pick("có thể", "likely"),
-        };
+        let label = confidence(a.confidence, lang);
         out.push(format!("  [{label}] {}", a.text(lang)));
         out.push(format!("      {}", a.how(lang)));
         if let Some(sid) = a.session_id.as_ref().filter(|sid| r.analyzable.contains(sid)) {
@@ -395,6 +527,26 @@ mod tests {
         assert_eq!(from.format("%H:%M").to_string(), "00:00");
         assert_eq!((now.date_naive() - from.date_naive()).num_days(), 6);
         assert_eq!(range_start(1, now).parse::<chrono::DateTime<chrono::Utc>>().unwrap().with_timezone(&chrono::Local).date_naive(), now.date_naive());
+    }
+
+    #[test]
+    fn efficiency_shows_the_economics_and_ranks_unused_skills_with_the_rest() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut r = report(dir.path(), None);
+        assert_eq!(r.calls, 2);
+        r.unused_skills = Some(UnusedSkills { skills: vec!["pdf-tools".into()], tokens: 1_900, weighted: 99_000_000 });
+        let en = render_efficiency(&r, Lang::En);
+        assert!(en.contains("Startup context") && en.contains("Resend factor"), "{en}");
+        assert!(en.contains("1. [at most] 1 always-on skills unused for 30 days (pdf-tools)"), "{en}");
+        let vi = render_efficiency(&r, Lang::Vi);
+        assert!(vi.contains("Context khởi động") && vi.contains("Hệ số gửi lại"), "{vi}");
+        assert!(!en.contains("Tool errors"), "no tool line without recorded results");
+        r.effect.tools = Some(bum_core::effect::Tools { repeated: vec![], repeated_weighted: 0, retries: 2, retry_weighted: 0, retry_session: None, retry_tool: None, errors: 5, calls_with_result: 50, by_tool_error: vec![] });
+        assert!(render_efficiency(&r, Lang::En).contains("5/50 (10%) · 2 retries"));
+        // The plain report is unchanged; with `--efficiency` its short section is left out.
+        assert!(!render(&r, &[], Lang::En).contains("Resend factor"));
+        assert!(render(&r, &[], Lang::En).contains("Effect   "));
+        assert!(!render_overview(&r, &[], Lang::En, false).contains("Effect   "));
     }
 
     #[test]

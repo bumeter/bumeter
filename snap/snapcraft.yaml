@@ -1,7 +1,7 @@
 name: bumeter
 title: Bumeter
 base: core24
-version: '1.0.7'
+version: '1.1.0'
 license: GPL-3.0-or-later
 summary: Token, quota and skill usage for AI coding tools
 description: |
@@ -37,7 +37,7 @@ parts:
   bumeter:
     # Built from the .deb produced by `tauri build --bundles deb` (see docs/build-ubuntu.md).
     plugin: dump
-    source: target/release/bundle/deb/Bumeter_1.0.7_amd64.deb
+    source: target/release/bundle/deb/Bumeter_1.1.0_amd64.deb
     source-type: deb
     prime:
       - usr/bin/bumeter

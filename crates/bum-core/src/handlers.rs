@@ -107,9 +107,80 @@ pub fn limit_state(ctx: &HandlerCtx, now: chrono::DateTime<chrono::Utc>) -> rusq
 /// started with a very large context, and context overflows, with advice. Computed from the local
 /// history only — no model calls (see `crate::effect`).
 pub fn effectiveness(store: &Store, cfg: &crate::config::Config, tool: Option<&str>, from: &str, to: &str) -> rusqlite::Result<crate::effect::Effect> {
+    use crate::effect;
     let items = store.prompt_items_for(None, None, Some(from), Some(to), tool)?;
     let compactions = store.compactions_by_session_between(from, to, tool)?;
-    Ok(crate::effect::summarize(&items, &compactions, cfg.context_threshold))
+    let mut e = effect::summarize(&items, &compactions, cfg.context_threshold);
+
+    let calls = store.session_calls_between(from, to, tool)?;
+    if !calls.is_empty() {
+        let mut sids: Vec<String> = calls.iter().map(|c| c.session_id.clone()).collect();
+        sids.dedup();
+        let first = store.first_main_calls(&sids)?;
+        let mut overflow_times = HashMap::new();
+        for (sid, _) in &compactions {
+            overflow_times.insert(sid.clone(), store.session_compactions(sid)?);
+        }
+        e.economics = Some(effect::economics(&calls, &first, &overflow_times, &items, from, cfg.context_threshold));
+        let weights: HashMap<String, u64> = calls.iter().map(|c| (c.request_id.clone(), c.usage.quota_weight())).collect();
+        e.tools = effect::tool_signals(&store.tool_calls_between(from, to, tool)?, &weights);
+    }
+    // Only Claude Code reports 5h/7d limits; the events carry no session, so they cannot be split by tool.
+    if tool.is_none_or(|t| t == "claude_code") {
+        e.blocked = Some(effect::blocked(&store.rate_limit_events_between(from, to)?));
+    }
+    effect::advise(&mut e);
+    Ok(e)
+}
+
+/// One session's economics, from the database (works for every tool, unlike `session_analysis`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SessionEconomics {
+    pub session_id: String,
+    /// Main-chain calls.
+    pub calls: u64,
+    pub startup_ctx: u64,
+    pub max_ctx: u64,
+    pub total_ctx: u64,
+    /// `total_ctx ÷ max_ctx` (0 below 3 calls).
+    pub resend: f64,
+    /// Quota-weighted tokens of every call, subagents included.
+    pub weighted: u64,
+    /// Request ids of the calls that rewrote an expired cache.
+    pub cold: Vec<String>,
+    pub by_model: Vec<crate::effect::Share>,
+    pub by_chain: Vec<crate::effect::Share>,
+    /// Repeated reads and retried tool errors of this session; `None` without recorded tool results.
+    pub tools: Option<crate::effect::Tools>,
+}
+
+pub fn session_economics(store: &Store, session_id: &str) -> rusqlite::Result<Option<SessionEconomics>> {
+    use crate::effect;
+    let calls = store.session_calls(session_id)?;
+    if calls.is_empty() {
+        return Ok(None);
+    }
+    let main: Vec<&crate::store::queries::RangeCall> = calls.iter().filter(|c| !c.sidechain).collect();
+    let ctxs: Vec<u64> = main.iter().map(|c| effect::ctx(&c.usage)).collect();
+    let (max_ctx, total_ctx) = (ctxs.iter().copied().max().unwrap_or(0), ctxs.iter().sum::<u64>());
+    let cold = effect::cold_calls(&main, &store.session_compactions(session_id)?).into_iter().map(|i| main[i].request_id.clone()).collect();
+    let first = HashMap::from([(session_id.to_string(), main.first().map_or_else(|| calls[0].clone(), |c| (*c).clone()))]);
+    let ec = effect::economics(&calls, &first, &HashMap::new(), &[], "", u64::MAX);
+    let weights: HashMap<String, u64> = calls.iter().map(|c| (c.request_id.clone(), c.usage.quota_weight())).collect();
+    let tools = effect::tool_signals(&store.session_tool_calls(session_id)?, &weights);
+    Ok(Some(SessionEconomics {
+        session_id: session_id.to_string(),
+        calls: main.len() as u64,
+        startup_ctx: ctxs.first().copied().unwrap_or(0),
+        max_ctx,
+        total_ctx,
+        resend: if main.len() >= 3 && max_ctx > 0 { total_ctx as f64 / max_ctx as f64 } else { 0.0 },
+        weighted: calls.iter().map(|c| c.usage.quota_weight()).sum(),
+        cold,
+        by_model: ec.breakdown.by_model,
+        by_chain: ec.breakdown.by_chain,
+        tools,
+    }))
 }
 
 pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now: chrono::DateTime<chrono::Utc>) -> Result<serde_json::Value, String> {
@@ -170,6 +241,10 @@ pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now:
                 None => fmt(now - chrono::Duration::days(params["days"].as_u64().unwrap_or(30).clamp(1, 365) as i64)),
             };
             to_value(effectiveness(ctx.store, ctx.cfg, params["tool"].as_str(), &from, &fmt(now)).map(|e| serde_json::to_value(e).unwrap_or_default()))
+        }
+        "session_economics" => {
+            let sid = params["session_id"].as_str().ok_or("missing 'session_id'")?;
+            to_value(session_economics(ctx.store, sid).map(|e| serde_json::to_value(e).unwrap_or_default()))
         }
         "set_note" => {
             let key = params["key"].as_str().ok_or("missing 'key'")?;

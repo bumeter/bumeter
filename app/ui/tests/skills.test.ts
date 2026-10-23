@@ -196,6 +196,30 @@ describe('fast load and consistent figures', () => {
     expect(document.querySelector('.install .warning')?.textContent).toContain('could not run curl');
   });
 
+  it('a link from the Effectiveness panel opens on the unused skills, once', async () => {
+    fake({ skills_list: report });
+    update({ skillFilter: 'unused' });
+    await mountSkills(list, detail);
+    expect(list.querySelector('[data-filter="unused"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect([...list.querySelectorAll('[data-skill]')].map((x) => x.getAttribute('data-skill')).sort()).toEqual(['pj-code', 'pj-debug']);
+    expect(state.skillFilter).toBeNull();
+  });
+
+  it('an unused always-on skill says what it cost over 30 days, as an upper bound', async () => {
+    const econ = { calls: 300, weighted: 1, startup: { sessions: 0, median: 0, weighted: 0, max_session: null }, resend: { sessions: 0, median: 0, flagged: 0, flagged_weighted: 0, worst: null }, cache: null, breakdown: { by_model: [], by_chain: [], by_start: [] } };
+    const f = fake({ skills_list: report, effectiveness: () => ({ turns: 1, sessions: 6, weighted: 1, interrupted_turns: 0, interrupted_weighted: 0, big_context_turns: 0, big_context_weighted: 0, compactions: 0, advice: [], economics: econ, blocked: null }), list_prompts: () => listOf([row('p1', '2026-09-01T00:00:00Z', 'x', 1)]) });
+    await mountSkills(list, detail);
+    await flush();
+    expect(f.calls.find((c) => c.method === 'effectiveness')!.params.tool).toBe('claude_code');
+    click(list, '[data-skill="pj-debug"]');
+    await flush();
+    // 90 always-on tokens × (6 sessions × 1.25 + 300 calls × 0.1) = 3,375.
+    expect(detail.querySelector('[data-hint="unused-cost"]')?.textContent).toContain('≈ 3K token quy đổi trong 30 ngày (tối đa)');
+    click(list, '[data-skill="pj-review"]');
+    await flush();
+    expect(detail.querySelector('[data-hint="unused-cost"]')).toBeNull();
+  });
+
   it('title has a count; the "cost base but unused" warning badge filters to exactly those skills when clicked', async () => {
     fake({ skills_list: report });
     await mountSkills(list, detail);
