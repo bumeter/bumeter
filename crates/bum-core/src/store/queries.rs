@@ -602,3 +602,26 @@ impl Store {
         rows.collect()
     }
 }
+
+/// The latest main-chain call of a project: what its session is carrying now.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ProjectNow {
+    pub session_id: String,
+    pub ts: String,
+    /// Context the call sent (input + cache writes + cache reads).
+    pub context: u64,
+}
+
+impl Store {
+    pub fn project_now(&self, project: &str) -> rusqlite::Result<Option<ProjectNow>> {
+        self.conn()
+            .query_row(
+                "SELECT a.session_id, a.ts, a.input + a.cw5 + a.cw1h + a.cache_read
+                 FROM api_calls a JOIN sessions s ON s.id = a.session_id
+                 WHERE s.project = ?1 AND a.sidechain = 0 ORDER BY a.ts DESC LIMIT 1",
+                [project],
+                |r| Ok(ProjectNow { session_id: r.get(0)?, ts: r.get(1)?, context: u64_at(r, 2)? }),
+            )
+            .optional()
+    }
+}

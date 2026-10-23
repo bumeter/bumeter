@@ -255,6 +255,12 @@ pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now:
             };
             to_value(effectiveness_for(ctx.store, ctx.cfg, params["tool"].as_str(), params["project"].as_str(), &from, &fmt(now)).map(|e| serde_json::to_value(e).unwrap_or_default()))
         }
+        "project_now" => {
+            // The project's latest main-chain call, with the threshold the statusline warns at.
+            let project = params["project"].as_str().ok_or("missing 'project'")?;
+            let now_call = ctx.store.project_now(project).map_err(|e| e.to_string())?;
+            Ok(serde_json::json!({ "latest": now_call, "context_threshold": ctx.cfg.context_threshold }))
+        }
         "file_reads" => {
             // Files of one project the agents read, for the VS Code Explorer.
             let project = params["project"].as_str().ok_or("missing 'project'")?;

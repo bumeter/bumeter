@@ -168,3 +168,11 @@ fn file_reads_count_reads_and_edits_per_file_of_a_project() {
     assert_eq!(r[0].last_ts, "2026-09-13T02:00:00.000Z");
     assert!(s.file_reads("alpha", "2026-09-14T00:00:00.000Z").unwrap().is_empty());
 }
+
+#[test]
+fn project_now_is_the_latest_main_call_of_the_project() {
+    let s = two_projects();
+    let now = s.project_now("alpha").unwrap().unwrap();
+    assert_eq!((now.session_id.as_str(), now.ts.as_str(), now.context), ("pa", "2026-09-13T02:00:00.000Z", 50));
+    assert!(s.project_now("nope").unwrap().is_none());
+}

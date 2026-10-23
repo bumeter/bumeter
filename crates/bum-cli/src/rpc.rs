@@ -116,6 +116,12 @@ impl Rpc {
     }
 
     fn handle(&mut self, method: &str, params: Value) -> Result<Value, String> {
+        // Methods that read the tools' own logs are answered here, from the database the host keeps.
+        if let Ok(store) = bum_core::store::Store::open_readonly(&self.paths.db()) {
+            if let Some(r) = bum_service::extra::call(&store, &self.cfg, method, &params) {
+                return r;
+            }
+        }
         for attempt in 0..2 {
             match client::call_timeout(&self.paths, method, params.clone(), TIMEOUT) {
                 Ok(v) => return Ok(v),

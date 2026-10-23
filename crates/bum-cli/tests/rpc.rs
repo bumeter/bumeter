@@ -96,6 +96,9 @@ fn without_a_host_it_becomes_one_and_answers() {
     // The fixture was scanned: there are numbers to report.
     let e = rpc.call("effectiveness", json!({ "days": 3650 }));
     assert!(e["result"]["turns"].as_u64().unwrap() > 0, "{e}");
+    // Methods the app answers from the tools' logs work too.
+    let sources = rpc.call("sources", Value::Null);
+    assert!(sources["result"].as_array().unwrap().iter().any(|s| s["info"]["id"] == "claude_code"), "{sources}");
     // Errors are answers, not crashes.
     assert!(rpc.call("no_such_method", Value::Null)["error"].is_string());
     rpc.send_raw("not json");
