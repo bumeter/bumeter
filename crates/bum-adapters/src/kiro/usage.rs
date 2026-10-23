@@ -82,14 +82,20 @@ pub fn find_cli() -> Option<PathBuf> {
 
 /// Run `bin args…` with a timeout; returns `(exited successfully, stdout + stderr)`. Cannot run or timed out → `None`.
 fn run_capture(bin: &Path, args: &[&str], timeout: Duration) -> Option<(bool, String)> {
-    let mut child = crate::process::command(bin)
-        .args(args)
-        .env("NO_COLOR", "1")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .ok()?;
+    let spawn = || crate::process::command(bin).args(args).env("NO_COLOR", "1").stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn();
+    // Linux refuses to run a file another process still holds open for writing ("Text file busy"):
+    // a program just installed or updated, or (in tests) a script another thread's fork still holds.
+    let mut child = spawn();
+    for _ in 0..5 {
+        match &child {
+            Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy => {
+                std::thread::sleep(Duration::from_millis(50));
+                child = spawn();
+            }
+            _ => break,
+        }
+    }
+    let mut child = child.ok()?;
     let (mut out, mut err) = (child.stdout.take()?, child.stderr.take()?);
     let (tx, rx) = std::sync::mpsc::channel();
     // Read on a separate thread: a hung command (or descendants holding the pipe) must not block the caller.
