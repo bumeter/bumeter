@@ -2,6 +2,7 @@
 mod audit;
 mod daemon;
 mod report;
+mod rpc;
 mod statusline;
 
 use std::path::PathBuf;
@@ -66,6 +67,8 @@ enum Cmd {
     },
     /// Analyze the context composition of a session (read-only).
     Session { session_id: String },
+    /// JSON-RPC over stdin/stdout for editor extensions: forwards to the running host, or becomes one.
+    Rpc,
     /// Skills: list, enable/disable, undo, log.
     Skills {
         #[command(subcommand)]
@@ -124,6 +127,7 @@ fn main() -> ExitCode {
         Cmd::Report { days, tool, json, efficiency } => report(&paths, days, tool.as_deref(), json, efficiency),
         Cmd::Skills { cmd, tool, json } => skills(&paths, &tool, json, cmd),
         Cmd::Session { session_id } => session(&paths, &session_id),
+        Cmd::Rpc => rpc::run(paths.clone(), config(&paths)).map(|_| true),
     };
     match result {
         Ok(true) => ExitCode::SUCCESS,
