@@ -15,7 +15,7 @@ The script downloads each asset once (cached in the system temp directory), hash
 
 | File | Belongs in |
 |---|---|
-| `packaging/homebrew/bumeter.rb` | `Casks/bumeter.rb` in the `chieund/homebrew-tap` repository |
+| `packaging/homebrew/bumeter.rb` | `Casks/bumeter.rb` in the `bumeter/homebrew-tap` repository |
 | `packaging/winget/Bumeter.Bumeter*.yaml` | `manifests/b/Bumeter/Bumeter/<version>/` in a `microsoft/winget-pkgs` pull request |
 
 `--check` exits non-zero when a committed manifest no longer matches the release, which is the sanity
@@ -29,10 +29,10 @@ and open with the `yaml-language-server` comment its checklist requires.
 ## Homebrew
 
 ```bash
-brew install --cask chieund/tap/bumeter
+brew install --cask bumeter/tap/bumeter
 ```
 
-The cask lives in [chieund/homebrew-tap](https://github.com/chieund/homebrew-tap) and cannot live in
+The cask lives in [bumeter/homebrew-tap](https://github.com/bumeter/homebrew-tap) and cannot live in
 `homebrew/cask`: Homebrew only accepts applications there that are signed and notarized with an Apple
 Developer ID, and CI builds Bumeter's `.dmg` without certificates. A personal tap has no such
 requirement.

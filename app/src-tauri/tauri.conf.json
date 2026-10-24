@@ -43,7 +43,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/chieund/bumeter/releases/latest/download/latest.json"
+        "https://github.com/bumeter/bumeter/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE5NUY2RTJGNEUyODlGRTEKUldUaG55aE9MMjVmR2F3SzJ6YmUzQUdqRU1vTGlXdEJtaUd1aFBqdHU1S1pqMWVveEpSb1RqeE4K",
       "windows": {

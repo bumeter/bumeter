@@ -3,13 +3,13 @@
 PackageIdentifier: Bumeter.Bumeter
 PackageVersion: 1.0.6
 PackageLocale: en-US
-Publisher: chieund
-PublisherUrl: https://github.com/chieund
-PublisherSupportUrl: https://github.com/chieund/bumeter/issues
+Publisher: Bumeter
+PublisherUrl: https://github.com/bumeter
+PublisherSupportUrl: https://github.com/bumeter/bumeter/issues
 PackageName: Bumeter
 PackageUrl: https://bumeter.cc
 License: GPL-3.0-or-later
-LicenseUrl: https://github.com/chieund/bumeter/blob/main/LICENSE
+LicenseUrl: https://github.com/bumeter/bumeter/blob/main/LICENSE
 ShortDescription: See where your AI coding tokens go, per conversation, turn and skill
 Description: >-
   Bumeter reads the local logs of AI coding assistants (Claude Code, Kiro and OpenCode) and shows
@@ -24,6 +24,6 @@ Tags:
   - developer-tools
   - kiro
   - tokens
-ReleaseNotesUrl: https://github.com/chieund/bumeter/releases/tag/v1.0.6
+ReleaseNotesUrl: https://github.com/bumeter/bumeter/releases/tag/v1.0.6
 ManifestType: defaultLocale
 ManifestVersion: 1.12.0

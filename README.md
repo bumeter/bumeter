@@ -77,13 +77,13 @@ Once it is published: `sudo snap install bumeter --classic`.
 **macOS** (Homebrew)
 
 ```bash
-brew install --cask chieund/tap/bumeter
+brew install --cask bumeter/tap/bumeter
 ```
 
-The cask lives in [chieund/homebrew-tap](https://github.com/chieund/homebrew-tap). Bumeter is not
+The cask lives in [bumeter/homebrew-tap](https://github.com/bumeter/homebrew-tap). Bumeter is not
 signed with an Apple Developer ID, so macOS quarantines it: open it once with right-click → Open (the
 cask prints this when it installs). That is also why it is not in `homebrew/cask`, which requires
-notarized applications. The `.dmg` on [Releases](https://github.com/chieund/bumeter/releases) works
+notarized applications. The `.dmg` on [Releases](https://github.com/bumeter/bumeter/releases) works
 the same way. The cask also links `bum` into Homebrew's `bin`; with the `.dmg`, link it yourself:
 `ln -s /Applications/Bumeter.app/Contents/MacOS/bum /usr/local/bin/bum`.
 
