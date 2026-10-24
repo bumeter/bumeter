@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/bum-core", "crates/bum-adapters", "crates/bum-service", "crates/bum-cli", "crates/bum-skills", "app/src-tauri"]
+members = ["app/src-tauri"]
 
 [workspace.package]
-version = "1.2.0"
+version = "1.3.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 

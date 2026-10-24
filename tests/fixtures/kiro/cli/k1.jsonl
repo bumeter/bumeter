@@ -1,5 +1,0 @@
-{"version": "v1", "kind": "Prompt", "data": {"message_id": "m1", "content": [{"kind": "text", "data": "read <b>this</b> project"}], "meta": {"timestamp": 1789174800}}}
-{"version": "v1", "kind": "AssistantMessage", "data": {"message_id": "a1", "content": [{"kind": "toolUse", "data": {"toolUseId": "t1", "name": "read", "input": {}}}, {"kind": "toolUse", "data": {"toolUseId": "t2", "name": "shell", "input": {}}}]}}
-{"version": "v1", "kind": "ToolResults", "data": {"message_id": "r1", "content": []}}
-{"version": "v1", "kind": "AssistantMessage", "data": {"message_id": "a2", "content": [{"kind": "text", "data": "xong"}]}}
-{"version": "v1", "kind": "Prompt", "data": {"message_id": "m2", "content": [{"kind": "text", "data": "go on"}], "meta": {"timestamp": 1789175100}}}

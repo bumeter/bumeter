@@ -1,8 +1,0 @@
-src/**
-test/**
-scripts/**
-node_modules/**
-esbuild.mjs
-vitest.config.mjs
-tsconfig.json
-**/*.map

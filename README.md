@@ -13,6 +13,8 @@ and how much of your 5-hour, 7-day and monthly quota is left.
 
 Everything is read from your own machine. Nothing is uploaded.
 
+Bumeter is a set of tools you can install one by one: this Desktop app, [Statusline](https://github.com/bumeter/statusline) (`bum`) for Claude Code's status line, and the [VS Code extension](https://github.com/bumeter/vscode). They share one engine, [bumeter/core](https://github.com/bumeter/core), and find each other's data when installed together.
+
 ![Overview](docs/screens/readme-overview.png)
 
 ## Features
@@ -48,7 +50,7 @@ Everything is read from your own machine. Nothing is uploaded.
 - **Notifications** when a quota passes your thresholds (70% / 90% by default) or a turn costs far more than usual.
 - **Light and dark themes**, Vietnamese and English.
 - **VS Code extension**: quota and context in the status bar, files agents keep reading marked in the
-  Explorer, and the Overview in a panel ([extensions/vscode](extensions/vscode)).
+  Explorer, and the Overview in a panel ([bumeter/vscode](https://github.com/bumeter/vscode)).
 
 | Conversations | Skills |
 |---|---|
@@ -61,7 +63,7 @@ Bumeter needs a desktop with WebKitGTK 4.1, i.e. **Ubuntu 24.04 or newer** (or a
 **Debian/Ubuntu package**
 
 ```bash
-sudo apt install ./Bumeter_1.2.0_amd64.deb
+sudo apt install ./Bumeter_1.3.0_amd64.deb
 ```
 
 This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin`.
@@ -69,8 +71,8 @@ This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin
 **AppImage** (no install, libraries included)
 
 ```bash
-chmod +x Bumeter_1.2.0_amd64.AppImage
-./Bumeter_1.2.0_amd64.AppImage
+chmod +x Bumeter_1.3.0_amd64.AppImage
+./Bumeter_1.3.0_amd64.AppImage
 ```
 
 **Snap** — the `bumeter` snap is waiting for the Snap Store's classic-confinement review.
@@ -95,7 +97,7 @@ files (`scripts/packaging.py`) and `scripts/winget-pr.sh` turns them into a `win
 request; the package is not in WinGet yet.
 
 **VS Code** (also Cursor, Windsurf, Kiro) — install *Bumeter* from the Extensions view, or the
-`bumeter-<platform>-<version>.vsix` from Releases (Extensions → `…` → Install from VSIX). It bundles
+`bumeter-<platform>-<version>.vsix` from [its Releases](https://github.com/bumeter/vscode/releases) (Extensions → `…` → Install from VSIX). It bundles
 its own `bum`, so the app is optional.
 
 ## How it gets the numbers
@@ -122,56 +124,31 @@ bum session      context breakdown of one session
 bum audit        compare Bumeter's token totals with an independent count
 ```
 
-`bum report` is the Overview for a terminal — handy over SSH, on a server or in WSL, where there is no
-tray: the 5-hour and weekly limits, quota-weighted tokens by tool and project, the costliest turns, and
-the same advice as the Effectiveness panel. Without the app running it reads the logs first.
-
-```
-bum report                     the last 7 days, every tool
-bum report --days 1            today
-bum report --tool claude_code  one tool (claude_code, kiro, opencode)
-bum report --json              the same numbers for scripts and agents
-bum report --efficiency        why sessions cost what they cost, and every piece of advice ranked
-```
-
-`bum skills` works on what Claude Code (or `--tool kiro`) loads, from a terminal or from an agent:
-
-```
-bum skills list                always-on cost and usage of each skill
-bum skills disable <name>      plan to move a skill out of the way (--yes applies it)
-bum skills enable <name>       plan to move it back
-bum skills undo <id>           put the files of one journal entry back
-bum skills log                 what was changed, newest first
-bum skills audit               look for hijacked instructions, credentials and duplicates in SKILL.md
-```
-
-`disable` and `enable` always print the plan first: without `--yes` nothing moves and the exit code is
-non-zero, so a typo cannot silently change what your next session loads. `--json` puts the plan, the
-journal entry or the report on stdout for scripts, and `bum skills audit` exits non-zero when it finds
-something high-risk (an agent that reads your files, a credential next to a way to send it out, or
-instructions that tell the model to hide something from you). The scan is a heuristic over the text:
-every finding shows the line it matched, so read that line before acting on it.
+The app installs `bum` with it. `bum` is also a download of its own, with every command (`bum report`,
+`bum skills`, `bum rpc` …) documented: [bumeter/statusline](https://github.com/bumeter/statusline).
 
 ## Build from source
 
 Requirements: Rust (stable), Node 20+, `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`.
 
 ```bash
-cargo build --release -p bum-cli
-mkdir -p app/src-tauri/binaries
-cp target/release/bum app/src-tauri/binaries/bum-x86_64-unknown-linux-gnu
-(cd app/ui && npm install && npm run build)
-cd app && ./ui/node_modules/.bin/tauri build --bundles deb appimage
+(cd app && npm install)                     # @bumeter/ui and the Tauri CLI
+triple=$(rustc -vV | sed -n 's/^host: //p')
+scripts/fetch-bum.sh "$triple" "app/src-tauri/binaries/bum-$triple"   # bum $(cat BUM_VERSION) from bumeter/statusline
+cd app && npx tauri build --bundles deb appimage
 ```
+
+Working on core at the same time: see [bumeter/core](https://github.com/bumeter/core#readme) (`.cargo/config.toml` with `[patch]`).
+The screens come from [`@bumeter/ui`](https://github.com/bumeter/ui): `npm link` it into `app/` to try a change.
 
 The packages land in `target/release/bundle/`. Snap: `snapcraft pack` (uses `snap/snapcraft.yaml`, built from the `.deb`).
 More detail in [docs/build-ubuntu.md](docs/build-ubuntu.md).
 
-Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --noEmit`.
+Tests: `cargo test --workspace`.
 
 ### CI and releases
 
-- `.github/workflows/ci.yml` runs the Rust tests on Linux, macOS and Windows, plus the UI tests, on every push and pull request.
+- `.github/workflows/ci.yml` runs the Rust tests on Linux, macOS and Windows on every push and pull request.
 - `.github/workflows/release.yml` builds the installers with `tauri-action`: `.deb` + `.AppImage` (Ubuntu 22.04+),
   `.dmg` (Apple Silicon and Intel), `.exe` (NSIS) + `.msi` (Windows). Run it from the Actions tab to get the files as
   artifacts, or push a tag (`git tag v1.2.0 && git push origin v1.2.0`) to get a published GitHub Release with the
@@ -184,7 +161,7 @@ Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --no
   updates for existing installs:
 
   ```bash
-  cd app && ./ui/node_modules/.bin/tauri signer generate -w ~/.tauri/bumeter.key
+  cd app && npx tauri signer generate -w ~/.tauri/bumeter.key
   ```
 
   Put the public key (`~/.tauri/bumeter.key.pub`) into `plugins.updater.pubkey` in
@@ -195,13 +172,9 @@ Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --no
 ### Project layout
 
 ```
-crates/bum-core       database, ingestion engine, quotas, tray text, insights
-crates/bum-adapters   readers for Claude Code and Kiro logs and the OpenCode database, Kiro /usage
-crates/bum-service    background host and IPC
-crates/bum-skills     skill catalog, install/disable/remove with undo, skills.sh
-crates/bum-cli        the `bum` command
 app/src-tauri         the Tauri app: window, tray, notifications
-app/ui                the interface (TypeScript, no framework)
+app/package.json      @bumeter/ui (the screens) and the Tauri CLI
+BUM_VERSION           the bumeter/statusline release whose `bum` ships with the app
 docs/build-ubuntu.md  build the Ubuntu package (deb / AppImage)
 docs/brand            Bum, the mascot (used in this README)
 docs/screens          screenshots used in this README
@@ -209,8 +182,8 @@ docs/screens          screenshots used in this README
 
 ## Credits
 
-Tool logos in `app/ui/public/tool-icons/` belong to their owners; see the
-[NOTICE](app/ui/public/tool-icons/NOTICE.md) file there.
+Tool logos in [bumeter/ui](https://github.com/bumeter/ui) (`public/tool-icons/`) belong to their owners; see the
+[NOTICE](https://github.com/bumeter/ui/blob/main/public/tool-icons/NOTICE.md) file there.
 
 ## License
 

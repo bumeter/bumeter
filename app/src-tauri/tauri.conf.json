@@ -1,10 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Bumeter",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "identifier": "dev.bumeter.app",
   "build": {
-    "frontendDist": "../ui/dist"
+    "frontendDist": "../node_modules/@bumeter/ui/dist"
   },
   "app": {
     "withGlobalTauri": true,

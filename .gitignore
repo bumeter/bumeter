@@ -1,4 +1,5 @@
 /target
+app/node_modules/
 .superpowers/
 
 # snapcraft

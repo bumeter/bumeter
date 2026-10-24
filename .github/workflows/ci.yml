@@ -20,8 +20,6 @@ jobs:
         os: [ubuntu-22.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      # Fixture JSONL must keep LF on Windows.
-      - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
 
       - name: System libraries (Linux)
@@ -39,8 +37,8 @@ jobs:
       - name: Fake UI and sidecar for tauri-build
         shell: bash
         run: |
-          mkdir -p app/ui/dist app/src-tauri/binaries
-          echo '<!doctype html>' > app/ui/dist/index.html
+          mkdir -p app/node_modules/@bumeter/ui/dist app/src-tauri/binaries
+          echo '<!doctype html>' > app/node_modules/@bumeter/ui/dist/index.html
           triple=$(rustc -vV | sed -n 's/^host: //p')
           ext=""; [ "$RUNNER_OS" = "Windows" ] && ext=".exe"
           touch "app/src-tauri/binaries/bum-$triple$ext"
@@ -55,37 +53,3 @@ jobs:
         # Run every crate even when one fails, so one CI run shows every failure on that OS.
         run: cargo test --workspace --locked --no-fail-fast
 
-  ui:
-    name: UI
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        working-directory: app/ui
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: app/ui/package-lock.json
-      - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npx vitest run
-
-  vscode:
-    name: VS Code extension
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        working-directory: extensions/vscode
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: extensions/vscode/package-lock.json
-      - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npx vitest run
-      - run: npm run build
