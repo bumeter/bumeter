@@ -37,3 +37,14 @@ export function findBum(o: FindOptions): string | null {
   }
   return null;
 }
+
+/** A `.vsix` is a zip: unpacking may drop the executable bit of the bundled `bum`. Put it back. */
+export function ensureExecutable(p: string, platform: NodeJS.Platform = process.platform): void {
+  if (platform === 'win32') return;
+  try {
+    const mode = fs.statSync(p).mode;
+    if ((mode & 0o111) === 0) fs.chmodSync(p, mode | 0o755);
+  } catch {
+    // Not ours to fix (a read-only install, or a `bum` from PATH): spawning will report it.
+  }
+}

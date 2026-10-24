@@ -20,3 +20,18 @@ describe('findBum', () => {
     expect([platformDir('linux', 'x64'), platformDir('darwin', 'arm64'), platformDir('win32', 'x64')]).toEqual(['linux-x64', 'darwin-arm64', 'win32-x64']);
   });
 });
+
+describe('ensureExecutable', () => {
+  it('restores the executable bit a zip may have dropped', async () => {
+    const fs = await import('node:fs');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    const { ensureExecutable } = await import('../src/binary');
+    const p = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'bum-')), 'bum');
+    fs.writeFileSync(p, '#!/bin/sh\n');
+    fs.chmodSync(p, 0o644);
+    ensureExecutable(p, 'linux');
+    expect(fs.statSync(p).mode & 0o111).not.toBe(0);
+    ensureExecutable('/no/such/file', 'linux'); // no throw
+  });
+});

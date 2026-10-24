@@ -3,7 +3,7 @@
 // when the window is remote: the extension runs where the logs are).
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { findBum } from './binary';
+import { ensureExecutable, findBum } from './binary';
 import { FileMarks } from './decorations';
 import { langOf, t } from './format';
 import { OverviewPanel } from './panel';
@@ -33,6 +33,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     return;
   }
 
+  if (bin.startsWith(ctx.extensionPath)) ensureExecutable(bin);
   rpc = RpcClient.forBinary(bin);
   const project = projectOf(vscode.workspace.workspaceFolders);
   const status = new StatusBar(rpc, project, lang);
