@@ -176,3 +176,16 @@ fn project_now_is_the_latest_main_call_of_the_project() {
     assert_eq!((now.session_id.as_str(), now.ts.as_str(), now.context), ("pa", "2026-09-13T02:00:00.000Z", 50));
     assert!(s.project_now("nope").unwrap().is_none());
 }
+
+#[test]
+fn file_reads_under_a_folder_count_every_session_and_only_that_folder() {
+    let s = two_projects();
+    // /w/alpha is read from a session of project "alpha"; the folder query does not need the project.
+    let r = s.file_reads_under("/w/alpha", FROM).unwrap();
+    assert_eq!(r.iter().map(|f| (f.path.as_str(), f.reads)).collect::<Vec<_>>(), vec![("/w/alpha/src/a.rs", 4)]);
+    // Case-insensitive (Windows), and a sibling folder with the same start is not inside.
+    assert_eq!(s.file_reads_under("/W/ALPHA/", FROM).unwrap().len(), 1);
+    assert!(s.file_reads_under("/w/alph", FROM).unwrap().is_empty());
+    // LIKE wildcards in a folder name are literal.
+    assert!(s.file_reads_under("/w/_lpha", FROM).unwrap().is_empty());
+}

@@ -1,0 +1,86 @@
+{
+  "name": "bumeter",
+  "displayName": "Bumeter",
+  "description": "Claude Code, Kiro and OpenCode quota, context and token use in the status bar, and which files your agents keep reading. Local only.",
+  "version": "0.1.0",
+  "publisher": "chieund",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chieund/bumeter"
+  },
+  "homepage": "https://bumeter.cc",
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "claude code",
+    "kiro",
+    "opencode",
+    "tokens",
+    "quota"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "bumeter.openOverview",
+        "title": "Open Overview",
+        "category": "Bumeter"
+      },
+      {
+        "command": "bumeter.refresh",
+        "title": "Refresh",
+        "category": "Bumeter"
+      }
+    ],
+    "configuration": {
+      "title": "Bumeter",
+      "properties": {
+        "bumeter.binaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the `bum` command. Empty: the one bundled with the extension, then `bum` on PATH."
+        },
+        "bumeter.decorations.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mark files in the Explorer that agents read again and again."
+        },
+        "bumeter.decorations.minReads": {
+          "type": "number",
+          "default": 3,
+          "minimum": 2,
+          "description": "Reads in the last 7 days from which a file is marked."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "media": "node scripts/media.mjs",
+    "package": "npm run build && npm run media && vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.0"
+  },
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  }
+}

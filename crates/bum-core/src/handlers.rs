@@ -262,11 +262,15 @@ pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now:
             Ok(serde_json::json!({ "latest": now_call, "context_threshold": ctx.cfg.context_threshold }))
         }
         "file_reads" => {
-            // Files of one project the agents read, for the VS Code Explorer.
-            let project = params["project"].as_str().ok_or("missing 'project'")?;
+            // Files the agents read, for the VS Code Explorer: under a folder (`prefix`), or of a project.
             let days = params["days"].as_u64().unwrap_or(7).clamp(1, 90) as i64;
             let from = (now - chrono::Duration::days(days)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-            to_value(ctx.store.file_reads(project, &from).map(|v| serde_json::to_value(v).unwrap_or_default()))
+            let list = match (params["prefix"].as_str(), params["project"].as_str()) {
+                (Some(prefix), _) => ctx.store.file_reads_under(&prefix.replace('\\', "/"), &from),
+                (None, Some(project)) => ctx.store.file_reads(project, &from),
+                (None, None) => return Err("missing 'prefix' or 'project'".into()),
+            };
+            to_value(list.map(|v| serde_json::to_value(v).unwrap_or_default()))
         }
         "session_economics" => {
             let sid = params["session_id"].as_str().ok_or("missing 'session_id'")?;

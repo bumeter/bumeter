@@ -208,8 +208,7 @@ pub struct PromptListItem {
 }
 
 fn like_pattern(q: &str) -> String {
-    let escaped = q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
-    format!("%{escaped}%")
+    format!("%{}%", like_escape(q))
 }
 
 impl Store {
@@ -586,19 +585,30 @@ impl Store {
 
     /// Files of `project` read or edited by tool calls since `from`, most read first (at most 500).
     pub fn file_reads(&self, project: &str, from: &str) -> rusqlite::Result<Vec<FileReads>> {
-        let mut st = self.conn().prepare(
+        self.file_reads_where("s.project = ?1", project, from)
+    }
+
+    /// Files under the folder `prefix` (`/` separators) read or edited since `from`, from any session:
+    /// an agent started in another directory still counts. Case-insensitive, as Windows paths are.
+    pub fn file_reads_under(&self, prefix: &str, from: &str) -> rusqlite::Result<Vec<FileReads>> {
+        let folder = format!("{}/", prefix.trim_end_matches('/'));
+        self.file_reads_where("t.target LIKE ?1 ESCAPE '\\'", &format!("{}%", like_escape(&folder)), from)
+    }
+
+    fn file_reads_where(&self, condition: &str, arg: &str, from: &str) -> rusqlite::Result<Vec<FileReads>> {
+        let mut st = self.conn().prepare(&format!(
             "SELECT t.target,
                     SUM(CASE WHEN t.name = 'Read' THEN 1 ELSE 0 END),
                     SUM(CASE WHEN t.name IN ('Edit', 'MultiEdit', 'Write', 'NotebookEdit') THEN 1 ELSE 0 END),
                     MAX(a.ts)
              FROM api_call_tools t JOIN api_calls a ON a.request_id = t.request_id JOIN sessions s ON s.id = a.session_id
-             WHERE s.project = ?1 AND a.ts >= ?2 AND t.target IS NOT NULL
+             WHERE {condition} AND a.ts >= ?2 AND t.target IS NOT NULL
                AND t.name IN ('Read', 'Edit', 'MultiEdit', 'Write', 'NotebookEdit')
              GROUP BY t.target
              ORDER BY 2 DESC, t.target
-             LIMIT 500",
-        )?;
-        let rows = st.query_map(params![project, from], |r| Ok(FileReads { path: r.get(0)?, reads: u64_at(r, 1)?, edits: u64_at(r, 2)?, last_ts: r.get(3)? }))?;
+             LIMIT 500"
+        ))?;
+        let rows = st.query_map(params![arg, from], |r| Ok(FileReads { path: r.get(0)?, reads: u64_at(r, 1)?, edits: u64_at(r, 2)?, last_ts: r.get(3)? }))?;
         rows.collect()
     }
 }
@@ -624,4 +634,9 @@ impl Store {
             )
             .optional()
     }
+}
+
+/// `s` as a literal inside a LIKE pattern escaped with `\\`.
+fn like_escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
 }
