@@ -238,3 +238,40 @@ fn a_tool_result_marks_its_call_and_one_without_a_call_is_dropped() {
     assert_eq!(rows.len(), 1);
     assert_eq!((rows[0].target.as_deref(), rows[0].target_hash, rows[0].error, rows[0].result_chars), (Some("/a.rs"), Some(42), Some(true), Some(120)));
 }
+
+#[test]
+fn a_session_seen_first_without_cwd_takes_the_project_when_cwd_comes() {
+    use bum_core::model::RawEvent;
+    let mut s = Store::open_in_memory().unwrap();
+    let ses = |project: &str, cwd: Option<&str>| RawEvent::Session { session_id: "v".into(), tool: "claude_code".into(), project: project.into(), cwd: cwd.map(String::from), version: None, ts: "2026-10-24T03:35:17.414Z".into() };
+    let first = s.ingest_batch(&offset(MAIN), &[ses("-home-u-work-bumeter", None)], 0).unwrap();
+    assert_eq!(first.new_sessions, vec!["v".to_string()]);
+    let second = s.ingest_batch(&offset(MAIN), &[ses("bumeter", Some("/home/u/work/bumeter"))], 0).unwrap();
+    assert!(second.new_sessions.is_empty(), "not a new session");
+    assert_eq!(s.session_project("v").unwrap().as_deref(), Some("bumeter"));
+    // Once known, a later line does not change it again.
+    s.ingest_batch(&offset(MAIN), &[ses("other", Some("/x/other"))], 0).unwrap();
+    assert_eq!(s.session_project("v").unwrap().as_deref(), Some("bumeter"));
+}
+
+#[test]
+fn v9_rereads_the_files_of_sessions_without_cwd() {
+    use bum_core::model::RawEvent;
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("v9.db");
+    {
+        let mut s = Store::open(&db).unwrap();
+        s.ingest_batch(&offset(MAIN), &main_events(), 0).unwrap(); // has cwd
+        let vs = vec![
+            RawEvent::Session { session_id: "v".into(), tool: "claude_code".into(), project: "-w-app".into(), cwd: None, version: None, ts: "2026-10-24T03:35:17.414Z".into() },
+            RawEvent::Prompt { key: "vq".into(), session_id: "v".into(), ts: "2026-10-24T03:35:19.000Z".into(), text: "hi".into() },
+        ];
+        s.ingest_batch(&offset("/root/-w-app/v.jsonl"), &vs, 0).unwrap();
+    }
+    rusqlite::Connection::open(&db).unwrap().execute_batch("PRAGMA user_version = 8;").unwrap();
+    drop(Store::open(&db).unwrap());
+    let c = rusqlite::Connection::open(&db).unwrap();
+    let id = |p: &str| c.query_row("SELECT file_id FROM file_offsets WHERE path = ?1", [p], |r| r.get::<_, String>(0)).unwrap();
+    assert_eq!(id("/root/-w-app/v.jsonl"), "reread-v9");
+    assert_eq!(id(MAIN), "1:1");
+}

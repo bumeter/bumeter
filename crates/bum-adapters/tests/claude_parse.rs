@@ -153,3 +153,30 @@ fn tool_results_say_whether_the_call_failed_and_how_long_the_result_was() {
     assert_eq!(results, vec![("t1", false, 5), ("t2", true, 7)]);
     assert!(!ev.iter().any(|e| matches!(e, RawEvent::Prompt { .. })), "a tool result is not a question");
 }
+
+#[test]
+fn a_vscode_log_gets_its_project_from_cwd_not_from_the_directory() {
+    // Claude Code in VS Code starts with lines that have a session and a time but no cwd.
+    let lines: Vec<String> = vec![
+        serde_json::json!({ "type": "queue-operation", "sessionId": "vs1", "timestamp": "2026-10-24T03:35:17.414Z" }).to_string(),
+        serde_json::json!({ "type": "attachment", "sessionId": "vs1", "timestamp": "2026-10-24T03:35:18.000Z", "cwd": "/home/u/work/bumeter", "entrypoint": "claude-vscode", "version": "2.1.310" }).to_string(),
+        serde_json::json!({ "type": "user", "sessionId": "vs1", "timestamp": "2026-10-24T03:35:19.000Z", "cwd": "/home/u/work/bumeter", "promptId": "q1", "message": { "role": "user", "content": "hello" } }).to_string(),
+    ];
+    let ev = parse_lines(&lines);
+    let sessions: Vec<(&str, Option<&str>)> = ev.iter().filter_map(|e| match e {
+        RawEvent::Session { project, cwd, .. } => Some((project.as_str(), cwd.as_deref())),
+        _ => None,
+    }).collect();
+    assert_eq!(sessions, vec![("bumeter", Some("/home/u/work/bumeter"))]);
+}
+
+#[test]
+fn a_log_without_any_cwd_still_gets_a_session_at_its_first_turn() {
+    let lines: Vec<String> = vec![
+        serde_json::json!({ "type": "queue-operation", "sessionId": "vs2", "timestamp": "2026-10-24T03:35:17.414Z" }).to_string(),
+        serde_json::json!({ "type": "user", "sessionId": "vs2", "timestamp": "2026-10-24T03:35:19.000Z", "promptId": "q1", "message": { "role": "user", "content": "hello" } }).to_string(),
+    ];
+    let ev = parse_lines(&lines);
+    assert_eq!(ev.iter().filter(|e| matches!(e, RawEvent::Session { .. })).count(), 1);
+    assert!(matches!(&ev[0], RawEvent::Session { cwd: None, .. }), "the session comes before the question: {ev:?}");
+}

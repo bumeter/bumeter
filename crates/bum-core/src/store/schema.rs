@@ -32,7 +32,7 @@ CREATE TABLE notes(prompt_key TEXT PRIMARY KEY, starred INTEGER NOT NULL DEFAULT
   updated_at TEXT NOT NULL);
 "#;
 
-pub const CURRENT_VERSION: i64 = 8;
+pub const CURRENT_VERSION: i64 = 9;
 
 pub fn version(conn: &Connection) -> rusqlite::Result<i64> {
     conn.query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -113,6 +113,19 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                SELECT a.source_file FROM api_calls a JOIN sessions s ON s.id = a.session_id WHERE s.tool = 'claude_code');",
         )?;
         conn.pragma_update(None, "user_version", 8)?;
+    }
+    if version < 9 {
+        // Claude Code sessions recorded without `cwd` (VS Code logs start with lines that have none) got
+        // the log directory's name as their project: read those files again so they get the real one.
+        conn.execute_batch(
+            "UPDATE file_offsets SET file_id = 'reread-v9' WHERE path IN (
+               SELECT a.source_file FROM api_calls a JOIN sessions s ON s.id = a.session_id
+               WHERE s.tool = 'claude_code' AND s.cwd IS NULL
+               UNION
+               SELECT p.source_file FROM prompts p JOIN sessions s ON s.id = p.session_id
+               WHERE s.tool = 'claude_code' AND s.cwd IS NULL);",
+        )?;
+        conn.pragma_update(None, "user_version", 9)?;
     }
     Ok(())
 }
