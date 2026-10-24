@@ -18,7 +18,7 @@ fn main() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state::AppState::load())
-        .manage(skills::PendingPlans::default())
+        .manage(bum_service::ops::Ops::new(bum_core::paths::Paths::resolve(), settings::bum_bin(), env!("CARGO_PKG_VERSION")))
         .setup(|app| {
             tray::create(app.handle())?;
             runtime::start(app.handle());

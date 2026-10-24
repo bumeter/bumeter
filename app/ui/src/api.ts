@@ -240,6 +240,9 @@ async function getTransport(): Promise<Transport> {
 
 export function setTransport(t: Transport) { transport = t; }
 
+/** Running inside the VS Code extension's webview (not the desktop app). */
+export const inEditor = (): boolean => typeof acquireVsCodeApi === 'function';
+
 async function call<T>(method: string, params?: unknown): Promise<T> {
   return (await getTransport()).call(method, params) as Promise<T>;
 }

@@ -99,6 +99,12 @@ fn without_a_host_it_becomes_one_and_answers() {
     // Methods the app answers from the tools' logs work too.
     let sources = rpc.call("sources", Value::Null);
     assert!(sources["result"].as_array().unwrap().iter().any(|s| s["info"]["id"] == "claude_code"), "{sources}");
+    // The Skills and Settings screens work too.
+    let count = rpc.call("skills:count", Value::Null);
+    assert!(count["result"]["total"].is_u64(), "{count}");
+    let settings = rpc.call("settings:get", Value::Null);
+    assert!(settings["result"]["config"].is_object(), "{settings}");
+    assert!(rpc.call("skills:nope", Value::Null)["error"].as_str().unwrap().contains("no such action"));
     // Errors are answers, not crashes.
     assert!(rpc.call("no_such_method", Value::Null)["error"].is_string());
     rpc.send_raw("not json");

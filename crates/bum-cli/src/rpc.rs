@@ -90,6 +90,8 @@ struct Rpc {
     cfg: Config,
     out: Out,
     own: Option<HostHandle>,
+    /// The Skills and Settings screens' commands, run in this process like the app runs them.
+    ops: bum_service::ops::Ops,
 }
 
 impl Rpc {
@@ -116,6 +118,9 @@ impl Rpc {
     }
 
     fn handle(&mut self, method: &str, params: Value) -> Result<Value, String> {
+        if let Some(r) = self.ops.call(method, &params) {
+            return r;
+        }
         // Methods that read the tools' own logs are answered here, from the database the host keeps.
         if let Ok(store) = bum_core::store::Store::open_readonly(&self.paths.db()) {
             if let Some(r) = bum_service::extra::call(&store, &self.cfg, method, &params) {
@@ -139,7 +144,10 @@ impl Rpc {
 
 pub fn run(paths: Paths, cfg: Config) -> anyhow::Result<()> {
     paths.ensure()?;
-    let mut rpc = Rpc { paths, cfg, out: Out(Arc::new(Mutex::new(()))), own: None };
+    // The statusline hook set up from an editor must call this same `bum`.
+    let bum = std::env::current_exe().map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|_| "bum".into());
+    let ops = bum_service::ops::Ops::new(paths.clone(), bum, env!("CARGO_PKG_VERSION"));
+    let mut rpc = Rpc { paths, cfg, out: Out(Arc::new(Mutex::new(()))), own: None, ops };
     if client::call_timeout(&rpc.paths, "ping", Value::Null, PROBE).is_ok() {
         rpc.announce();
     } else {

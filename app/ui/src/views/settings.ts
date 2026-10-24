@@ -1,4 +1,4 @@
-import { api } from '../api';
+import { api, inEditor } from '../api';
 import type { Config, SettingsInfo, StatuslineMode } from '../api';
 import { h } from '../dom';
 import { fmtDayMonth } from '../fmt';
@@ -313,9 +313,9 @@ export async function mountSettings(el: HTMLElement) {
       h('section', { class: 'panel' },
         h('h2', {}, t('set.updates')),
         info.version ? h('div', { class: 'sub' }, t('set.updateCurrent', { v: info.version })) : '',
-        h('small', {}, t('set.updateHint')),
-        h('div', { class: 'actions' }, updateCheck, installBtn),
-        updateMsg),
+        // In an editor the extension is updated by the editor; the app's updater does not apply.
+        ...(inEditor() ? [h('small', { 'data-hint': 'editor-updates' }, t('set.updateEditor'))]
+          : [h('small', {}, t('set.updateHint')), h('div', { class: 'actions' }, updateCheck, installBtn), updateMsg])),
       h('section', { class: 'panel' },
         h('h2', {}, t('set.diagnostics')),
         h('div', { class: 'sub' }, t('set.dataDir'), h('code', {}, info.data_dir)),
