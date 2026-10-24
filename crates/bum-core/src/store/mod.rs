@@ -223,6 +223,22 @@ impl Store {
         Ok(sum)
     }
 
+    /// Mark for a full re-read the Claude Code files whose session has no `cwd`, so the parser can give
+    /// them their real project (VS Code logs start without `cwd`; an older parser kept the directory
+    /// name). Run when a host starts, not on every scan: a log with no `cwd` at all would otherwise be
+    /// read again and again. Returns how many files were marked.
+    pub fn reread_sessions_without_cwd(&mut self) -> rusqlite::Result<usize> {
+        self.conn.execute(
+            "UPDATE file_offsets SET file_id = 'reread-cwd' WHERE path IN (
+               SELECT a.source_file FROM api_calls a JOIN sessions s ON s.id = a.session_id
+               WHERE s.tool = 'claude_code' AND s.cwd IS NULL
+               UNION
+               SELECT p.source_file FROM prompts p JOIN sessions s ON s.id = p.session_id
+               WHERE s.tool = 'claude_code' AND s.cwd IS NULL)",
+            [],
+        )
+    }
+
     /// Return `true` if `key` has never been sent (and mark it as sent).
     pub fn alert_once(&mut self, key: &str, ts: &str) -> rusqlite::Result<bool> {
         Ok(self.conn.execute("INSERT OR IGNORE INTO alerts_sent(key, ts) VALUES(?1, ?2)", params![key, ts])? == 1)

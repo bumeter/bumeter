@@ -90,6 +90,11 @@ pub fn start_host(paths: Paths, cfg: Config, mut handler: Box<dyn HostHandler + 
     let mut engine = Engine::new(store, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro_root(&cfg)))])
         .with_db_sources(vec![Box::new(bum_adapters::opencode::OpenCode::new(opencode_db(&cfg)))]);
     let started = Instant::now();
+    if let Ok(n) = engine.store_mut().reread_sessions_without_cwd() {
+        if n > 0 {
+            eprintln!("bumeter: reading {n} Claude Code logs again to fix their project");
+        }
+    }
     let report = engine.full_scan()?;
     eprintln!("bumeter: initial scan of {} lines in {:?}", report.lines, started.elapsed());
 

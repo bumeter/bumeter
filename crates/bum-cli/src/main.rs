@@ -145,7 +145,10 @@ fn engine(paths: &Paths) -> anyhow::Result<Engine> {
     let root = claude_root(&cfg);
     let kiro = bum_service::host::kiro_root(&cfg);
     let opencode = bum_service::host::opencode_db(&cfg);
-    Ok(Engine::new(Store::open(&paths.db())?, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro))])
+    let mut store = Store::open(&paths.db())?;
+    // `bum scan` / `bum report` act as the host when none runs: same start-up repair.
+    let _ = store.reread_sessions_without_cwd();
+    Ok(Engine::new(store, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro))])
         .with_db_sources(vec![Box::new(bum_adapters::opencode::OpenCode::new(opencode))]))
 }
 
