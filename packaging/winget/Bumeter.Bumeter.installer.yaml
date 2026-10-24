@@ -9,7 +9,7 @@ Commands:
   - bum
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/chieund/bumeter/releases/download/v1.0.6/Bumeter_1.0.6_x64-setup.exe
+    InstallerUrl: https://github.com/bumeter/bumeter/releases/download/v1.0.6/Bumeter_1.0.6_x64-setup.exe
     InstallerSha256: E615B1E46037E608AB0DA5EA4D12F46A1245A0EF0819F1341E544E6B13F7930F
 InstallModes:
   - interactive

@@ -309,6 +309,7 @@ export const en: Record<keyof typeof vi, string> = {
   'set.updates': 'Updates',
   'set.updateCurrent': 'Current version: {v}',
   'set.updateHint': 'Updates are delivered through GitHub Releases.',
+  'set.updateEditor': 'The extension is updated by VS Code (Extensions view), not by the app\'s updater.',
   'set.updateCheck': 'Check for updates',
   'set.updateChecking': 'Checking…',
   'set.updateAvailable': 'Version {v} is available.',

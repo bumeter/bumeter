@@ -513,3 +513,15 @@ describe('SKILL.md safety scan', () => {
     expect(list.textContent).not.toContain('Không thấy gì đáng ngờ');
   });
 });
+
+describe('Skills at medium width', () => {
+  it('loading the 30-day usage does not open the detail drawer when nothing is chosen', async () => {
+    update({ layout: 'medium' });
+    const econ = { calls: 300, weighted: 1, startup: { sessions: 0, median: 0, weighted: 0, max_session: null }, resend: { sessions: 0, median: 0, flagged: 0, flagged_weighted: 0, worst: null }, cache: null, breakdown: { by_model: [], by_chain: [], by_start: [] } };
+    fake({ skills_list: report, effectiveness: () => ({ turns: 1, sessions: 6, weighted: 1, interrupted_turns: 0, interrupted_weighted: 0, big_context_turns: 0, big_context_weighted: 0, compactions: 0, advice: [], economics: econ, blocked: null }) });
+    await mountSkills(list, detail);
+    await flush(); await flush();
+    expect(document.querySelector('.drawer')).toBeNull();
+    update({ layout: 'wide' });
+  });
+});

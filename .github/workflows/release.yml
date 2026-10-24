@@ -1,7 +1,9 @@
 # Build installers for Linux, macOS, Windows.
 # - Run manually (workflow_dispatch) or push to main: the installers appear under the run's Artifacts.
-# - Push a v* tag (e.g. v1.1.0): creates a published GitHub Release with the installers attached,
+# - Push a v* tag (e.g. v1.2.0): creates a published GitHub Release with the installers attached,
 #   plus the `latest.json` + `.sig` files the in-app updater reads (Settings → Updates).
+# - Each platform also packages the VS Code extension with that platform's `bum`
+#   (bumeter-<vsce target>-<version>.vsix), for `vsce publish --packagePath`.
 #
 # The bundles are built by tauri-action so it can generate `latest.json` for us (updater on,
 # NSIS preferred on Windows). `tauri.ci.conf.json` turns on `createUpdaterArtifacts` for CI only:
@@ -27,18 +29,22 @@ jobs:
           - name: Linux x64
             os: ubuntu-22.04 # glibc 2.35: runs from Ubuntu 22.04
             target: x86_64-unknown-linux-gnu
+            vsce: linux-x64
             bundles: deb,appimage
           - name: macOS Apple Silicon
             os: macos-latest
             target: aarch64-apple-darwin
+            vsce: darwin-arm64
             bundles: app,dmg
           - name: macOS Intel
             os: macos-latest
             target: x86_64-apple-darwin
+            vsce: darwin-x64
             bundles: app,dmg
           - name: Windows x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
+            vsce: win32-x64
             bundles: nsis,msi
     runs-on: ${{ matrix.os }}
     defaults:
@@ -65,7 +71,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: app/ui/package-lock.json
+          cache-dependency-path: |
+            app/ui/package-lock.json
+            extensions/vscode/package-lock.json
 
       # `bum` ships with the app (externalBin "binaries/bum" → bum-<target>[.exe]).
       - name: Build bum (sidecar)
@@ -125,6 +133,25 @@ jobs:
           done
           ls -la dist
           [ -n "$(ls dist)" ] || { echo "No installers found"; exit 1; }
+
+      # The `bum` built above, so the Linux one needs only glibc 2.35 like the app. macOS Intel is
+      # cross-built on an Apple Silicon runner, hence BUM_PLATFORM rather than the runner's own arch.
+      - name: Package VS Code extension
+        working-directory: extensions/vscode
+        run: |
+          ext=""; [ "$RUNNER_OS" = "Windows" ] && ext=".exe"
+          npm ci
+          npm run build
+          BUM_BINARY="$GITHUB_WORKSPACE/target/${{ matrix.target }}/release/bum$ext" BUM_PLATFORM=${{ matrix.vsce }} npm run media
+          version=$(node -p "require('./package.json').version")
+          npx vsce package --no-dependencies --target ${{ matrix.vsce }} -o "$GITHUB_WORKSPACE/dist/bumeter-${{ matrix.vsce }}-$version.vsix"
+
+      # tauri-action has created the Release by now; add the extension to it.
+      - name: Attach extension to the Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.vsix --clobber
 
       - uses: actions/upload-artifact@v4
         with:

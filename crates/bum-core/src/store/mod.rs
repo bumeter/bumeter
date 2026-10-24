@@ -115,11 +115,16 @@ impl Store {
         for ev in events {
             match ev {
                 RawEvent::Session { session_id, tool, project, cwd, version, ts } => {
-                    let n = tx.execute(
-                        "INSERT OR IGNORE INTO sessions(id, tool, project, cwd, version, first_ts) VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
+                    // A session first seen without `cwd` (project named after the log directory) takes the
+                    // real project as soon as a line brings `cwd`.
+                    let known: bool = tx.prepare_cached("SELECT 1 FROM sessions WHERE id = ?1")?.exists([session_id])?;
+                    tx.execute(
+                        "INSERT INTO sessions(id, tool, project, cwd, version, first_ts) VALUES(?1, ?2, ?3, ?4, ?5, ?6)
+                         ON CONFLICT(id) DO UPDATE SET project = excluded.project, cwd = excluded.cwd
+                           WHERE sessions.cwd IS NULL AND excluded.cwd IS NOT NULL",
                         params![session_id, tool, project, cwd, version, ts],
                     )?;
-                    if n == 1 {
+                    if !known {
                         push_unique(&mut sum.new_sessions, session_id);
                     }
                 }
@@ -216,6 +221,22 @@ impl Store {
         }
         tx.commit()?;
         Ok(sum)
+    }
+
+    /// Mark for a full re-read the Claude Code files whose session has no `cwd`, so the parser can give
+    /// them their real project (VS Code logs start without `cwd`; an older parser kept the directory
+    /// name). Run when a host starts, not on every scan: a log with no `cwd` at all would otherwise be
+    /// read again and again. Returns how many files were marked.
+    pub fn reread_sessions_without_cwd(&mut self) -> rusqlite::Result<usize> {
+        self.conn.execute(
+            "UPDATE file_offsets SET file_id = 'reread-cwd' WHERE path IN (
+               SELECT a.source_file FROM api_calls a JOIN sessions s ON s.id = a.session_id
+               WHERE s.tool = 'claude_code' AND s.cwd IS NULL
+               UNION
+               SELECT p.source_file FROM prompts p JOIN sessions s ON s.id = p.session_id
+               WHERE s.tool = 'claude_code' AND s.cwd IS NULL)",
+            [],
+        )
     }
 
     /// Return `true` if `key` has never been sent (and mark it as sent).

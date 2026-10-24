@@ -1,7 +1,7 @@
 name: bumeter
 title: Bumeter
 base: core24
-version: '1.1.0'
+version: '1.2.0'
 license: GPL-3.0-or-later
 summary: Token, quota and skill usage for AI coding tools
 description: |
@@ -17,9 +17,9 @@ description: |
 
   Everything stays on your machine; nothing is uploaded.
   Requires a desktop with WebKitGTK 4.1 (Ubuntu 24.04 or newer).
-website: https://github.com/chieund/bumeter
-source-code: https://github.com/chieund/bumeter
-issues: https://github.com/chieund/bumeter/issues
+website: https://github.com/bumeter/bumeter
+source-code: https://github.com/bumeter/bumeter
+issues: https://github.com/bumeter/bumeter/issues
 icon: snap/gui/bumeter.png
 grade: stable
 # Classic: reads logs in ~/.claude, ~/.kiro, writes the statusline hook into ~/.claude/settings.json, calls kiro-cli on the machine.
@@ -37,7 +37,7 @@ parts:
   bumeter:
     # Built from the .deb produced by `tauri build --bundles deb` (see docs/build-ubuntu.md).
     plugin: dump
-    source: target/release/bundle/deb/Bumeter_1.1.0_amd64.deb
+    source: target/release/bundle/deb/Bumeter_1.2.0_amd64.deb
     source-type: deb
     prime:
       - usr/bin/bumeter

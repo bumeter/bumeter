@@ -31,7 +31,7 @@ import urllib.error
 import urllib.request
 
 API = "https://api.github.com"
-DEFAULT_REPO = os.environ.get("BUMETER_REPO", "chieund/bumeter")
+DEFAULT_REPO = os.environ.get("BUMETER_REPO", "bumeter/bumeter")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PACKAGING = os.path.join(ROOT, "packaging")
 HOME = "https://bumeter.cc"
@@ -212,8 +212,8 @@ def winget_locale(version: str, release_json: dict) -> str:
 PackageIdentifier: Bumeter.Bumeter
 PackageVersion: {version}
 PackageLocale: en-US
-Publisher: chieund
-PublisherUrl: https://github.com/chieund
+Publisher: Bumeter
+PublisherUrl: https://github.com/bumeter
 PublisherSupportUrl: {REPO_URL}/issues
 PackageName: Bumeter
 PackageUrl: {HOME}

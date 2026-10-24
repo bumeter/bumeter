@@ -2,6 +2,7 @@
 mod audit;
 mod daemon;
 mod report;
+mod rpc;
 mod statusline;
 
 use std::path::PathBuf;
@@ -66,6 +67,8 @@ enum Cmd {
     },
     /// Analyze the context composition of a session (read-only).
     Session { session_id: String },
+    /// JSON-RPC over stdin/stdout for editor extensions: forwards to the running host, or becomes one.
+    Rpc,
     /// Skills: list, enable/disable, undo, log.
     Skills {
         #[command(subcommand)]
@@ -124,6 +127,7 @@ fn main() -> ExitCode {
         Cmd::Report { days, tool, json, efficiency } => report(&paths, days, tool.as_deref(), json, efficiency),
         Cmd::Skills { cmd, tool, json } => skills(&paths, &tool, json, cmd),
         Cmd::Session { session_id } => session(&paths, &session_id),
+        Cmd::Rpc => rpc::run(paths.clone(), config(&paths)).map(|_| true),
     };
     match result {
         Ok(true) => ExitCode::SUCCESS,
@@ -141,7 +145,10 @@ fn engine(paths: &Paths) -> anyhow::Result<Engine> {
     let root = claude_root(&cfg);
     let kiro = bum_service::host::kiro_root(&cfg);
     let opencode = bum_service::host::opencode_db(&cfg);
-    Ok(Engine::new(Store::open(&paths.db())?, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro))])
+    let mut store = Store::open(&paths.db())?;
+    // `bum scan` / `bum report` act as the host when none runs: same start-up repair.
+    let _ = store.reread_sessions_without_cwd();
+    Ok(Engine::new(store, vec![Box::new(ClaudeCode::new(&root)), Box::new(bum_adapters::kiro::Kiro::new(kiro))])
         .with_db_sources(vec![Box::new(bum_adapters::opencode::OpenCode::new(opencode))]))
 }
 

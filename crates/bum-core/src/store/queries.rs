@@ -208,8 +208,7 @@ pub struct PromptListItem {
 }
 
 fn like_pattern(q: &str) -> String {
-    let escaped = q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
-    format!("%{escaped}%")
+    format!("%{}%", like_escape(q))
 }
 
 impl Store {
@@ -564,4 +563,80 @@ fn tool_call_row(r: &Row) -> rusqlite::Result<ToolCallRow> {
         error: r.get::<_, Option<i64>>(6)?.map(|e| e != 0),
         result_chars: r.get::<_, Option<i64>>(7)?.map(|n| n.max(0) as u64),
     })
+}
+
+/// How often agents read and edited one file of a project (from tool calls, schema v8).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FileReads {
+    /// As the log recorded it, with `/` separators.
+    pub path: String,
+    pub reads: u64,
+    pub edits: u64,
+    pub last_ts: String,
+}
+
+impl Store {
+    /// Session ids of one project.
+    pub fn project_sessions(&self, project: &str) -> rusqlite::Result<std::collections::HashSet<String>> {
+        let mut st = self.conn().prepare("SELECT id FROM sessions WHERE project = ?1")?;
+        let rows = st.query_map([project], |r| r.get(0))?;
+        rows.collect()
+    }
+
+    /// Files of `project` read or edited by tool calls since `from`, most read first (at most 500).
+    pub fn file_reads(&self, project: &str, from: &str) -> rusqlite::Result<Vec<FileReads>> {
+        self.file_reads_where("s.project = ?1", project, from)
+    }
+
+    /// Files under the folder `prefix` (`/` separators) read or edited since `from`, from any session:
+    /// an agent started in another directory still counts. Case-insensitive, as Windows paths are.
+    pub fn file_reads_under(&self, prefix: &str, from: &str) -> rusqlite::Result<Vec<FileReads>> {
+        let folder = format!("{}/", prefix.trim_end_matches('/'));
+        self.file_reads_where("t.target LIKE ?1 ESCAPE '\\'", &format!("{}%", like_escape(&folder)), from)
+    }
+
+    fn file_reads_where(&self, condition: &str, arg: &str, from: &str) -> rusqlite::Result<Vec<FileReads>> {
+        let mut st = self.conn().prepare(&format!(
+            "SELECT t.target,
+                    SUM(CASE WHEN t.name = 'Read' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN t.name IN ('Edit', 'MultiEdit', 'Write', 'NotebookEdit') THEN 1 ELSE 0 END),
+                    MAX(a.ts)
+             FROM api_call_tools t JOIN api_calls a ON a.request_id = t.request_id JOIN sessions s ON s.id = a.session_id
+             WHERE {condition} AND a.ts >= ?2 AND t.target IS NOT NULL
+               AND t.name IN ('Read', 'Edit', 'MultiEdit', 'Write', 'NotebookEdit')
+             GROUP BY t.target
+             ORDER BY 2 DESC, t.target
+             LIMIT 500"
+        ))?;
+        let rows = st.query_map(params![arg, from], |r| Ok(FileReads { path: r.get(0)?, reads: u64_at(r, 1)?, edits: u64_at(r, 2)?, last_ts: r.get(3)? }))?;
+        rows.collect()
+    }
+}
+
+/// The latest main-chain call of a project: what its session is carrying now.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ProjectNow {
+    pub session_id: String,
+    pub ts: String,
+    /// Context the call sent (input + cache writes + cache reads).
+    pub context: u64,
+}
+
+impl Store {
+    pub fn project_now(&self, project: &str) -> rusqlite::Result<Option<ProjectNow>> {
+        self.conn()
+            .query_row(
+                "SELECT a.session_id, a.ts, a.input + a.cw5 + a.cw1h + a.cache_read
+                 FROM api_calls a JOIN sessions s ON s.id = a.session_id
+                 WHERE s.project = ?1 AND a.sidechain = 0 ORDER BY a.ts DESC LIMIT 1",
+                [project],
+                |r| Ok(ProjectNow { session_id: r.get(0)?, ts: r.get(1)?, context: u64_at(r, 2)? }),
+            )
+            .optional()
+    }
+}
+
+/// `s` as a literal inside a LIKE pattern escaped with `\\`.
+fn like_escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
 }

@@ -47,6 +47,8 @@ Everything is read from your own machine. Nothing is uploaded.
 - **Per-tool tabs** on every screen, so adding Codex, Cursor or OpenCode later is one more tab, not a redesign.
 - **Notifications** when a quota passes your thresholds (70% / 90% by default) or a turn costs far more than usual.
 - **Light and dark themes**, Vietnamese and English.
+- **VS Code extension**: quota and context in the status bar, files agents keep reading marked in the
+  Explorer, and the Overview in a panel ([extensions/vscode](extensions/vscode)).
 
 | Conversations | Skills |
 |---|---|
@@ -59,7 +61,7 @@ Bumeter needs a desktop with WebKitGTK 4.1, i.e. **Ubuntu 24.04 or newer** (or a
 **Debian/Ubuntu package**
 
 ```bash
-sudo apt install ./Bumeter_1.1.0_amd64.deb
+sudo apt install ./Bumeter_1.2.0_amd64.deb
 ```
 
 This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin`.
@@ -67,8 +69,8 @@ This installs `bumeter` (the app) and `bum` (the command line tool) in `/usr/bin
 **AppImage** (no install, libraries included)
 
 ```bash
-chmod +x Bumeter_1.1.0_amd64.AppImage
-./Bumeter_1.1.0_amd64.AppImage
+chmod +x Bumeter_1.2.0_amd64.AppImage
+./Bumeter_1.2.0_amd64.AppImage
 ```
 
 **Snap** — the `bumeter` snap is waiting for the Snap Store's classic-confinement review.
@@ -77,13 +79,13 @@ Once it is published: `sudo snap install bumeter --classic`.
 **macOS** (Homebrew)
 
 ```bash
-brew install --cask chieund/tap/bumeter
+brew install --cask bumeter/tap/bumeter
 ```
 
-The cask lives in [chieund/homebrew-tap](https://github.com/chieund/homebrew-tap). Bumeter is not
+The cask lives in [bumeter/homebrew-tap](https://github.com/bumeter/homebrew-tap). Bumeter is not
 signed with an Apple Developer ID, so macOS quarantines it: open it once with right-click → Open (the
 cask prints this when it installs). That is also why it is not in `homebrew/cask`, which requires
-notarized applications. The `.dmg` on [Releases](https://github.com/chieund/bumeter/releases) works
+notarized applications. The `.dmg` on [Releases](https://github.com/bumeter/bumeter/releases) works
 the same way. The cask also links `bum` into Homebrew's `bin`; with the `.dmg`, link it yourself:
 `ln -s /Applications/Bumeter.app/Contents/MacOS/bum /usr/local/bin/bum`.
 
@@ -91,6 +93,10 @@ the same way. The cask also links `bum` into Homebrew's `bin`; with the `.dmg`, 
 adds its folder to your user `PATH`, so `bum` works in a new terminal (the uninstaller takes it off). The WinGet manifests are generated from those
 files (`scripts/packaging.py`) and `scripts/winget-pr.sh` turns them into a `winget-pkgs` pull
 request; the package is not in WinGet yet.
+
+**VS Code** (also Cursor, Windsurf, Kiro) — install *Bumeter* from the Extensions view, or the
+`bumeter-<platform>-<version>.vsix` from Releases (Extensions → `…` → Install from VSIX). It bundles
+its own `bum`, so the app is optional.
 
 ## How it gets the numbers
 
@@ -168,7 +174,7 @@ Tests: `cargo test --workspace` and `cd app/ui && npx vitest run && npx tsc --no
 - `.github/workflows/ci.yml` runs the Rust tests on Linux, macOS and Windows, plus the UI tests, on every push and pull request.
 - `.github/workflows/release.yml` builds the installers with `tauri-action`: `.deb` + `.AppImage` (Ubuntu 22.04+),
   `.dmg` (Apple Silicon and Intel), `.exe` (NSIS) + `.msi` (Windows). Run it from the Actions tab to get the files as
-  artifacts, or push a tag (`git tag v1.1.0 && git push origin v1.1.0`) to get a published GitHub Release with the
+  artifacts, or push a tag (`git tag v1.2.0 && git push origin v1.2.0`) to get a published GitHub Release with the
   files attached. The macOS and Windows builds are not code-signed yet, so Gatekeeper and SmartScreen will warn on
   first launch.
 - Auto-update goes through the same GitHub Release (Settings → Updates, plus a "Check for updates" tray item).

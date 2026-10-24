@@ -4,13 +4,13 @@ cask "bumeter" do
 
   on_arm do
     sha256 "e8320e019a515014a5937a36a6b51c8cd06b9bd02cc862c3c3f5df050efbcec4"
-    url "https://github.com/chieund/bumeter/releases/download/v#{version}/Bumeter_#{version}_aarch64.dmg",
-        verified: "github.com/chieund/bumeter/"
+    url "https://github.com/bumeter/bumeter/releases/download/v#{version}/Bumeter_#{version}_aarch64.dmg",
+        verified: "github.com/bumeter/bumeter/"
   end
   on_intel do
     sha256 "d3732651cc52d05179132aec1c64b105d47a9f0453147b64520f9eeacd911a40"
-    url "https://github.com/chieund/bumeter/releases/download/v#{version}/Bumeter_#{version}_x64.dmg",
-        verified: "github.com/chieund/bumeter/"
+    url "https://github.com/bumeter/bumeter/releases/download/v#{version}/Bumeter_#{version}_x64.dmg",
+        verified: "github.com/bumeter/bumeter/"
   end
 
   name "Bumeter"

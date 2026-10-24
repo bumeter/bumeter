@@ -147,3 +147,42 @@ fn the_v8_migration_makes_the_engine_read_claude_code_logs_again() {
     assert!(targets > 0, "tool targets were not filled: the files were not read again");
     assert!(results > 0, "tool results were not filled");
 }
+
+#[test]
+fn a_session_stored_without_cwd_gets_its_project_back_at_the_next_host_start() {
+    use bum_core::model::RawEvent;
+    use bum_core::store::FileOffset;
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("projects");
+    let folder = root.join("-home-u-work-app");
+    std::fs::create_dir_all(&folder).unwrap();
+    let file = folder.join("vs1.jsonl");
+    // A Claude Code in VS Code log: the first lines have no cwd.
+    let lines = [
+        r#"{"type":"queue-operation","sessionId":"vs1","timestamp":"2026-10-24T03:35:17.414Z"}"#,
+        r#"{"type":"attachment","sessionId":"vs1","timestamp":"2026-10-24T03:35:18.000Z","cwd":"/home/u/work/app","entrypoint":"claude-vscode"}"#,
+        r#"{"type":"user","sessionId":"vs1","timestamp":"2026-10-24T03:35:19.000Z","cwd":"/home/u/work/app","promptId":"q1","message":{"role":"user","content":"hello"}}"#,
+    ];
+    std::fs::write(&file, lines.join("\n") + "\n").unwrap();
+    let db = dir.path().join("bumeter.db");
+    let key = file.to_string_lossy().to_string();
+    // What an older parser left: the session named after the directory, no cwd, file read to the end.
+    {
+        let mut s = Store::open(&db).unwrap();
+        let old = RawEvent::Session { session_id: "vs1".into(), tool: "claude_code".into(), project: "-home-u-work-app".into(), cwd: None, version: None, ts: "2026-10-24T03:35:17.414Z".into() };
+        let q = RawEvent::Prompt { key: "q1".into(), session_id: "vs1".into(), ts: "2026-10-24T03:35:19.000Z".into(), text: "hello".into() };
+        let size = std::fs::metadata(&file).unwrap().len();
+        let id = bum_core::tailer::file_identity(&std::fs::metadata(&file).unwrap());
+        s.ingest_batch(&FileOffset { path: key.clone(), file_id: id, size, offset: size, mtime: 0, ctx_json: r#"{"current_prompt":"q1","session_emitted":true}"#.into() }, &[old, q], 0).unwrap();
+    }
+    // A plain scan leaves it alone (the file did not change)…
+    let mut e = Engine::new(Store::open(&db).unwrap(), vec![Box::new(ClaudeCode::new(&root))]);
+    e.full_scan().unwrap();
+    assert_eq!(e.store().session_project("vs1").unwrap().as_deref(), Some("-home-u-work-app"));
+    // …the start-up repair reads it again with the fixed parser.
+    assert_eq!(e.store_mut().reread_sessions_without_cwd().unwrap(), 1);
+    e.full_scan().unwrap();
+    assert_eq!(e.store().session_project("vs1").unwrap().as_deref(), Some("app"));
+    // Fixed now: nothing to read again at the next start.
+    assert_eq!(e.store_mut().reread_sessions_without_cwd().unwrap(), 0);
+}

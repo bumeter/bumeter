@@ -308,6 +308,7 @@ export const vi = {
   'set.updates': 'Cập nhật',
   'set.updateCurrent': 'Phiên bản hiện tại: {v}',
   'set.updateHint': 'Cập nhật phát hành qua GitHub Releases.',
+  'set.updateEditor': 'Extension được cập nhật qua VS Code (mục Extensions), không qua nút cập nhật của app.',
   'set.updateCheck': 'Kiểm tra cập nhật',
   'set.updateChecking': 'Đang kiểm tra…',
   'set.updateAvailable': 'Có bản mới {v}.',

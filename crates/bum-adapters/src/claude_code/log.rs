@@ -27,7 +27,12 @@ pub fn parse_line(root: &Path, path: &Path, ctx: &mut ParseCtx, line: &str) -> R
     }
     let sidechain = v["isSidechain"].as_bool().unwrap_or(false);
 
-    if !ctx.session_emitted {
+    // The project comes from `cwd`. Claude Code in VS Code starts a log with lines that carry a session
+    // id and a time but no `cwd` (`queue-operation`): wait for a line with `cwd`, and only fall back to the
+    // log directory's name when a question or an answer comes first.
+    let has_cwd = v["cwd"].as_str().is_some_and(|c| !c.is_empty());
+    let turn_line = matches!(v["type"].as_str(), Some("user" | "assistant"));
+    if !ctx.session_emitted && (has_cwd || turn_line) {
         let cwd = v["cwd"].as_str().map(str::to_string);
         out.push(RawEvent::Session {
             session_id: session_id.to_string(),

@@ -177,6 +177,43 @@ type Transport = {
 
 let transport: Transport | null = null;
 
+/** Set by VS Code inside a webview. */
+declare const acquireVsCodeApi: undefined | (() => { postMessage(message: unknown): void });
+
+/**
+ * Inside the VS Code extension's webview: calls go to the extension with `postMessage` and come back
+ * as `{type: 'result', id, result | error}`; events as `{type: 'event', name, payload}`.
+ */
+export function vscodeTransport(vs: { postMessage(message: unknown): void }, win: { addEventListener(type: 'message', listener: (e: Event) => void): void } = window): Transport {
+  let next = 0;
+  const pending = new Map<number, { resolve(v: unknown): void; reject(e: Error): void }>();
+  const listeners = new Map<string, Set<(payload: unknown) => void>>();
+  win.addEventListener('message', (e: Event) => {
+    const m = (e as MessageEvent).data as { type?: string; id?: number; result?: unknown; error?: string; name?: string; payload?: unknown } | null;
+    if (m?.type === 'result' && typeof m.id === 'number') {
+      const p = pending.get(m.id);
+      if (!p) return;
+      pending.delete(m.id);
+      if (m.error != null) p.reject(new Error(m.error));
+      else p.resolve(m.result ?? null);
+    } else if (m?.type === 'event' && m.name) {
+      listeners.get(m.name)?.forEach((cb) => cb(m.payload));
+    }
+  });
+  return {
+    call: (method, params) => new Promise((resolve, reject) => {
+      const id = ++next;
+      pending.set(id, { resolve, reject });
+      vs.postMessage({ type: 'call', id, method, params: params ?? null });
+    }),
+    listen: async (event, cb) => {
+      if (!listeners.has(event)) listeners.set(event, new Set());
+      listeners.get(event)!.add(cb);
+      return () => { listeners.get(event)?.delete(cb); };
+    },
+  };
+}
+
 async function getTransport(): Promise<Transport> {
   if (transport) return transport;
   if ('__TAURI_INTERNALS__' in window) {
@@ -192,6 +229,8 @@ async function getTransport(): Promise<Transport> {
         : core.invoke('call', { method, params: params ?? null }),
       listen: (event, cb) => ev.listen(event, (e) => cb(e.payload)),
     };
+  } else if (typeof acquireVsCodeApi === 'function') {
+    transport = vscodeTransport(acquireVsCodeApi());
   } else {
     const mock = await import('./mock');
     transport = mock.transport;
@@ -200,6 +239,9 @@ async function getTransport(): Promise<Transport> {
 }
 
 export function setTransport(t: Transport) { transport = t; }
+
+/** Running inside the VS Code extension's webview (not the desktop app). */
+export const inEditor = (): boolean => typeof acquireVsCodeApi === 'function';
 
 async function call<T>(method: string, params?: unknown): Promise<T> {
   return (await getTransport()).call(method, params) as Promise<T>;

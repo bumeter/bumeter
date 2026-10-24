@@ -359,3 +359,18 @@ describe('settings', () => {
     });
   });
 });
+
+describe('settings inside the VS Code extension', () => {
+  it('the app updater is replaced by a note: the editor updates the extension', async () => {
+    (globalThis as { acquireVsCodeApi?: unknown }).acquireVsCodeApi = () => ({ postMessage: () => undefined });
+    try {
+      fake({ settings_get: () => ({ config: cfg, statusline: { kind: 'not_configured' }, data_dir: '/d', parse_errors: 0, version: '1.1.0' }) });
+      await mountSettings(el);
+      expect(el.querySelector('[data-action="update-check"]')).toBeNull();
+      expect(el.querySelector('[data-hint="editor-updates"]')?.textContent).toContain('cập nhật qua VS Code');
+      expect(el.textContent).toContain('1.1.0');
+    } finally {
+      delete (globalThis as { acquireVsCodeApi?: unknown }).acquireVsCodeApi;
+    }
+  });
+});

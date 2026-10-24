@@ -107,12 +107,23 @@ pub fn limit_state(ctx: &HandlerCtx, now: chrono::DateTime<chrono::Utc>) -> rusq
 /// started with a very large context, and context overflows, with advice. Computed from the local
 /// history only — no model calls (see `crate::effect`).
 pub fn effectiveness(store: &Store, cfg: &crate::config::Config, tool: Option<&str>, from: &str, to: &str) -> rusqlite::Result<crate::effect::Effect> {
+    effectiveness_for(store, cfg, tool, None, from, to)
+}
+
+/// `effectiveness` for one project only (a VS Code workspace), when `project` is set. Rate-limit hits
+/// stay account-wide: they are not tied to a session.
+pub fn effectiveness_for(store: &Store, cfg: &crate::config::Config, tool: Option<&str>, project: Option<&str>, from: &str, to: &str) -> rusqlite::Result<crate::effect::Effect> {
     use crate::effect;
-    let items = store.prompt_items_for(None, None, Some(from), Some(to), tool)?;
-    let compactions = store.compactions_by_session_between(from, to, tool)?;
+    let sessions: Option<std::collections::HashSet<String>> = project.map(|p| store.project_sessions(p)).transpose()?;
+    let keep = |sid: &str| sessions.as_ref().is_none_or(|s| s.contains(sid));
+    let mut items = store.prompt_items_for(None, project, Some(from), Some(to), tool)?;
+    items.retain(|it| keep(&it.stats.session_id));
+    let mut compactions = store.compactions_by_session_between(from, to, tool)?;
+    compactions.retain(|(sid, _)| keep(sid));
     let mut e = effect::summarize(&items, &compactions, cfg.context_threshold);
 
-    let calls = store.session_calls_between(from, to, tool)?;
+    let mut calls = store.session_calls_between(from, to, tool)?;
+    calls.retain(|c| keep(&c.session_id));
     if !calls.is_empty() {
         let mut sids: Vec<String> = calls.iter().map(|c| c.session_id.clone()).collect();
         sids.dedup();
@@ -123,7 +134,9 @@ pub fn effectiveness(store: &Store, cfg: &crate::config::Config, tool: Option<&s
         }
         e.economics = Some(effect::economics(&calls, &first, &overflow_times, &items, from, cfg.context_threshold));
         let weights: HashMap<String, u64> = calls.iter().map(|c| (c.request_id.clone(), c.usage.quota_weight())).collect();
-        e.tools = effect::tool_signals(&store.tool_calls_between(from, to, tool)?, &weights);
+        let mut rows = store.tool_calls_between(from, to, tool)?;
+        rows.retain(|r| keep(&r.session_id));
+        e.tools = effect::tool_signals(&rows, &weights);
     }
     // Only Claude Code reports 5h/7d limits; the events carry no session, so they cannot be split by tool.
     if tool.is_none_or(|t| t == "claude_code") {
@@ -240,7 +253,24 @@ pub fn dispatch(ctx: &HandlerCtx, method: &str, params: &serde_json::Value, now:
                 Some(s) => fmt(chrono::DateTime::parse_from_rfc3339(s).map_err(|e| format!("bad 'from': {e}"))?.with_timezone(&chrono::Utc)),
                 None => fmt(now - chrono::Duration::days(params["days"].as_u64().unwrap_or(30).clamp(1, 365) as i64)),
             };
-            to_value(effectiveness(ctx.store, ctx.cfg, params["tool"].as_str(), &from, &fmt(now)).map(|e| serde_json::to_value(e).unwrap_or_default()))
+            to_value(effectiveness_for(ctx.store, ctx.cfg, params["tool"].as_str(), params["project"].as_str(), &from, &fmt(now)).map(|e| serde_json::to_value(e).unwrap_or_default()))
+        }
+        "project_now" => {
+            // The project's latest main-chain call, with the threshold the statusline warns at.
+            let project = params["project"].as_str().ok_or("missing 'project'")?;
+            let now_call = ctx.store.project_now(project).map_err(|e| e.to_string())?;
+            Ok(serde_json::json!({ "latest": now_call, "context_threshold": ctx.cfg.context_threshold }))
+        }
+        "file_reads" => {
+            // Files the agents read, for the VS Code Explorer: under a folder (`prefix`), or of a project.
+            let days = params["days"].as_u64().unwrap_or(7).clamp(1, 90) as i64;
+            let from = (now - chrono::Duration::days(days)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            let list = match (params["prefix"].as_str(), params["project"].as_str()) {
+                (Some(prefix), _) => ctx.store.file_reads_under(&prefix.replace('\\', "/"), &from),
+                (None, Some(project)) => ctx.store.file_reads(project, &from),
+                (None, None) => return Err("missing 'prefix' or 'project'".into()),
+            };
+            to_value(list.map(|v| serde_json::to_value(v).unwrap_or_default()))
         }
         "session_economics" => {
             let sid = params["session_id"].as_str().ok_or("missing 'session_id'")?;

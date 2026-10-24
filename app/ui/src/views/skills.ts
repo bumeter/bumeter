@@ -125,7 +125,8 @@ export async function mountSkills(list: HTMLElement, detail: HTMLElement) {
   void api.effectiveness(since.toISOString(), 'claude_code').then((e) => {
     if (disposed || !e.economics) return;
     usage30 = { sessions: e.sessions, calls: e.economics.calls };
-    showDetail();
+    // Only repaint an open detail: `showDetail` would open the drawer (medium width) with nothing chosen.
+    if (selected) void renderDetail();
   }).catch(() => undefined);
   let message: { text: string; undo?: SkillJournalEntry; tool?: string } | null = null;
   let disposed = false;
