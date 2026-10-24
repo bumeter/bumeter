@@ -28,7 +28,9 @@ The extension runs `bum rpc`, which answers from the Bumeter app or `bum daemon`
 npm install
 npm test              # unit tests (vscode is stubbed)
 npm run build         # dist/extension.js
-npm run package       # needs app/ui built and target/release/bum: copies them in, then makes the .vsix
+npm run package -- --target linux-x64   # needs app/ui built and target/release/bum
 ```
 
-Install the result with `code --install-extension bumeter-0.1.0.vsix`.
+`npm run package` copies the UI and `bum` in, then makes a `.vsix` for one platform. The release workflow builds one per platform (`linux-x64`, `darwin-arm64`, `darwin-x64`, `win32-x64`) with that platform's `bum` and attaches them to the GitHub Release. Publish each with `vsce publish --packagePath <file>`.
+
+Install a local build with `code --install-extension bumeter-linux-x64-0.1.0.vsix`.
