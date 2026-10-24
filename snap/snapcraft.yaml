@@ -1,7 +1,7 @@
 name: bumeter
 title: Bumeter
 base: core24
-version: '1.1.0'
+version: '1.2.0'
 license: GPL-3.0-or-later
 summary: Token, quota and skill usage for AI coding tools
 description: |

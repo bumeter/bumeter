@@ -1,6 +1,6 @@
 # Build installers for Linux, macOS, Windows.
 # - Run manually (workflow_dispatch) or push to main: the installers appear under the run's Artifacts.
-# - Push a v* tag (e.g. v1.1.0): creates a published GitHub Release with the installers attached,
+# - Push a v* tag (e.g. v1.2.0): creates a published GitHub Release with the installers attached,
 #   plus the `latest.json` + `.sig` files the in-app updater reads (Settings → Updates).
 # - Each platform also packages the VS Code extension with that platform's `bum`
 #   (bumeter-<vsce target>-<version>.vsix), for `vsce publish --packagePath`.
