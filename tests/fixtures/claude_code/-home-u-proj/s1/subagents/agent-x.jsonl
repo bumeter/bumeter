@@ -1,2 +1,0 @@
-{"type":"user","sessionId":"s1","isSidechain":true,"agentId":"x","promptId":"p1","timestamp":"2026-09-11T04:29:10.000Z","message":{"role":"user","content":"Subagent task"}}
-{"type":"assistant","sessionId":"s1","isSidechain":true,"agentId":"x","timestamp":"2026-09-11T04:29:20.000Z","requestId":"req_S","message":{"id":"msg_S","model":"claude-sonnet-5","content":[{"type":"text","text":"done"}],"usage":{"input_tokens":3,"cache_creation_input_tokens":50,"cache_read_input_tokens":0,"output_tokens":7,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":50}}}}

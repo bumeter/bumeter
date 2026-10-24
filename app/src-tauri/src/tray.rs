@@ -41,7 +41,7 @@ const TRAY_PNGS: [(Face, &[u8]); 5] = [
     (Face::Sleep, include_bytes!("../icons/tray/bum-sleep.png")),
 ];
 
-/// 32×32 logo by tool id (generated from `app/ui/public/tool-icons/*.svg`).
+/// 32×32 logo by tool id (generated from `public/tool-icons/*.svg` in bumeter/ui).
 #[cfg_attr(target_os = "linux", allow(dead_code))] // menu item icons are only used outside Linux
 const TOOL_PNGS: [(&str, &[u8]); 3] = [
     ("claude_code", include_bytes!("../icons/tools/claude_code.png")),
