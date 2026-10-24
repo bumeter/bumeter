@@ -3,7 +3,7 @@
   "displayName": "Bumeter",
   "description": "Claude Code, Kiro and OpenCode quota, context and token use in the status bar, and which files your agents keep reading. Local only.",
   "version": "0.1.0",
-  "publisher": "chieund",
+  "publisher": "bumkom",
   "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
